@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
+using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Enums;
 using Microsoft.OpenApi.Models;
 using MediatR;
 using MFTL.Collections.Contracts.Requests;
@@ -16,6 +17,8 @@ public class RecipientFundFunctions(IMediator mediator)
 {
     [Function("CreateRecipientFund")]
     [OpenApiOperation(operationId: "CreateRecipientFund", tags: new[] { "RecipientFunds" })]
+    [OpenApiSecurity("Authorization", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
+    [OpenApiParameter(name: "X-Tenant-Id", In = ParameterLocation.Header, Required = true, Type = typeof(Guid))]
     [OpenApiRequestBody("application/json", typeof(CreateRecipientFundRequest))]
     [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(ApiResponse<Guid>))]
     public async Task<HttpResponseData> Create(
@@ -45,6 +48,8 @@ public class RecipientFundFunctions(IMediator mediator)
 
     [Function("ListRecipientFundsByEvent")]
     [OpenApiOperation(operationId: "ListRecipientFundsByEvent", tags: new[] { "RecipientFunds" })]
+    [OpenApiSecurity("Authorization", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
+    [OpenApiParameter(name: "X-Tenant-Id", In = ParameterLocation.Header, Required = true, Type = typeof(Guid))]
     [OpenApiParameter(name: "eventId", In = ParameterLocation.Path, Required = true, Type = typeof(Guid))]
     [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(ApiResponse<IEnumerable<RecipientFundDto>>))]
     public async Task<HttpResponseData> ListByEvent(

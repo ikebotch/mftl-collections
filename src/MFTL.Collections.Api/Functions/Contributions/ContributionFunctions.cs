@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
+using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Enums;
 using Microsoft.OpenApi.Models;
 using MediatR;
 using MFTL.Collections.Contracts.Common;
@@ -14,6 +15,8 @@ public class ContributionFunctions(IMediator mediator)
 {
     [Function("RecordCashContribution")]
     [OpenApiOperation(operationId: "RecordCashContribution", tags: new[] { "Contributions" })]
+    [OpenApiSecurity("Authorization", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
+    [OpenApiParameter(name: "X-Tenant-Id", In = ParameterLocation.Header, Required = true, Type = typeof(Guid))]
     [OpenApiRequestBody("application/json", typeof(RecordCashContributionRequest))]
     [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(ApiResponse<Guid>))]
     public async Task<HttpResponseData> RecordCash(

@@ -17,6 +17,8 @@ public class CreateEventFunction(IMediator mediator, ILogger<CreateEventFunction
 {
     [Function("CreateEvent")]
     [OpenApiOperation(operationId: "CreateEvent", tags: new[] { "Events" })]
+    [OpenApiSecurity("Authorization", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
+    [OpenApiParameter(name: "X-Tenant-Id", In = ParameterLocation.Header, Required = true, Type = typeof(Guid))]
     [OpenApiRequestBody("application/json", typeof(CreateEventRequest))]
     [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(ApiResponse<EventDto>))]
     public async Task<HttpResponseData> Run(
