@@ -1,6 +1,6 @@
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+using System.Net;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Options;
 using MFTL.Collections.Infrastructure.Configuration;
 
@@ -9,11 +9,11 @@ namespace MFTL.Collections.Api.Functions.Docs;
 public class ScalarFunction(IOptions<ScalarOptions> options)
 {
     [Function("ScalarUi")]
-    public IActionResult Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "docs/scalar")] HttpRequest req)
+    public async Task<HttpResponseData> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "docs/scalar")] HttpRequestData req)
     {
-        // Point to the Swagger JSON endpoint served by SwaggerFunction
-        var swaggerUrl = "/api/swagger/v1/swagger.json";
+        // Point to the official Functions OpenAPI endpoint
+        var swaggerUrl = "/api/openapi/v3.json";
         
         var html = $@"
 <!doctype html>
@@ -34,11 +34,9 @@ public class ScalarFunction(IOptions<ScalarOptions> options)
   </body>
 </html>";
 
-        return new ContentResult
-        {
-            Content = html,
-            ContentType = "text/html",
-            StatusCode = 200
-        };
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        response.Headers.Add("Content-Type", "text/html; charset=utf-8");
+        await response.WriteStringAsync(html);
+        return response;
     }
 }

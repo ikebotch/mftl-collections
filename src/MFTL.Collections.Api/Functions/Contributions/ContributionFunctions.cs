@@ -1,23 +1,33 @@
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+using System.Net;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
+using Microsoft.OpenApi.Models;
 using MediatR;
 using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Application.Features.Contributions.Commands.RecordCashContribution;
-using System.Text.Json;
+using Newtonsoft.Json;
 
 namespace MFTL.Collections.Api.Functions.Contributions;
 
 public class ContributionFunctions(IMediator mediator)
 {
     [Function("RecordCashContribution")]
-    public async Task<IActionResult> RecordCash(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Contributions.RecordCash)] HttpRequest req)
+    [OpenApiOperation(operationId: "RecordCashContribution", tags: new[] { "Contributions" })]
+    [OpenApiRequestBody("application/json", typeof(RecordCashContributionRequest))]
+    [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(ApiResponse<Guid>))]
+    public async Task<HttpResponseData> RecordCash(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Contributions.RecordCash)] HttpRequestData req)
     {
         var body = await new StreamReader(req.Body).ReadToEndAsync();
-        var request = JsonSerializer.Deserialize<RecordCashContributionRequest>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var request = JsonConvert.DeserializeObject<RecordCashContributionRequest>(body);
         
-        if (request == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body."));
+        if (request == null)
+        {
+            var errorResponse = req.CreateResponse(HttpStatusCode.BadRequest);
+            await errorResponse.WriteAsJsonAsync(new ApiResponse(false, "Invalid body."));
+            return errorResponse;
+        }
 
         var result = await mediator.Send(new RecordCashContributionCommand(
             request.EventId, 
@@ -26,7 +36,9 @@ public class ContributionFunctions(IMediator mediator)
             request.ContributorName ?? "Anonymous", 
             request.Note));
             
-        return new OkObjectResult(new ApiResponse<Guid>(true, "Cash contribution recorded.", result));
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        await response.WriteAsJsonAsync(new ApiResponse<Guid>(true, "Cash contribution recorded.", result));
+        return response;
     }
 }
 

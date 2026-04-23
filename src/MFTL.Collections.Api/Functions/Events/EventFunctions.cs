@@ -1,6 +1,9 @@
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+using System.Net;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
+using Microsoft.Extensions.Logging;
+using Microsoft.OpenApi.Models;
 using MediatR;
 using MFTL.Collections.Contracts.Requests;
 using MFTL.Collections.Contracts.Common;
@@ -12,18 +15,27 @@ namespace MFTL.Collections.Api.Functions.Events;
 public class EventFunctions(IMediator mediator)
 {
     [Function("GetEventById")]
-    public async Task<IActionResult> GetById(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Events.GetById)] HttpRequest req, Guid id)
+    [OpenApiOperation(operationId: "GetEventById", tags: new[] { "Events" })]
+    [OpenApiParameter(name: "id", In = ParameterLocation.Path, Required = true, Type = typeof(Guid))]
+    [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(ApiResponse<EventDto>))]
+    public async Task<HttpResponseData> GetById(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Events.GetById)] HttpRequestData req, Guid id)
     {
         var result = await mediator.Send(new GetEventByIdQuery(id));
-        return new OkObjectResult(new ApiResponse<EventDto>(true, Data: result));
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        await response.WriteAsJsonAsync(new ApiResponse<EventDto>(true, Data: result));
+        return response;
     }
 
     [Function("ListEvents")]
-    public async Task<IActionResult> List(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Events.Base)] HttpRequest req)
+    [OpenApiOperation(operationId: "ListEvents", tags: new[] { "Events" })]
+    [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(ApiResponse<IEnumerable<EventDto>>))]
+    public async Task<HttpResponseData> List(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Events.Base)] HttpRequestData req)
     {
         var result = await mediator.Send(new ListEventsQuery());
-        return new OkObjectResult(new ApiResponse<IEnumerable<EventDto>>(true, Data: result));
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        await response.WriteAsJsonAsync(new ApiResponse<IEnumerable<EventDto>>(true, Data: result));
+        return response;
     }
 }

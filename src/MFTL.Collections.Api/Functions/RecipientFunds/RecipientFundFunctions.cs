@@ -1,25 +1,35 @@
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+using System.Net;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
+using Microsoft.OpenApi.Models;
 using MediatR;
 using MFTL.Collections.Contracts.Requests;
 using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Application.Features.RecipientFunds.Commands.CreateRecipientFund;
 using MFTL.Collections.Application.Features.RecipientFunds.Queries.ListRecipientFundsByEvent;
-using System.Text.Json;
+using Newtonsoft.Json;
 
 namespace MFTL.Collections.Api.Functions.RecipientFunds;
 
 public class RecipientFundFunctions(IMediator mediator)
 {
     [Function("CreateRecipientFund")]
-    public async Task<IActionResult> Create(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.RecipientFunds.Base)] HttpRequest req)
+    [OpenApiOperation(operationId: "CreateRecipientFund", tags: new[] { "RecipientFunds" })]
+    [OpenApiRequestBody("application/json", typeof(CreateRecipientFundRequest))]
+    [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(ApiResponse<Guid>))]
+    public async Task<HttpResponseData> Create(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.RecipientFunds.Base)] HttpRequestData req)
     {
         var body = await new StreamReader(req.Body).ReadToEndAsync();
-        var request = JsonSerializer.Deserialize<CreateRecipientFundRequest>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var request = JsonConvert.DeserializeObject<CreateRecipientFundRequest>(body);
         
-        if (request == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body."));
+        if (request == null)
+        {
+            var errorResponse = req.CreateResponse(HttpStatusCode.BadRequest);
+            await errorResponse.WriteAsJsonAsync(new ApiResponse(false, "Invalid body."));
+            return errorResponse;
+        }
 
         var result = await mediator.Send(new CreateRecipientFundCommand(
             request.EventId, 
@@ -28,15 +38,22 @@ public class RecipientFundFunctions(IMediator mediator)
             request.TargetAmount, 
             request.Metadata));
             
-        return new OkObjectResult(new ApiResponse<Guid>(true, "Recipient fund created.", result));
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        await response.WriteAsJsonAsync(new ApiResponse<Guid>(true, "Recipient fund created.", result));
+        return response;
     }
 
     [Function("ListRecipientFundsByEvent")]
-    public async Task<IActionResult> ListByEvent(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.RecipientFunds.ListByEvent)] HttpRequest req, Guid eventId)
+    [OpenApiOperation(operationId: "ListRecipientFundsByEvent", tags: new[] { "RecipientFunds" })]
+    [OpenApiParameter(name: "eventId", In = ParameterLocation.Path, Required = true, Type = typeof(Guid))]
+    [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(ApiResponse<IEnumerable<RecipientFundDto>>))]
+    public async Task<HttpResponseData> ListByEvent(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.RecipientFunds.ListByEvent)] HttpRequestData req, Guid eventId)
     {
         var result = await mediator.Send(new ListRecipientFundsByEventQuery(eventId));
-        return new OkObjectResult(new ApiResponse<IEnumerable<RecipientFundDto>>(true, Data: result));
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        await response.WriteAsJsonAsync(new ApiResponse<IEnumerable<RecipientFundDto>>(true, Data: result));
+        return response;
     }
 }
 

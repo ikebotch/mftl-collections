@@ -1,28 +1,39 @@
-using MFTL.Collections.Contracts.Responses;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+using System.Net;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
+using Microsoft.OpenApi.Models;
 using MediatR;
 using MFTL.Collections.Contracts.Common;
+using MFTL.Collections.Contracts.Responses;
 using MFTL.Collections.Application.Features.Payments.Commands.InitiateContributionPayment;
-using MFTL.Collections.Application.Common.Interfaces;
-using System.Text.Json;
+using Newtonsoft.Json;
 
 namespace MFTL.Collections.Api.Functions.Payments;
 
 public class PaymentFunctions(IMediator mediator)
 {
     [Function("InitiateContributionPayment")]
-    public async Task<IActionResult> Initiate(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Payments.Initiate)] HttpRequest req)
+    [OpenApiOperation(operationId: "InitiateContributionPayment", tags: new[] { "Payments" })]
+    [OpenApiRequestBody("application/json", typeof(InitiatePaymentRequest))]
+    [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(ApiResponse<PaymentResult>))]
+    public async Task<HttpResponseData> Initiate(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Payments.Initiate)] HttpRequestData req)
     {
         var body = await new StreamReader(req.Body).ReadToEndAsync();
-        var request = JsonSerializer.Deserialize<InitiatePaymentRequest>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var request = JsonConvert.DeserializeObject<InitiatePaymentRequest>(body);
         
-        if (request == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body."));
+        if (request == null)
+        {
+            var errorResponse = req.CreateResponse(HttpStatusCode.BadRequest);
+            await errorResponse.WriteAsJsonAsync(new ApiResponse(false, "Invalid body."));
+            return errorResponse;
+        }
 
         var result = await mediator.Send(new InitiateContributionPaymentCommand(request.ContributionId, request.PaymentMethod));
-        return new OkObjectResult(new ApiResponse<PaymentResult>(true, Data: result));
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        await response.WriteAsJsonAsync(new ApiResponse<PaymentResult>(true, Data: result));
+        return response;
     }
 }
 
