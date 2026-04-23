@@ -1,0 +1,62 @@
+using MFTL.Collections.Domain.Common;
+using MFTL.Collections.Domain.Enums;
+
+namespace MFTL.Collections.Domain.Entities;
+
+public sealed class Tenant : BaseEntity
+{
+    public string Name { get; set; } = string.Empty;
+    public string Identifier { get; set; } = string.Empty; // subdomain or slug
+    public bool IsActive { get; set; } = true;
+    
+    public ICollection<Event> Events { get; set; } = new List<Event>();
+}
+
+public sealed class Event : BaseTenantEntity
+{
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public DateTimeOffset? EventDate { get; set; }
+    public bool IsActive { get; set; } = true;
+    public string? Metadata { get; set; }
+
+    public ICollection<RecipientFund> RecipientFunds { get; set; } = new List<RecipientFund>();
+}
+
+public sealed class RecipientFund : BaseTenantEntity
+{
+    public Guid EventId { get; set; }
+    public Event Event { get; set; } = null!;
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public decimal TargetAmount { get; set; }
+    public decimal CollectedAmount { get; set; }
+    public string? Metadata { get; set; }
+}
+
+public sealed class Contributor : BaseTenantEntity
+{
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
+    public bool IsAnonymous { get; set; }
+}
+
+public sealed class Contribution : BaseTenantEntity
+{
+    public Guid EventId { get; set; }
+    public Event Event { get; set; } = null!;
+    public Guid RecipientFundId { get; set; }
+    public RecipientFund RecipientFund { get; set; } = null!;
+    public Guid? ContributorId { get; set; }
+    public Contributor? Contributor { get; set; }
+    
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "GHS";
+    public string ContributorName { get; set; } = string.Empty;
+    public string Method { get; set; } = string.Empty; // Cash, Card, MoMo
+    public ContributionStatus Status { get; set; }
+    public Guid? PaymentId { get; set; }
+    public string? Note { get; set; }
+    public string? Reference { get; set; }
+}

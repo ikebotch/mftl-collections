@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AzureFunctionsVersion>v4</AzureFunctionsVersion>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- Modern source gen flags for ARM64 stability -->
+    <FunctionsEnableExecutorSourceGen>true</FunctionsEnableExecutorSourceGen>
+    <FunctionsEnableMetadataSourceGen>true</FunctionsEnableMetadataSourceGen>
+    <_FunctionsSkipExtensionsMetadataGenerator>true</_FunctionsSkipExtensionsMetadataGenerator>
+    <_GenerateFunctionsExtensionsMetadata>false</_GenerateFunctionsExtensionsMetadata>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" Version="2.22.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.1.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.ApplicationInsights" Version="2.0.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore" Version="2.1.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Storage.Queues" Version="5.5.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" Version="4.3.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.0.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MFTL.Collections.Application\MFTL.Collections.Application.csproj" />
+    <ProjectReference Include="..\MFTL.Collections.Infrastructure\MFTL.Collections.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

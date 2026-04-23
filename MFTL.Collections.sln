@@ -1,0 +1,26 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFTL.Collections.Api", "src/MFTL.Collections.Api/MFTL.Collections.Api.csproj", "{225364BD-A1F2-477F-99D7-415FFEAFE1F6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFTL.Collections.Application", "src/MFTL.Collections.Application/MFTL.Collections.Application.csproj", "{6987ADBE-A587-4C4A-900D-D95D1F79FB00}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFTL.Collections.Contracts", "src/MFTL.Collections.Contracts/MFTL.Collections.Contracts.csproj", "{6FB713ED-95B0-46E2-A836-5AB021FD271A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFTL.Collections.Domain", "src/MFTL.Collections.Domain/MFTL.Collections.Domain.csproj", "{4B522580-5730-4276-A46A-72C8AD767B7D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFTL.Collections.Infrastructure", "src/MFTL.Collections.Infrastructure/MFTL.Collections.Infrastructure.csproj", "{60D5587A-B422-42CC-A934-96D523CD2C89}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFTL.Collections.Workers", "src/MFTL.Collections.Workers/MFTL.Collections.Workers.csproj", "{B63A6170-B102-4636-BC73-9A1743DE3A6A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MFTL.Collections.Infrastructure.Tests", "tests/MFTL.Collections.Infrastructure.Tests/MFTL.Collections.Infrastructure.Tests.csproj", "{6BA1D2C0-8636-4092-8C54-CEB81D96EED6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,17 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "AzureFunctionsJobHost__extensions__http__routePrefix": "api",
+    
+    "Database:ConnectionString": "Host=127.0.0.1;Port=5432;Database=mftl-collections;Username=YOUR_USER;Password=YOUR_PASSWORD;Include Error Detail=true",
+    
+    "Auth0:Domain": "emagination.us.auth0.com",
+    "Auth0:Audience": "mftl-client",
+    
+    "Scalar:Route": "scalar",
+    "Scalar:Title": "MFTL Collections API",
+    "Scalar:OpenApiUrl": "/api/openapi/v3.yaml"
+  }
+}
