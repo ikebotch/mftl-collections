@@ -1,0 +1,21 @@
+{
+    "IsEncrypted": false,
+    "Values": {
+        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+        "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+        "AzureFunctionsJobHost__extensions__http__routePrefix": "api",
+        "Database:ConnectionString": "Host=localhost;Port=5432;Database=mftl-collections;Username=your_user;Password=your_password",
+        "Auth0:Domain": "your-auth0-domain",
+        "Auth0:Audience": "your-api-audience",
+        "ApiVersion:DefaultVersion": "1.0",
+        "Scalar:Route": "scalar",
+        "Scalar:Title": "MFTL Collections API",
+        "Scalar:OpenApiUrl": "/api/swagger/v1/swagger.json",
+        "TenantResolution:DefaultTenantId": "00000000-0000-0000-0000-000000000000"
+    },
+    "Host": {
+        "LocalHttpPort": 7072,
+        "CORS": "*",
+        "CORSCredentials": true
+    }
+}
