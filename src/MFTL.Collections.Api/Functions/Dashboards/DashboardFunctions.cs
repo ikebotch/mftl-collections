@@ -26,4 +26,12 @@ public class DashboardFunctions(IMediator mediator)
         var result = await mediator.Send(new GetEventDashboardQuery(id));
         return new OkObjectResult(new ApiResponse<EventDashboardDto>(true, Data: result));
     }
+
+    [Function("GetAdminDashboard")]
+    public async Task<IActionResult> GetAdminDashboard(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Dashboards.Admin)] HttpRequest req)
+    {
+        var result = await mediator.Send(new Application.Features.Dashboards.Queries.GetAdminDashboard.GetAdminDashboardQuery());
+        return new OkObjectResult(new ApiResponse<AdminDashboardDto>(true, Data: result));
+    }
 }
