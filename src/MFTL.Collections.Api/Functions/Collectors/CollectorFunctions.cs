@@ -38,4 +38,23 @@ public class CollectorFunctions(IMediator mediator)
         var result = await mediator.Send(new ListCollectorHistoryQuery(req.Headers[DevUserIdHeader].FirstOrDefault()));
         return new OkObjectResult(new ApiResponse<IEnumerable<CollectorHistoryReceiptDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
+
+    [Function("ListCollectors")]
+    public async Task<IActionResult> List(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Collectors.Base)] HttpRequest req)
+    {
+        var result = await mediator.Send(new Application.Features.Collectors.Queries.ListCollectors.ListCollectorsQuery());
+        return new OkObjectResult(new ApiResponse<IEnumerable<CollectorMeDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
+    [Function("CreateCollector")]
+    public async Task<IActionResult> Create(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Collectors.Base)] HttpRequest req)
+    {
+        var command = await req.ReadFromJsonAsync<Application.Features.Collectors.Commands.CreateCollector.CreateCollectorCommand>();
+        if (command == null) return new BadRequestObjectResult(new ApiResponse<object>(false, Message: "Invalid request body"));
+        
+        var result = await mediator.Send(command);
+        return new OkObjectResult(new ApiResponse<CollectorMeDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
 }
