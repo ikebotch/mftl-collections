@@ -46,10 +46,14 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
         var accessor = Expression.Field(context, tenantContextField!);
         var tenantIdProperty = typeof(ITenantContext).GetProperty(nameof(ITenantContext.TenantId));
         var tenantId = Expression.Property(accessor, tenantIdProperty!);
+        var isPlatformContextProperty = typeof(ITenantContext).GetProperty(nameof(ITenantContext.IsPlatformContext));
+        var isPlatformContext = Expression.Property(accessor, isPlatformContextProperty!);
         
-        // Handle nullable Guid comparison
-        var equality = Expression.Equal(property, Expression.Convert(tenantId, typeof(Guid)));
-        return Expression.Lambda(equality, parameter);
+        var propertyAsNullable = Expression.Convert(property, typeof(Guid?));
+        var tenantMatch = Expression.Equal(propertyAsNullable, tenantId);
+        var filter = Expression.OrElse(isPlatformContext, tenantMatch);
+        
+        return Expression.Lambda(filter, parameter);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -60,9 +64,17 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
             {
                 case EntityState.Added:
                     entry.Entity.CreatedAt = DateTimeOffset.UtcNow;
-                    if (entry.Entity is BaseTenantEntity tenantEntity && tenantEntity.TenantId == Guid.Empty && _tenantContext.TenantId.HasValue)
+                    if (entry.Entity is BaseTenantEntity tenantEntity)
                     {
-                        tenantEntity.TenantId = _tenantContext.TenantId.Value;
+                        if (!_tenantContext.TenantId.HasValue)
+                        {
+                            throw new InvalidOperationException("Tenant context is required when creating tenant-owned entities.");
+                        }
+
+                        if (tenantEntity.TenantId == Guid.Empty)
+                        {
+                            tenantEntity.TenantId = _tenantContext.TenantId.Value;
+                        }
                     }
                     break;
                 case EntityState.Modified:
