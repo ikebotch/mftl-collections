@@ -29,7 +29,14 @@ public static class ApiRoutes
     {
         public const string Base = BasePath + "/payments";
         public const string Initiate = Base + "/initiate";
+        public const string GetById = Base + "/{id}";
         public const string Webhook = "v1/webhooks/payments";
+    }
+
+    public static class Receipts
+    {
+        public const string Base = BasePath + "/receipts";
+        public const string GetById = Base + "/{id}";
     }
 
     public static class Dashboards

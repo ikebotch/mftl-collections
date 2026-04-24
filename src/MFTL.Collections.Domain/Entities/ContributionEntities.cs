@@ -10,6 +10,7 @@ public sealed class Tenant : BaseEntity
     public bool IsActive { get; set; } = true;
     
     public ICollection<Event> Events { get; set; } = new List<Event>();
+    public ICollection<Receipt> Receipts { get; set; } = new List<Receipt>();
 }
 
 public sealed class Event : BaseTenantEntity
@@ -21,6 +22,7 @@ public sealed class Event : BaseTenantEntity
     public string? Metadata { get; set; }
 
     public ICollection<RecipientFund> RecipientFunds { get; set; } = new List<RecipientFund>();
+    public ICollection<Receipt> Receipts { get; set; } = new List<Receipt>();
 }
 
 public sealed class RecipientFund : BaseTenantEntity
@@ -32,6 +34,7 @@ public sealed class RecipientFund : BaseTenantEntity
     public decimal TargetAmount { get; set; }
     public decimal CollectedAmount { get; set; }
     public string? Metadata { get; set; }
+    public ICollection<Receipt> Receipts { get; set; } = new List<Receipt>();
 }
 
 public sealed class Contributor : BaseTenantEntity
@@ -57,6 +60,28 @@ public sealed class Contribution : BaseTenantEntity
     public string Method { get; set; } = string.Empty; // Cash, Card, MoMo
     public ContributionStatus Status { get; set; }
     public Guid? PaymentId { get; set; }
+    public Payment? Payment { get; set; }
     public string? Note { get; set; }
     public string? Reference { get; set; }
+    public Receipt? Receipt { get; set; }
+}
+
+public sealed class Receipt : BaseTenantEntity
+{
+    public Guid EventId { get; set; }
+    public Event Event { get; set; } = null!;
+    public Guid RecipientFundId { get; set; }
+    public RecipientFund RecipientFund { get; set; } = null!;
+    public Guid ContributionId { get; set; }
+    public Contribution Contribution { get; set; } = null!;
+    public Guid? PaymentId { get; set; }
+    public Payment? Payment { get; set; }
+    public Guid? RecordedByUserId { get; set; }
+    public User? RecordedByUser { get; set; }
+
+    public string ReceiptNumber { get; set; } = string.Empty;
+    public DateTimeOffset IssuedAt { get; set; } = DateTimeOffset.UtcNow;
+    public ReceiptStatus Status { get; set; } = ReceiptStatus.Issued;
+    public string? Note { get; set; }
+    public string? Metadata { get; set; }
 }

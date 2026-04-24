@@ -11,6 +11,7 @@ public sealed class User : BaseEntity
     public bool IsPlatformAdmin { get; set; }
 
     public ICollection<UserScopeAssignment> ScopeAssignments { get; set; } = new List<UserScopeAssignment>();
+    public ICollection<Receipt> RecordedReceipts { get; set; } = new List<Receipt>();
 }
 
 public sealed class UserScopeAssignment : BaseEntity

@@ -13,4 +13,5 @@ public sealed class Payment : BaseTenantEntity
     public string? ProviderReference { get; set; }
     public string? ProviderPayload { get; set; } // stored as jsonb in DB
     public DateTimeOffset? ProcessedAt { get; set; }
+    public Receipt? Receipt { get; set; }
 }
