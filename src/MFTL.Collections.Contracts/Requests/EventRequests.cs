@@ -1,3 +1,5 @@
+using MFTL.Collections.Contracts.Common;
+
 namespace MFTL.Collections.Contracts.Requests;
 
 public record CreateEventRequest(
@@ -18,7 +20,7 @@ public record EventDto(
     string Description,
     DateTimeOffset? EventDate,
     bool IsActive,
-    decimal TotalRaised = 0,
+    IEnumerable<CurrencyTotalDto> Totals,
     decimal TotalTarget = 0,
     int FundCount = 0,
     int CollectorCount = 0,
