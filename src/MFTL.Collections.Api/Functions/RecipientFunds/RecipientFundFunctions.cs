@@ -45,12 +45,23 @@ public class RecipientFundFunctions(IMediator mediator)
 
     [Function("ListRecipientFundsByEvent")]
     [OpenApiOperation(operationId: "ListRecipientFundsByEvent", tags: new[] { "RecipientFunds" })]
-    [OpenApiParameter(name: "eventId", In = ParameterLocation.Path, Required = true, Type = typeof(Guid))]
+    [OpenApiParameter(name: "eventId", In = ParameterLocation.Path, Required = true, Type = typeof(string))]
     [OpenApiResponseWithBody(HttpStatusCode.OK, "application/json", typeof(ApiResponse<IEnumerable<RecipientFundDto>>))]
+    [OpenApiResponseWithBody(HttpStatusCode.BadRequest, "application/json", typeof(ApiResponse))]
     public async Task<HttpResponseData> ListByEvent(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.RecipientFunds.ListByEvent)] HttpRequestData req, Guid eventId)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.RecipientFunds.ListByEvent)] HttpRequestData req, string eventId)
     {
-        var result = await mediator.Send(new ListRecipientFundsByEventQuery(eventId));
+        if (!Guid.TryParse(eventId, out var parsedEventId))
+        {
+            var badRequest = req.CreateResponse(HttpStatusCode.BadRequest);
+            await badRequest.WriteAsJsonAsync(new ApiResponse(
+                false,
+                "Invalid eventId route parameter.",
+                new[] { $"'{eventId}' is not a valid GUID." }));
+            return badRequest;
+        }
+
+        var result = await mediator.Send(new ListRecipientFundsByEventQuery(parsedEventId));
         var response = req.CreateResponse(HttpStatusCode.OK);
         await response.WriteAsJsonAsync(new ApiResponse<IEnumerable<RecipientFundDto>>(true, Data: result));
         return response;
