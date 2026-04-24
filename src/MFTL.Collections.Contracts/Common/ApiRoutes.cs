@@ -25,6 +25,14 @@ public static class ApiRoutes
         public const string RecordCash = Base + "/cash";
     }
 
+    public static class Collectors
+    {
+        public const string Base = BasePath + "/collector";
+        public const string Me = Base + "/me";
+        public const string Assignments = Base + "/assignments";
+        public const string History = Base + "/history";
+    }
+
     public static class Payments
     {
         public const string Base = BasePath + "/payments";
