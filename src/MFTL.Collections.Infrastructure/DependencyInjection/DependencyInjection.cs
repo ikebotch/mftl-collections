@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IScopeAccessService, ScopeAccessService>();
         
+        services.AddScoped<FunctionHttpRequestAccessor>();
         services.AddScoped<TenantContext>();
         services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
         
