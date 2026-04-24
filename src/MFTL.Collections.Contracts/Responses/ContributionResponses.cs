@@ -17,3 +17,13 @@ public record ContributionDto(
     Guid? PaymentId,
     Guid? ReceiptId,
     string? Note);
+
+public record ContributionListItemDto(
+    Guid Id,
+    DateTimeOffset CreatedAt,
+    string EventTitle,
+    string RecipientFundName,
+    string PaymentMethod,
+    string Status,
+    decimal Amount,
+    string Currency);

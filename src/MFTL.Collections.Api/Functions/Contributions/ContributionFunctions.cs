@@ -4,6 +4,7 @@ using Microsoft.Azure.Functions.Worker;
 using MediatR;
 using MFTL.Collections.Api.Extensions;
 using MFTL.Collections.Application.Features.Contributions.Queries.GetContributionById;
+using MFTL.Collections.Application.Features.Contributions.Queries.ListContributions;
 using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Contracts.Responses;
 using MFTL.Collections.Application.Features.Contributions.Commands.RecordCashContribution;
@@ -13,6 +14,17 @@ namespace MFTL.Collections.Api.Functions.Contributions;
 
 public class ContributionFunctions(IMediator mediator)
 {
+    [Function("ListContributions")]
+    public async Task<IActionResult> List(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Contributions.Base)] HttpRequest req)
+    {
+        var result = await mediator.Send(new ListContributionsQuery());
+        return new OkObjectResult(new ApiResponse<IEnumerable<ContributionListItemDto>>(
+            true,
+            Data: result,
+            CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
     [Function("RecordCashContribution")]
     public async Task<IActionResult> RecordCash(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Contributions.RecordCash)] HttpRequest req)
