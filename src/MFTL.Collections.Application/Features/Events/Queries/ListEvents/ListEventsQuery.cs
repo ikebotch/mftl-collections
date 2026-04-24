@@ -1,8 +1,9 @@
 using MediatR;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Requests;
+using MFTL.Collections.Contracts.Common;
 using Microsoft.EntityFrameworkCore;
-using Mapster;
+using MFTL.Collections.Domain.Enums;
 
 namespace MFTL.Collections.Application.Features.Events.Queries.ListEvents;
 
@@ -12,20 +13,42 @@ public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestH
 {
     public async Task<IEnumerable<EventDto>> Handle(ListEventsQuery request, CancellationToken cancellationToken)
     {
-        return await dbContext.Events
+        var events = await dbContext.Events
             .Include(e => e.RecipientFunds)
             .OrderByDescending(e => e.CreatedAt)
-            .Select(e => new EventDto(
+            .ToListAsync(cancellationToken);
+
+        var eventIds = events.Select(e => e.Id).ToList();
+        
+        var contributions = await dbContext.Contributions
+            .Where(c => eventIds.Contains(c.EventId) && c.Status == ContributionStatus.Completed)
+            .ToListAsync(cancellationToken);
+
+        var collectorCounts = await dbContext.UserScopeAssignments
+            .Where(a => a.ScopeType == Domain.Entities.ScopeType.Event && eventIds.Contains(a.TargetId) && a.Role == "Collector")
+            .GroupBy(a => a.TargetId)
+            .Select(g => new { EventId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.EventId, x => x.Count, cancellationToken);
+
+        return events.Select(e => 
+        {
+            var eventContributions = contributions.Where(c => c.EventId == e.Id);
+            var totals = eventContributions
+                .GroupBy(c => c.Currency)
+                .Select(g => new CurrencyTotalDto(g.Key, g.Sum(c => c.Amount)))
+                .ToList();
+
+            return new EventDto(
                 e.Id,
                 e.Title,
                 e.Description,
                 e.EventDate,
                 e.IsActive,
-                e.RecipientFunds.Sum(f => f.CollectedAmount),
+                totals,
                 e.RecipientFunds.Sum(f => f.TargetAmount),
                 e.RecipientFunds.Count,
-                dbContext.UserScopeAssignments.Count(a => a.ScopeType == Domain.Entities.ScopeType.Event && a.TargetId == e.Id && a.Role == "Collector"),
-                e.Slug))
-            .ToListAsync(cancellationToken);
+                collectorCounts.GetValueOrDefault(e.Id, 0),
+                e.Slug);
+        });
     }
 }
