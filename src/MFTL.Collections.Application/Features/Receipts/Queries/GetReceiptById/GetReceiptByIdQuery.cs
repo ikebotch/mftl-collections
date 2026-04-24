@@ -15,7 +15,9 @@ public class GetReceiptByIdQueryHandler(IApplicationDbContext dbContext) : IRequ
             .Include(r => r.Event)
             .Include(r => r.RecipientFund)
             .Include(r => r.Contribution)
+            .ThenInclude(c => c.Contributor)
             .Include(r => r.Payment)
+            .Include(r => r.RecordedByUser)
             .FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
 
         if (receipt == null)
@@ -39,9 +41,13 @@ public class GetReceiptByIdQueryHandler(IApplicationDbContext dbContext) : IRequ
             receipt.Contribution.Amount,
             receipt.Contribution.Currency,
             receipt.Contribution.ContributorName,
+            receipt.Contribution.Contributor?.PhoneNumber,
+            receipt.Contribution.Contributor?.Email,
+            receipt.Contribution.Contributor?.IsAnonymous ?? false,
             receipt.Contribution.Status.ToString(),
             receipt.Payment?.Status.ToString() ?? "Cash",
             receipt.Payment?.Method ?? receipt.Contribution.Method,
+            receipt.RecordedByUser?.Name ?? "Collector",
             receipt.Note);
     }
 }

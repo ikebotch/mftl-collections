@@ -4,6 +4,7 @@ using Microsoft.Azure.Functions.Worker;
 using MediatR;
 using MFTL.Collections.Api.Extensions;
 using MFTL.Collections.Application.Features.Contributions.Queries.GetContributionById;
+using MFTL.Collections.Application.Features.Contributions.Queries.ListContributions;
 using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Contracts.Responses;
 using MFTL.Collections.Application.Features.Contributions.Commands.RecordCashContribution;
@@ -13,6 +14,8 @@ namespace MFTL.Collections.Api.Functions.Contributions;
 
 public class ContributionFunctions(IMediator mediator)
 {
+    private const string DevUserIdHeader = "X-Dev-User-Id";
+
     [Function("RecordCashContribution")]
     public async Task<IActionResult> RecordCash(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Contributions.RecordCash)] HttpRequest req)
@@ -23,11 +26,17 @@ public class ContributionFunctions(IMediator mediator)
         if (request == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body.", CorrelationId: req.GetOrCreateCorrelationId()));
 
         var result = await mediator.Send(new RecordCashContributionCommand(
-            request.EventId, 
-            request.RecipientFundId, 
-            request.Amount, 
-            request.ContributorName ?? "Anonymous", 
-            request.Note));
+            request.EventId,
+            request.RecipientFundId,
+            request.Amount,
+            request.Currency,
+            request.ContributorName,
+            request.ContributorPhone,
+            request.ContributorEmail,
+            request.Anonymous,
+            request.PaymentMethod,
+            request.Note,
+            req.Headers[DevUserIdHeader].FirstOrDefault()));
             
         return new OkObjectResult(new ApiResponse<CashContributionResult>(true, "Cash contribution recorded.", result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
@@ -39,6 +48,24 @@ public class ContributionFunctions(IMediator mediator)
         var result = await mediator.Send(new GetContributionByIdQuery(id));
         return new OkObjectResult(new ApiResponse<ContributionDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
+
+    [Function("ListContributions")]
+    public async Task<IActionResult> List(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Contributions.Base)] HttpRequest req)
+    {
+        var result = await mediator.Send(new ListContributionsQuery());
+        return new OkObjectResult(new ApiResponse<IEnumerable<ContributionListItemDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
 }
 
-public record RecordCashContributionRequest(Guid EventId, Guid RecipientFundId, decimal Amount, string? ContributorName, string? Note);
+public record RecordCashContributionRequest(
+    Guid EventId,
+    Guid RecipientFundId,
+    decimal Amount,
+    string Currency,
+    string? ContributorName,
+    string ContributorPhone,
+    string? ContributorEmail,
+    bool Anonymous,
+    string PaymentMethod,
+    string? Note);

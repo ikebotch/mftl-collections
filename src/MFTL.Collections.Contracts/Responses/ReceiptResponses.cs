@@ -16,9 +16,13 @@ public record ReceiptDto(
     decimal Amount,
     string Currency,
     string ContributorName,
+    string? ContributorPhone,
+    string? ContributorEmail,
+    bool IsAnonymous,
     string ContributionStatus,
     string PaymentStatus,
     string PaymentMethod,
+    string CollectorName,
     string? Note);
 
 public record ReceiptListItemDto(
