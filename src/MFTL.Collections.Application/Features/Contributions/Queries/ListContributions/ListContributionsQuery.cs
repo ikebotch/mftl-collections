@@ -12,7 +12,13 @@ public sealed record ContributionListItemDto(
     string PaymentMethod,
     string Status,
     decimal Amount,
-    string Currency);
+    string Currency,
+    string ContributorName,
+    string ContributorPhone,
+    string? ContributorEmail,
+    string? CollectorName,
+    string? Note,
+    Guid? ReceiptId);
 
 public record ListContributionsQuery() : IRequest<IEnumerable<ContributionListItemDto>>;
 
@@ -26,6 +32,9 @@ public class ListContributionsQueryHandler(IApplicationDbContext dbContext)
         return await dbContext.Contributions
             .Include(c => c.Event)
             .Include(c => c.RecipientFund)
+            .Include(c => c.Contributor)
+            .Include(c => c.Receipt)
+                .ThenInclude(r => r.RecordedByUser)
             .OrderByDescending(c => c.CreatedAt)
             .Select(contribution => new ContributionListItemDto(
                 contribution.Id,
@@ -35,7 +44,13 @@ public class ListContributionsQueryHandler(IApplicationDbContext dbContext)
                 contribution.Method,
                 contribution.Status.ToString(),
                 contribution.Amount,
-                contribution.Currency))
+                contribution.Currency,
+                contribution.ContributorName,
+                contribution.Contributor != null ? contribution.Contributor.PhoneNumber ?? "" : "",
+                contribution.Contributor != null ? contribution.Contributor.Email : null,
+                contribution.Receipt != null && contribution.Receipt.RecordedByUser != null ? contribution.Receipt.RecordedByUser.Name : null,
+                contribution.Note,
+                contribution.Receipt != null ? contribution.Receipt.Id : (Guid?)null))
             .ToListAsync(cancellationToken);
     }
 }

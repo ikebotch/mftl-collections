@@ -124,7 +124,7 @@ public class RecordCashContributionCommandHandler(
             Amount = request.Amount,
             Currency = request.Currency,
             ContributorName = request.Anonymous ? "Anonymous" : request.ContributorName?.Trim() ?? string.Empty,
-            Method = "Cash",
+            Method = request.PaymentMethod,
             Status = ContributionStatus.RecordedCash,
             Note = request.Note
         };

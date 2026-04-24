@@ -10,4 +10,9 @@ public record EventDto(
     string Title,
     string Description,
     DateTimeOffset? EventDate,
-    bool IsActive);
+    bool IsActive,
+    decimal TotalRaised = 0,
+    decimal TotalTarget = 0,
+    int FundCount = 0,
+    int CollectorCount = 0,
+    string? Slug = null);

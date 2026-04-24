@@ -14,10 +14,21 @@ public class GetEventByIdQueryHandler(IApplicationDbContext dbContext) : IReques
     public async Task<EventDto> Handle(GetEventByIdQuery request, CancellationToken cancellationToken)
     {
         var @event = await dbContext.Events
+            .Include(e => e.RecipientFunds)
             .FirstOrDefaultAsync(e => e.Id == request.Id, cancellationToken);
 
         if (@event == null) throw new KeyNotFoundException("Event not found.");
 
-        return @event.Adapt<EventDto>();
+        return new EventDto(
+            @event.Id,
+            @event.Title,
+            @event.Description,
+            @event.EventDate,
+            @event.IsActive,
+            @event.RecipientFunds.Sum(f => f.CollectedAmount),
+            @event.RecipientFunds.Sum(f => f.TargetAmount),
+            @event.RecipientFunds.Count,
+            await dbContext.UserScopeAssignments.CountAsync(a => a.ScopeType == Domain.Entities.ScopeType.Event && a.TargetId == @event.Id && a.Role == "Collector", cancellationToken),
+            @event.Slug);
     }
 }

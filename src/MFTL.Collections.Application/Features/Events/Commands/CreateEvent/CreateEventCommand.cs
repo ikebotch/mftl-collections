@@ -56,6 +56,16 @@ public class CreateEventCommandHandler(IApplicationDbContext dbContext) : IReque
         dbContext.Events.Add(@event);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return @event.Adapt<EventDto>();
+        return new EventDto(
+            @event.Id,
+            @event.Title,
+            @event.Description,
+            @event.EventDate,
+            @event.IsActive,
+            0,
+            0,
+            0,
+            0,
+            @event.Slug);
     }
 }
