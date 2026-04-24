@@ -20,18 +20,38 @@ public class InitiateContributionPaymentCommandHandler(
 
         if (contribution == null)
         {
-            return new PaymentResult(false, null, null, "Contribution not found");
+            return new PaymentResult(false, null, null, null, null, "Contribution not found");
         }
 
-        // Use the orchestrator to call the provider
+        var payment = new Payment
+        {
+            ContributionId = contribution.Id,
+            Amount = contribution.Amount,
+            Currency = contribution.Currency,
+            Method = request.Method,
+            Status = PaymentStatus.Pending,
+        };
+
+        dbContext.Payments.Add(payment);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
         var result = await orchestrator.InitiatePaymentAsync(contribution.Id, contribution.Amount, request.Method, cancellationToken);
+
+        payment.ProviderReference = result.ProviderReference;
+        payment.Status = result.Success ? PaymentStatus.Initiated : PaymentStatus.Failed;
+        payment.ProcessedAt = result.Success ? null : DateTimeOffset.UtcNow;
 
         if (result.Success)
         {
             contribution.Status = ContributionStatus.AwaitingPayment;
-            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        return result;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return result with
+        {
+            PaymentId = payment.Id,
+            Status = payment.Status.ToString(),
+        };
     }
 }
