@@ -130,7 +130,7 @@ public class RecordCashContributionCommandHandler(
         };
 
         dbContext.Contributions.Add(contribution);
-        var settlement = await settlementService.SettleContributionAsync(contribution, null, cancellationToken);
+        var settlement = await settlementService.SettleContributionAsync(contribution, null, collector.Id, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new CashContributionResult(contribution.Id, settlement.ReceiptId, contribution.Status.ToString());

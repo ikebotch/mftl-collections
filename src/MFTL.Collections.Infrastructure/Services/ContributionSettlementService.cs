@@ -28,14 +28,18 @@ public sealed class ContributionSettlementService(
             throw new KeyNotFoundException($"Contribution {contributionId} not found.");
         }
 
-        var result = await SettleContributionAsync(contribution, paymentId, cancellationToken);
+        var result = await SettleContributionAsync(contribution, paymentId, null, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         
         logger.LogInformation("Contribution {ContributionId} settled successfully.", contributionId);
         return result;
     }
 
-    public async Task<ContributionSettlementResult> SettleContributionAsync(Contribution contribution, Guid? paymentId, CancellationToken cancellationToken = default)
+    public async Task<ContributionSettlementResult> SettleContributionAsync(
+        Contribution contribution,
+        Guid? paymentId,
+        Guid? recordedByUserId = null,
+        CancellationToken cancellationToken = default)
     {
         if (contribution.RecipientFund == null)
         {
@@ -80,7 +84,7 @@ public sealed class ContributionSettlementService(
                 RecipientFundId = contribution.RecipientFundId,
                 ContributionId = contribution.Id,
                 PaymentId = payment?.Id,
-                RecordedByUserId = await ResolveRecordedByUserIdAsync(cancellationToken),
+                RecordedByUserId = recordedByUserId ?? await ResolveRecordedByUserIdAsync(cancellationToken),
                 ReceiptNumber = await GenerateUniqueReceiptNumberAsync(cancellationToken),
                 IssuedAt = DateTimeOffset.UtcNow,
                 Status = ReceiptStatus.Issued,
