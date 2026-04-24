@@ -33,7 +33,9 @@ public class GetRecipientDashboardQueryHandler(IApplicationDbContext dbContext, 
                 c.Contributor != null ? (c.Contributor.IsAnonymous ? "Anonymous" : c.Contributor.Name) : "Guest",
                 c.Amount,
                 c.CreatedAt,
-                c.Status.ToString()
+                c.Status.ToString(),
+                null,
+                null
             ))
             .ToListAsync(cancellationToken);
 
