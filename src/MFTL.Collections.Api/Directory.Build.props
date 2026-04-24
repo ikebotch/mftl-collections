@@ -3,7 +3,9 @@
     <_FunctionsSkipExtensionsMetadataGenerator>true</_FunctionsSkipExtensionsMetadataGenerator>
     <_FunctionsSkipMetadataGeneration>true</_FunctionsSkipMetadataGeneration>
     <FunctionsSkipMetadataGeneration>true</FunctionsSkipMetadataGeneration>
+    <SkipMetadataGeneration>true</SkipMetadataGeneration>
     <FunctionsEnableExecutorSourceGen>true</FunctionsEnableExecutorSourceGen>
     <FunctionsEnableMetadataSourceGen>true</FunctionsEnableMetadataSourceGen>
+    <CanHaveWorkerExtensions>false</CanHaveWorkerExtensions>
   </PropertyGroup>
 </Project>

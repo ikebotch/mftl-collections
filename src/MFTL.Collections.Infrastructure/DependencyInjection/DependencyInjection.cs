@@ -52,6 +52,13 @@ public static class DependencyInjection
             
             services.AddScoped<IApplicationDbContext>(provider => 
                 provider.GetRequiredService<CollectionsDbContext>());
+
+            // Temporary: ensure database is created for dev
+            try {
+                using var scope = services.BuildServiceProvider().CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<CollectionsDbContext>();
+                context.Database.EnsureCreated();
+            } catch { /* Ignore for now */ }
         }
 
         // Additional services for payments and dashboards
