@@ -5,6 +5,13 @@ public record CreateEventRequest(
     string Description,
     DateTimeOffset? EventDate);
 
+public record UpdateEventRequest(
+    string Title,
+    string Description,
+    DateTimeOffset? EventDate,
+    bool IsActive,
+    string? Slug = null);
+
 public record EventDto(
     Guid Id,
     string Title,

@@ -9,8 +9,20 @@ public record RecipientDashboardDto(
     int ContributionCount,
     IEnumerable<RecentContributionDto> RecentContributions);
 
+public record AdminDashboardDto(
+    int TotalEvents,
+    int TotalContributions,
+    decimal TotalCollected,
+    int ActiveRecipientFunds,
+    int TotalCollectors,
+    int TotalDonors,
+    int TotalReceipts,
+    IEnumerable<RecentContributionDto> RecentContributions);
+
 public record RecentContributionDto(
     string ContributorName,
     decimal Amount,
     DateTimeOffset Date,
-    string Status);
+    string Status,
+    string? EventTitle = null,
+    string? PaymentMethod = null);

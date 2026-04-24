@@ -41,20 +41,44 @@ public class CollectorFunctions(IMediator mediator)
 
     [Function("ListCollectors")]
     public async Task<IActionResult> List(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Collectors.Base)] HttpRequest req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Collectors.AdminBase)] HttpRequest req)
     {
         var result = await mediator.Send(new Application.Features.Collectors.Queries.ListCollectors.ListCollectorsQuery());
         return new OkObjectResult(new ApiResponse<IEnumerable<CollectorMeDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
+    [Function("GetCollectorById")]
+    public async Task<IActionResult> GetById(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Collectors.GetById)] HttpRequest req, Guid id)
+    {
+        // Placeholder for GetCollectorByIdQuery
+        var result = await mediator.Send(new Application.Features.Collectors.Queries.ListCollectors.ListCollectorsQuery());
+        var collector = result.FirstOrDefault(x => x.Id == id);
+        if (collector == null) return new NotFoundResult();
+        return new OkObjectResult(new ApiResponse<CollectorMeDto>(true, Data: collector, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
     [Function("CreateCollector")]
     public async Task<IActionResult> Create(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Collectors.Base)] HttpRequest req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Collectors.AdminBase)] HttpRequest req)
     {
         var command = await req.ReadFromJsonAsync<Application.Features.Collectors.Commands.CreateCollector.CreateCollectorCommand>();
         if (command == null) return new BadRequestObjectResult(new ApiResponse<object>(false, Message: "Invalid request body"));
         
         var result = await mediator.Send(command);
         return new OkObjectResult(new ApiResponse<CollectorMeDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
+    [Function("UpdateCollector")]
+    public async Task<IActionResult> Update(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = ApiRoutes.Collectors.Update)] HttpRequest req, Guid id)
+    {
+        var command = await req.ReadFromJsonAsync<Application.Features.Collectors.Commands.UpdateCollector.UpdateCollectorCommand>();
+        if (command == null) return new BadRequestObjectResult(new ApiResponse<object>(false, Message: "Invalid request body"));
+        
+        var result = await mediator.Send(command with { Id = id });
+        if (!result) return new NotFoundResult();
+        
+        return new OkObjectResult(new ApiResponse<bool>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 }

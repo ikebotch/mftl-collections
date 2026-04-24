@@ -10,12 +10,15 @@ public static class ApiRoutes
     {
         public const string Base = BasePath + "/events";
         public const string GetById = Base + "/{id}";
+        public const string Update = Base + "/{id}";
     }
 
     public static class RecipientFunds
     {
         public const string Base = BasePath + "/recipient-funds";
+        public const string GetById = Base + "/{id}";
         public const string ListByEvent = Base + "/event/{eventId}";
+        public const string Update = Base + "/{id}";
     }
 
     public static class Contributions
@@ -25,12 +28,22 @@ public static class ApiRoutes
         public const string RecordCash = Base + "/cash";
     }
 
+    public static class Donors
+    {
+        public const string Base = BasePath + "/donors";
+        public const string GetById = Base + "/{id}";
+    }
+
     public static class Collectors
     {
-        public const string Base = BasePath + "/collector";
-        public const string Me = Base + "/me";
-        public const string Assignments = Base + "/assignments";
-        public const string History = Base + "/history";
+        public const string AdminBase = BasePath + "/collectors";
+        public const string GetById = AdminBase + "/{id}";
+        public const string Update = AdminBase + "/{id}";
+        
+        public const string MobileBase = BasePath + "/collector";
+        public const string Me = MobileBase + "/me";
+        public const string Assignments = MobileBase + "/assignments";
+        public const string History = MobileBase + "/history";
     }
 
     public static class Payments
@@ -50,7 +63,14 @@ public static class ApiRoutes
     public static class Dashboards
     {
         public const string Base = BasePath + "/dashboards";
+        public const string Admin = Base + "/admin";
         public const string Event = Base + "/events/{id}";
         public const string Recipient = Base + "/recipient-funds/{id}";
+    }
+
+    public static class Users
+    {
+        public const string Base = BasePath + "/users";
+        public const string GetById = Base + "/{id}";
     }
 }
