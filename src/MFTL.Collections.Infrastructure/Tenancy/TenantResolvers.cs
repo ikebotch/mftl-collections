@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Infrastructure.Configuration;
@@ -9,36 +8,80 @@ public sealed class TenantContext : ITenantContext
 {
     public Guid? TenantId { get; set; }
     public string? TenantIdentifier { get; set; }
-    public bool IsPlatformContext => !TenantId.HasValue;
+    public bool IsPlatformContext { get; private set; }
+
+    public void UseTenant(Guid tenantId, string? identifier)
+    {
+        TenantId = tenantId;
+        TenantIdentifier = identifier;
+        IsPlatformContext = false;
+    }
+
+    public void UsePlatformContext()
+    {
+        TenantId = null;
+        TenantIdentifier = null;
+        IsPlatformContext = true;
+    }
+
+    public void Clear()
+    {
+        TenantId = null;
+        TenantIdentifier = null;
+        IsPlatformContext = false;
+    }
 }
 
-public sealed class HeaderTenantResolver(IHttpContextAccessor httpContextAccessor, IOptions<TenantResolutionOptions> options) : ITenantResolver
+public sealed class FunctionHttpRequestAccessor
+{
+    public IReadOnlyDictionary<string, string[]> Headers { get; private set; } = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+    public string? Host { get; private set; }
+
+    public void SetRequest(IReadOnlyDictionary<string, string[]> headers, string? host)
+    {
+        Headers = headers;
+        Host = host;
+    }
+
+    public void Clear()
+    {
+        Headers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        Host = null;
+    }
+}
+
+public sealed class HeaderTenantResolver(FunctionHttpRequestAccessor requestAccessor, IOptions<TenantResolutionOptions> options) : ITenantResolver
 {
     public Task<TenantResolutionResult> ResolveAsync()
     {
-        var context = httpContextAccessor.HttpContext;
-        if (context == null) return Task.FromResult(new TenantResolutionResult(null, null, false));
-
-        if (context.Request.Headers.TryGetValue(options.Value.HeaderName, out var tenantIdStr) && 
-            Guid.TryParse(tenantIdStr, out var tenantId))
+        if (requestAccessor.Headers.Count == 0)
         {
-            return Task.FromResult(new TenantResolutionResult(tenantId, tenantIdStr));
+            return Task.FromResult(new TenantResolutionResult(null, null, false));
+        }
+
+        if (requestAccessor.Headers.TryGetValue(options.Value.HeaderName, out var tenantIdValues))
+        {
+            var tenantIdStr = tenantIdValues.FirstOrDefault();
+            if (Guid.TryParse(tenantIdStr, out var tenantId))
+            {
+                return Task.FromResult(new TenantResolutionResult(tenantId, tenantIdStr));
+            }
         }
 
         return Task.FromResult(new TenantResolutionResult(null, null, false));
     }
 }
 
-public sealed class HostTenantResolver(IHttpContextAccessor httpContextAccessor, IOptions<TenantResolutionOptions> options) : ITenantResolver
+public sealed class HostTenantResolver(FunctionHttpRequestAccessor requestAccessor, IOptions<TenantResolutionOptions> options) : ITenantResolver
 {
     public Task<TenantResolutionResult> ResolveAsync()
     {
-        var context = httpContextAccessor.HttpContext;
-        if (context == null || !options.Value.EnableHostResolution) 
+        if (string.IsNullOrWhiteSpace(requestAccessor.Host) || !options.Value.EnableHostResolution)
+        {
             return Task.FromResult(new TenantResolutionResult(null, null, false));
+        }
 
-        var host = context.Request.Host.Host;
-        // Logic to extract tenant from host (e.g. tenant1.mftl.com)
+        var host = requestAccessor.Host;
         if (!string.IsNullOrEmpty(options.Value.HostSuffix) && host.EndsWith(options.Value.HostSuffix))
         {
             var identifier = host.Replace(options.Value.HostSuffix, "").Trim('.');
