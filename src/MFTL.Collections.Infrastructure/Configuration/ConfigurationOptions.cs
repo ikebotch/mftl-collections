@@ -45,4 +45,5 @@ public sealed class TenantResolutionOptions
     public string HeaderName { get; init; } = "X-Tenant-Id";
     public bool EnableHostResolution { get; init; } = true;
     public string? HostSuffix { get; init; }
+    public string? DefaultTenantId { get; init; }
 }

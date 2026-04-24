@@ -26,13 +26,19 @@ public static class TenantRequestPolicy
         "RenderOpenApiDocument",
         "RenderSwaggerDocument",
         "RenderSwaggerUI",
+        "GetPublicEventBySlug",
+        "ListPublicRecipientFunds",
+        "InitiatePublicContribution",
+        "GetPublicPaymentStatus",
+        "GetPublicReceipt",
+        "GetPublicReceiptByContribution",
     };
 
     public static bool RequiresTenant(string functionName) => !PlatformFunctionNames.Contains(functionName);
 
     public static TenantRequestResolution Evaluate(
         string functionName,
-        HttpHeadersCollection headers,
+        IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> headers,
         TenantResolutionResult resolutionResult,
         TenantResolutionOptions options)
     {
@@ -50,9 +56,10 @@ public static class TenantRequestPolicy
                 resolutionResult.Identifier);
         }
 
-        if (headers.TryGetValues(options.HeaderName, out var tenantHeaderValues))
+        var tenantHeader = headers.FirstOrDefault(h => h.Key.Equals(options.HeaderName, StringComparison.OrdinalIgnoreCase));
+        if (!Microsoft.Extensions.Primitives.StringValues.IsNullOrEmpty(tenantHeader.Value))
         {
-            var tenantHeaderValue = tenantHeaderValues.FirstOrDefault() ?? string.Empty;
+            var tenantHeaderValue = tenantHeader.Value.FirstOrDefault() ?? string.Empty;
             return new TenantRequestResolution(
                 true,
                 false,
@@ -64,6 +71,11 @@ public static class TenantRequestPolicy
                 {
                     $"The '{options.HeaderName}' header must be a valid tenant UUID. Received '{tenantHeaderValue}'.",
                 });
+        }
+
+        if (!string.IsNullOrEmpty(options.DefaultTenantId) && Guid.TryParse(options.DefaultTenantId, out var defaultId))
+        {
+            return new TenantRequestResolution(true, true, defaultId, "default");
         }
 
         return new TenantRequestResolution(

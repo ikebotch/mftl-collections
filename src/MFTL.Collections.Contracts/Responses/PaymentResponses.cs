@@ -6,7 +6,8 @@ public record PaymentResult(
     string? ProviderReference,
     Guid? PaymentId = null,
     string? Status = null,
-    string? Error = null);
+    string? Error = null,
+    IReadOnlyDictionary<string, string>? Metadata = null);
 
 public record PaymentDto(
     Guid Id,

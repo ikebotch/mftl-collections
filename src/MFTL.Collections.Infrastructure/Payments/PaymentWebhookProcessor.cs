@@ -15,6 +15,7 @@ public interface IPaymentWebhookProcessor
 
 public sealed class PaymentWebhookProcessor(
     CollectionsDbContext dbContext,
+    ITenantContext tenantContext,
     IContributionSettlementService settlementService,
     IEnumerable<IPaymentProvider> providers,
     ILogger<PaymentWebhookProcessor> logger) : IPaymentWebhookProcessor
@@ -25,7 +26,9 @@ public sealed class PaymentWebhookProcessor(
             ?? throw new ArgumentException($"Unsupported payment provider: {providerName}");
 
         // Idempotency check
-        if (await dbContext.Set<ProcessedWebhookEvent>().AnyAsync(e => e.Provider == providerName && e.EventId == eventId, cancellationToken))
+        if (await dbContext.Set<ProcessedWebhookEvent>()
+            .IgnoreQueryFilters()
+            .AnyAsync(e => e.Provider == providerName && e.EventId == eventId, cancellationToken))
         {
             logger.LogWarning("Webhook event {Provider}:{EventId} already processed.", providerName, eventId);
             return;
@@ -36,6 +39,7 @@ public sealed class PaymentWebhookProcessor(
 
         // Find payment by contributionId or provider reference
         var payment = await dbContext.Payments
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(p => p.ContributionId == contributionId || p.ProviderReference == providerRef, cancellationToken);
 
         if (payment == null)
@@ -51,6 +55,9 @@ public sealed class PaymentWebhookProcessor(
             payment.ProcessedAt = DateTimeOffset.UtcNow;
 
             await dbContext.SaveChangesAsync(cancellationToken);
+
+            // Set tenant context for settlement
+            tenantContext.UseTenant(payment.TenantId);
 
             // Settle contribution (this updates the fund balance)
             await settlementService.SettleContributionAsync(payment.ContributionId, payment.Id, cancellationToken);

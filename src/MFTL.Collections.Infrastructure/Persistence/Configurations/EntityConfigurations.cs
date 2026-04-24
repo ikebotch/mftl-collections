@@ -10,7 +10,9 @@ public class EventConfiguration : IEntityTypeConfiguration<Event>
     {
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Title).IsRequired().HasMaxLength(200);
+        builder.Property(x => x.Slug).IsRequired().HasMaxLength(100);
         builder.HasIndex(x => x.TenantId);
+        builder.HasIndex(x => new { x.TenantId, x.Slug }).IsUnique();
         builder.Property(x => x.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
     }
 }

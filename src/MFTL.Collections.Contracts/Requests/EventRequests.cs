@@ -9,5 +9,6 @@ public record EventDto(
     Guid Id,
     string Title,
     string Description,
+    string Slug,
     DateTimeOffset? EventDate,
     bool IsActive);

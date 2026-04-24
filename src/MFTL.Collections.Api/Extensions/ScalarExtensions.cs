@@ -11,11 +11,13 @@ public static class ScalarExtensions
     {
         services.AddSwaggerGen(options =>
         {
-            options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+            /*
+            options.SwaggerDoc("v1", new OpenApiInfo
             {
                 Title = "MFTL Collections API",
                 Version = "v1"
             });
+            */
         });
         return services;
     }

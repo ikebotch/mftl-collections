@@ -36,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<IReceiptNumberGenerator, ReceiptNumberGenerator>();
         
         services.AddScoped<IPaymentProvider, StripePaymentProvider>();
+        services.AddScoped<IPaymentProvider, MockPaymentProvider>();
         services.AddScoped<ITenantResolver, HeaderTenantResolver>();
         services.AddScoped<ITenantResolver, HostTenantResolver>();
         services.AddScoped<CompositeTenantResolver>();
@@ -51,11 +52,18 @@ public static class DependencyInjection
         {
             services.AddDbContext<CollectionsDbContext>(options =>
                 options.UseNpgsql(dbOptions.ConnectionString));
-            
-            services.AddScoped<IApplicationDbContext>(provider => 
-                provider.GetRequiredService<CollectionsDbContext>());
-            services.AddHostedService<ReceiptSchemaBootstrapper>();
         }
+        else
+        {
+            // Fallback to In-Memory for verification/dev if no DB is configured
+            services.AddDbContext<CollectionsDbContext>(options =>
+                options.UseInMemoryDatabase("mftl-collections-dev"));
+        }
+
+        services.AddScoped<IApplicationDbContext>(provider => 
+            provider.GetRequiredService<CollectionsDbContext>());
+        services.AddHostedService<ReceiptSchemaBootstrapper>();
+        services.AddHostedService<DataSeederService>();
 
         // Additional services for payments and dashboards
         services.AddScoped<IPaymentStateService, PaymentStateService>();

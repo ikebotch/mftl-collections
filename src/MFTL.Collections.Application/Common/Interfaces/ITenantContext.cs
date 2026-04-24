@@ -5,6 +5,9 @@ public interface ITenantContext
     Guid? TenantId { get; }
     string? TenantIdentifier { get; }
     bool IsPlatformContext { get; }
+    void UseTenant(Guid tenantId, string? identifier = null);
+    void UsePlatformContext();
+    void Clear();
 }
 
 public interface ITenantResolver

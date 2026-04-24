@@ -23,14 +23,14 @@ public sealed class ExceptionHandlingMiddleware(ILogger<ExceptionHandlingMiddlew
 
             if (context.IsHttpTrigger())
             {
-                var request = await context.GetHttpRequestDataAsync();
-                if (request != null)
+                var httpContext = context.GetHttpContext();
+                if (httpContext != null)
                 {
                     var statusCode = ex switch
                     {
-                        KeyNotFoundException => HttpStatusCode.NotFound,
-                        InvalidOperationException => HttpStatusCode.BadRequest,
-                        _ => HttpStatusCode.InternalServerError,
+                        KeyNotFoundException => (int)HttpStatusCode.NotFound,
+                        InvalidOperationException => (int)HttpStatusCode.BadRequest,
+                        _ => (int)HttpStatusCode.InternalServerError,
                     };
 
                     var message = ex switch
@@ -40,11 +40,12 @@ public sealed class ExceptionHandlingMiddleware(ILogger<ExceptionHandlingMiddlew
                         _ => "An internal server error occurred.",
                     };
 
-                    var response = request.CreateResponse(statusCode);
-                    var envelope = new ApiResponse(false, message, new[] { ex.Message }, request.GetOrCreateCorrelationId());
+                    httpContext.Response.StatusCode = statusCode;
+                    httpContext.Response.ContentType = "application/json";
                     
-                    await response.WriteStringAsync(JsonSerializer.Serialize(envelope));
-                    context.GetInvocationResult().Value = response;
+                    var envelope = new ApiResponse(false, message, new[] { ex.Message }, httpContext.TraceIdentifier);
+                    var json = JsonSerializer.Serialize(envelope);
+                    await httpContext.Response.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes(json));
                 }
             }
         }
