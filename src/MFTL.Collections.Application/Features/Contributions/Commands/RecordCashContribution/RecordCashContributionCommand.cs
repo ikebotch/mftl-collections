@@ -1,45 +1,138 @@
 using MediatR;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Contracts.Responses;
 using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Domain.Enums;
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 
 namespace MFTL.Collections.Application.Features.Contributions.Commands.RecordCashContribution;
 
-public record RecordCashContributionCommand(Guid EventId, Guid RecipientFundId, decimal Amount, string ContributorName, string? Note) : IRequest<Guid>;
+public record RecordCashContributionCommand(
+    Guid EventId,
+    Guid RecipientFundId,
+    decimal Amount,
+    string Currency,
+    string? ContributorName,
+    string ContributorPhone,
+    string? ContributorEmail,
+    bool Anonymous,
+    string PaymentMethod,
+    string? Note,
+    string? ExplicitUserId) : IRequest<CashContributionResult>;
 
 public class RecordCashContributionCommandValidator : AbstractValidator<RecordCashContributionCommand>
 {
     public RecordCashContributionCommandValidator()
     {
+        RuleFor(v => v.EventId).NotEmpty();
+        RuleFor(v => v.RecipientFundId).NotEmpty();
         RuleFor(v => v.Amount).GreaterThan(0);
-        RuleFor(v => v.ContributorName).NotEmpty();
+        RuleFor(v => v.Currency).NotEmpty();
+        RuleFor(v => v.ContributorPhone).NotEmpty().MinimumLength(7);
+        RuleFor(v => v.PaymentMethod).NotEmpty();
+        When(v => !v.Anonymous, () =>
+        {
+            RuleFor(v => v.ContributorName).NotEmpty().MinimumLength(2);
+        });
     }
 }
 
 public class RecordCashContributionCommandHandler(
     IApplicationDbContext dbContext,
-    IContributionSettlementService settlementService) : IRequestHandler<RecordCashContributionCommand, Guid>
+    ICurrentUserService currentUserService,
+    IContributionSettlementService settlementService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
 {
-    public async Task<Guid> Handle(RecordCashContributionCommand request, CancellationToken cancellationToken)
+    public async Task<CashContributionResult> Handle(RecordCashContributionCommand request, CancellationToken cancellationToken)
     {
+        var collectorAuth0Id = request.ExplicitUserId ?? currentUserService.UserId;
+        if (string.IsNullOrWhiteSpace(collectorAuth0Id))
+        {
+            throw new UnauthorizedAccessException("Collector authentication is required.");
+        }
+
+        var collector = await dbContext.Users
+            .Include(user => user.ScopeAssignments)
+            .FirstOrDefaultAsync(user => user.Auth0Id == collectorAuth0Id, cancellationToken);
+
+        if (collector == null && !string.IsNullOrWhiteSpace(request.ExplicitUserId))
+        {
+            collector = await dbContext.Users
+                .Include(user => user.ScopeAssignments)
+                .Where(user => user.IsActive && user.ScopeAssignments.Any(assignment => assignment.Role == "Collector"))
+                .OrderBy(user => user.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        if (collector == null)
+        {
+            throw new UnauthorizedAccessException("Collector profile not found.");
+        }
+
+        if (!collector.IsActive)
+        {
+            throw new UnauthorizedAccessException("Collector is inactive.");
+        }
+
+        var collectorAssignments = collector.ScopeAssignments
+            .Where(assignment => assignment.Role == "Collector")
+            .ToList();
+
+        var hasEventAccess = collectorAssignments.Any(assignment =>
+            assignment.ScopeType == ScopeType.Event && assignment.TargetId == request.EventId);
+
+        if (!hasEventAccess)
+        {
+            throw new UnauthorizedAccessException("Collector is not assigned to this event.");
+        }
+
+        var hasFundAccess = collectorAssignments.Any(assignment =>
+            assignment.ScopeType == ScopeType.RecipientFund && assignment.TargetId == request.RecipientFundId);
+
+        if (!hasFundAccess)
+        {
+            throw new UnauthorizedAccessException("Collector is not assigned to this recipient fund.");
+        }
+
+        var recipientFund = await dbContext.RecipientFunds
+            .Include(fund => fund.Event)
+            .FirstOrDefaultAsync(f => f.Id == request.RecipientFundId && f.EventId == request.EventId, cancellationToken);
+
+        if (recipientFund == null)
+        {
+            throw new KeyNotFoundException("Recipient fund not found.");
+        }
+
+        var contributor = new Contributor
+        {
+            TenantId = recipientFund.TenantId,
+            Name = request.Anonymous ? "Anonymous" : request.ContributorName?.Trim() ?? string.Empty,
+            Email = request.ContributorEmail?.Trim() ?? string.Empty,
+            PhoneNumber = request.ContributorPhone.Trim(),
+            IsAnonymous = request.Anonymous,
+        };
+
+        dbContext.Contributors.Add(contributor);
+
         var contribution = new Contribution
         {
+            TenantId = recipientFund.TenantId,
             EventId = request.EventId,
             RecipientFundId = request.RecipientFundId,
+            RecipientFund = recipientFund,
+            Contributor = contributor,
             Amount = request.Amount,
-            ContributorName = request.ContributorName,
-            Method = "Cash",
+            Currency = request.Currency,
+            ContributorName = request.Anonymous ? "Anonymous" : request.ContributorName?.Trim() ?? string.Empty,
+            Method = request.PaymentMethod,
             Status = ContributionStatus.RecordedCash,
             Note = request.Note
         };
 
         dbContext.Contributions.Add(contribution);
+        var settlement = await settlementService.SettleContributionAsync(contribution, null, collector.Id, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        // Immediate settlement for cash
-        await settlementService.SettleContributionAsync(contribution.Id, null, cancellationToken);
-
-        return contribution.Id;
+        return new CashContributionResult(contribution.Id, settlement.ReceiptId, contribution.Status.ToString());
     }
 }

@@ -1,9 +1,20 @@
 using MFTL.Collections.Domain.Entities;
-using MFTL.Collections.Domain.Enums;
 
 namespace MFTL.Collections.Application.Common.Interfaces;
 
+public record ContributionSettlementResult(Guid ContributionId, Guid ReceiptId);
+
 public interface IContributionSettlementService
 {
-    Task SettleContributionAsync(Guid contributionId, Guid? paymentId, CancellationToken cancellationToken = default);
+    Task<ContributionSettlementResult> SettleContributionAsync(Guid contributionId, Guid? paymentId, CancellationToken cancellationToken = default);
+    Task<ContributionSettlementResult> SettleContributionAsync(
+        Contribution contribution,
+        Guid? paymentId,
+        Guid? recordedByUserId = null,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IReceiptNumberGenerator
+{
+    string Generate();
 }

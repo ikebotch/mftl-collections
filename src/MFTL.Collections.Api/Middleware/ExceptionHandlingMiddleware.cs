@@ -1,10 +1,14 @@
+using System;
 using System.Net;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Azure.Functions.Worker.Middleware;
 using Microsoft.Extensions.Logging;
+using MFTL.Collections.Api.Extensions;
 using MFTL.Collections.Contracts.Common;
 using System.Text.Json;
+using System.Reflection;
+using System.Linq;
 
 namespace MFTL.Collections.Api.Middleware;
 
@@ -18,15 +22,42 @@ public sealed class ExceptionHandlingMiddleware(ILogger<ExceptionHandlingMiddlew
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An unhandled exception occurred during function execution.");
+            var exception = ex;
+            
+            if (ex is AggregateException aggEx)
+            {
+                exception = aggEx.Flatten().InnerExceptions.FirstOrDefault() ?? ex;
+            }
+            else if (ex is TargetInvocationException targetEx && targetEx.InnerException != null)
+            {
+                exception = targetEx.InnerException;
+            }
+            
+            logger.LogError(exception, "An unhandled exception occurred during function execution.");
 
             if (context.IsHttpTrigger())
             {
                 var request = await context.GetHttpRequestDataAsync();
                 if (request != null)
                 {
-                    var response = request.CreateResponse(HttpStatusCode.InternalServerError);
-                    var envelope = new ApiResponse(false, "An internal server error occurred.", new[] { ex.Message });
+                    var statusCode = exception switch
+                    {
+                        KeyNotFoundException => HttpStatusCode.NotFound,
+                        InvalidOperationException => HttpStatusCode.BadRequest,
+                        UnauthorizedAccessException => HttpStatusCode.Unauthorized,
+                        _ => HttpStatusCode.InternalServerError,
+                    };
+
+                    var message = exception switch
+                    {
+                        KeyNotFoundException => exception.Message,
+                        InvalidOperationException => exception.Message,
+                        UnauthorizedAccessException => "Authentication is required to access this resource.",
+                        _ => "An internal server error occurred.",
+                    };
+
+                    var response = request.CreateResponse(statusCode);
+                    var envelope = new ApiResponse(false, message, new[] { exception.Message }, request.GetOrCreateCorrelationId());
                     
                     await response.WriteStringAsync(JsonSerializer.Serialize(envelope));
                     context.GetInvocationResult().Value = response;

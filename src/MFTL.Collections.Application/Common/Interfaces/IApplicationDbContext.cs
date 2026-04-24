@@ -11,6 +11,7 @@ public interface IApplicationDbContext
     DbSet<Contributor> Contributors { get; }
     DbSet<Contribution> Contributions { get; }
     DbSet<Payment> Payments { get; }
+    DbSet<Receipt> Receipts { get; }
     DbSet<User> Users { get; }
     DbSet<UserScopeAssignment> UserScopeAssignments { get; }
 

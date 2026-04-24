@@ -1,17 +1,36 @@
 using MFTL.Collections.Application.Common.Interfaces;
 using MediatR;
-using MFTL.Collections.Domain.Entities;
+using MFTL.Collections.Contracts.Responses;
 using Microsoft.EntityFrameworkCore;
 
 namespace MFTL.Collections.Application.Features.Contributions.Queries.GetContributionById;
 
-public record GetContributionByIdQuery(Guid Id) : IRequest<Contribution?>;
+public record GetContributionByIdQuery(Guid Id) : IRequest<ContributionDto>;
 
-public class GetContributionByIdQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<GetContributionByIdQuery, Contribution?>
+public class GetContributionByIdQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<GetContributionByIdQuery, ContributionDto>
 {
-    public async Task<Contribution?> Handle(GetContributionByIdQuery request, CancellationToken cancellationToken)
+    public async Task<ContributionDto> Handle(GetContributionByIdQuery request, CancellationToken cancellationToken)
     {
-        return await dbContext.Contributions
+        var contribution = await dbContext.Contributions
+            .Include(c => c.Receipt)
             .FirstOrDefaultAsync(c => c.Id == request.Id, cancellationToken);
+
+        if (contribution == null)
+        {
+            throw new KeyNotFoundException("Contribution not found.");
+        }
+
+        return new ContributionDto(
+            contribution.Id,
+            contribution.EventId,
+            contribution.RecipientFundId,
+            contribution.Amount,
+            contribution.Currency,
+            contribution.ContributorName,
+            contribution.Method,
+            contribution.Status.ToString(),
+            contribution.PaymentId,
+            contribution.Receipt?.Id,
+            contribution.Note);
     }
 }

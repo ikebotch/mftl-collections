@@ -23,6 +23,12 @@ public enum PaymentStatus
     Reversed
 }
 
+public enum ReceiptStatus
+{
+    Issued,
+    Voided
+}
+
 public enum ReconciliationStatus
 {
     Pending,
