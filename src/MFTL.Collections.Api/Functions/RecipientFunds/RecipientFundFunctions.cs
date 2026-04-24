@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using MediatR;
+using MFTL.Collections.Api.Extensions;
 using MFTL.Collections.Contracts.Requests;
 using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Application.Features.RecipientFunds.Commands.CreateRecipientFund;
@@ -19,7 +20,7 @@ public class RecipientFundFunctions(IMediator mediator)
         var body = await new StreamReader(req.Body).ReadToEndAsync();
         var request = JsonSerializer.Deserialize<CreateRecipientFundRequest>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         
-        if (request == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body."));
+        if (request == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body.", CorrelationId: req.GetOrCreateCorrelationId()));
 
         var result = await mediator.Send(new CreateRecipientFundCommand(
             request.EventId, 
@@ -28,7 +29,7 @@ public class RecipientFundFunctions(IMediator mediator)
             request.TargetAmount, 
             request.Metadata));
             
-        return new OkObjectResult(new ApiResponse<Guid>(true, "Recipient fund created.", result));
+        return new OkObjectResult(new ApiResponse<Guid>(true, "Recipient fund created.", result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
     [Function("ListRecipientFundsByEvent")]
@@ -36,7 +37,7 @@ public class RecipientFundFunctions(IMediator mediator)
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.RecipientFunds.ListByEvent)] HttpRequest req, Guid eventId)
     {
         var result = await mediator.Send(new ListRecipientFundsByEventQuery(eventId));
-        return new OkObjectResult(new ApiResponse<IEnumerable<RecipientFundDto>>(true, Data: result));
+        return new OkObjectResult(new ApiResponse<IEnumerable<RecipientFundDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 }
 

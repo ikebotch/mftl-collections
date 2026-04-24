@@ -26,12 +26,14 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IScopeAccessService, ScopeAccessService>();
         
+        services.AddScoped<FunctionHttpRequestAccessor>();
         services.AddScoped<TenantContext>();
         services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
         
         services.AddScoped<IPaymentOrchestrator, PaymentOrchestrator>();
         services.AddScoped<IPaymentWebhookProcessor, PaymentWebhookProcessor>();
         services.AddScoped<IContributionSettlementService, ContributionSettlementService>();
+        services.AddScoped<IReceiptNumberGenerator, ReceiptNumberGenerator>();
         
         services.AddScoped<IPaymentProvider, StripePaymentProvider>();
         services.AddScoped<ITenantResolver, HeaderTenantResolver>();
@@ -52,6 +54,7 @@ public static class DependencyInjection
             
             services.AddScoped<IApplicationDbContext>(provider => 
                 provider.GetRequiredService<CollectionsDbContext>());
+            services.AddHostedService<ReceiptSchemaBootstrapper>();
         }
 
         // Additional services for payments and dashboards

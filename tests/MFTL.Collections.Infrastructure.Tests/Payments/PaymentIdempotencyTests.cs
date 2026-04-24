@@ -25,6 +25,10 @@ public class PaymentIdempotencyTests
         var providerMock = new Mock<IPaymentProvider>();
         var tenantContextMock = new Mock<ITenantContext>();
         tenantContextMock.Setup(t => t.TenantId).Returns(Guid.NewGuid());
+        tenantContextMock.Setup(t => t.IsPlatformContext).Returns(false);
+        settlementMock
+            .Setup(s => s.SettleContributionAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ContributionSettlementResult(Guid.NewGuid(), Guid.NewGuid()));
 
         providerMock.Setup(p => p.ProviderName).Returns("Stripe");
         providerMock.Setup(p => p.ParseWebhook(It.IsAny<string>()))

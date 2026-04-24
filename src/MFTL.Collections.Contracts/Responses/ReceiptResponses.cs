@@ -1,0 +1,36 @@
+namespace MFTL.Collections.Contracts.Responses;
+
+public record ReceiptDto(
+    Guid Id,
+    string ReceiptNumber,
+    string Status,
+    DateTimeOffset IssuedAt,
+    Guid TenantId,
+    Guid EventId,
+    string EventTitle,
+    Guid RecipientFundId,
+    string RecipientFundName,
+    Guid ContributionId,
+    Guid? PaymentId,
+    Guid? RecordedByUserId,
+    decimal Amount,
+    string Currency,
+    string ContributorName,
+    string ContributionStatus,
+    string PaymentStatus,
+    string PaymentMethod,
+    string? Note);
+
+public record ReceiptListItemDto(
+    Guid Id,
+    string ReceiptNumber,
+    string Status,
+    DateTimeOffset IssuedAt,
+    string EventTitle,
+    string RecipientFundName,
+    decimal Amount,
+    string Currency,
+    string ContributorName,
+    string ContributionStatus,
+    string PaymentStatus,
+    string PaymentMethod);
