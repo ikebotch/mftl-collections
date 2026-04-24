@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using MediatR;
+using MFTL.Collections.Api.Extensions;
 using MFTL.Collections.Contracts.Requests;
 using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Application.Features.Events.Commands.CreateEvent;
@@ -23,12 +24,12 @@ public class CreateEventFunction(IMediator mediator, ILogger<CreateEventFunction
 
         if (createEventRequest == null)
         {
-            return new BadRequestObjectResult(new ApiResponse(false, "Invalid request body."));
+            return new BadRequestObjectResult(new ApiResponse(false, "Invalid request body.", CorrelationId: req.GetOrCreateCorrelationId()));
         }
 
         var command = new CreateEventCommand(createEventRequest.Title, createEventRequest.Description, createEventRequest.EventDate);
         var result = await mediator.Send(command);
 
-        return new OkObjectResult(new ApiResponse<EventDto>(true, "Event created successfully.", result));
+        return new OkObjectResult(new ApiResponse<EventDto>(true, "Event created successfully.", result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 }

@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Azure.Functions.Worker.Http;
+using MFTL.Collections.Api.Extensions;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Infrastructure.Configuration;
@@ -87,17 +88,7 @@ public static class TenantRequestPolicy
             false,
             resolution.Message,
             resolution.Errors,
-            TryGetCorrelationId(request)));
+            request.GetOrCreateCorrelationId()));
         return response;
-    }
-
-    private static string? TryGetCorrelationId(HttpRequestData request)
-    {
-        if (request.Headers.TryGetValues("x-correlation-id", out var correlationHeaderValues))
-        {
-            return correlationHeaderValues.FirstOrDefault();
-        }
-
-        return null;
     }
 }

@@ -16,6 +16,7 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
     public DbSet<Contributor> Contributors => Set<Contributor>();
     public DbSet<Contribution> Contributions => Set<Contribution>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UserScopeAssignment> UserScopeAssignments => Set<UserScopeAssignment>();
 
