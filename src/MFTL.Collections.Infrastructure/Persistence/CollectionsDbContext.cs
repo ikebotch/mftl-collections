@@ -47,8 +47,10 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
         var tenantIdProperty = typeof(ITenantContext).GetProperty(nameof(ITenantContext.TenantId));
         var tenantId = Expression.Property(accessor, tenantIdProperty!);
         
-        // Handle nullable Guid comparison
-        var equality = Expression.Equal(property, Expression.Convert(tenantId, typeof(Guid)));
+        // Compare as Guid? to handle cases where ITenantContext.TenantId is null
+        var propertyAsNullable = Expression.Convert(property, typeof(Guid?));
+        var equality = Expression.Equal(propertyAsNullable, tenantId);
+        
         return Expression.Lambda(equality, parameter);
     }
 
