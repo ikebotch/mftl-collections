@@ -39,6 +39,14 @@ public class ContributionFunctions(IMediator mediator)
         var result = await mediator.Send(new GetContributionByIdQuery(id));
         return new OkObjectResult(new ApiResponse<ContributionDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
+
+    [Function("ListContributions")]
+    public async Task<IActionResult> List(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Contributions.Base)] HttpRequest req)
+    {
+        var result = await mediator.Send(new MFTL.Collections.Application.Features.Contributions.Queries.ListContributions.ListContributionsQuery());
+        return new OkObjectResult(new ApiResponse<IEnumerable<ContributionDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
 }
 
 public record RecordCashContributionRequest(Guid EventId, Guid RecipientFundId, decimal Amount, string? ContributorName, string? Note);

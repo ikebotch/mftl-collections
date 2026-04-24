@@ -45,4 +45,19 @@ public static class ApiRoutes
         public const string Event = Base + "/events/{id}";
         public const string Recipient = Base + "/recipient-funds/{id}";
     }
+
+    public static class Donors
+    {
+        public const string Base = BasePath + "/donors";
+        public const string GetById = Base + "/{id}";
+    }
+
+    public static class Collectors
+    {
+        public const string Base = BasePath + "/collectors";
+        public const string GetById = Base + "/{id}";
+        public const string Me = BasePath + "/collector/me";
+        public const string Assignments = BasePath + "/collector/assignments";
+        public const string History = BasePath + "/collector/history";
+    }
 }

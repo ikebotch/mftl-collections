@@ -71,6 +71,26 @@ public class DataSeederService(IServiceScopeFactory scopeFactory, ILogger<DataSe
         context.RecipientFunds.Add(fund1);
         context.RecipientFunds.Add(fund2);
 
+        // Seed a collector for verification
+        var collectorId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        var collector = new User
+        {
+            Id = collectorId,
+            Name = "Isaac Collector",
+            Email = "isaac@mftl.com",
+            Auth0Id = "auth0|verify-collector", // Match this in dev bypass or headers
+            IsActive = true
+        };
+        context.Users.Add(collector);
+
+        context.UserScopeAssignments.Add(new UserScopeAssignment
+        {
+            UserId = collectorId,
+            ScopeType = ScopeType.Event,
+            TargetId = eventId,
+            Role = "Collector"
+        });
+
         await context.SaveChangesAsync();
         logger.LogInformation("Seeded Tenant: {TenantId}, Event: {Slug}", tenantId, @event.Slug);
     }
