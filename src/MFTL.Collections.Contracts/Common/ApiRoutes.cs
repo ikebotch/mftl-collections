@@ -11,6 +11,7 @@ public static class ApiRoutes
         public const string Base = BasePath + "/events";
         public const string GetById = Base + "/{id}";
         public const string Update = Base + "/{id}";
+        public const string AssignStaff = Base + "/{id}/staff";
     }
 
     public static class RecipientFunds
