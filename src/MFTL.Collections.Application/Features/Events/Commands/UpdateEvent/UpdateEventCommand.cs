@@ -52,9 +52,14 @@ public class UpdateEventCommandHandler(IApplicationDbContext dbContext) : IReque
             ? SlugHelper.Generate(request.Title)
             : request.Slug!;
 
-        if (await dbContext.Events.AnyAsync(x => x.Slug == slug && x.Id != request.Id, cancellationToken))
+        var baseSlug = slug;
+        var counter = 1;
+        while (await dbContext.Events.AnyAsync(x => x.Slug == slug && x.Id != request.Id, cancellationToken))
         {
-            slug = $"{slug}-{Guid.NewGuid():N}"[..Math.Min(slug.Length + 9, 100)];
+            var suffix = $"-{counter++}";
+            slug = baseSlug.Length + suffix.Length > 100 
+                ? baseSlug[..(100 - suffix.Length)] + suffix 
+                : baseSlug + suffix;
         }
 
         @event.Title = request.Title;
