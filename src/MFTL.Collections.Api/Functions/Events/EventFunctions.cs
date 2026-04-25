@@ -52,7 +52,7 @@ public class EventFunctions(IMediator mediator)
 
     [Function("AssignStaffToEvent")]
     public async Task<IActionResult> AssignStaff(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "events/{id}/staff")] HttpRequest req, Guid id)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Events.AssignStaff)] HttpRequest req, Guid id)
     {
         var request = await req.ReadFromJsonAsync<IEnumerable<Guid>>();
         if (request == null) return new BadRequestObjectResult("Invalid request body. Expected a list of User IDs.");
