@@ -2,6 +2,7 @@ using MFTL.Collections.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Contracts.Responses;
+using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Domain.Enums;
 
 namespace MFTL.Collections.Application.Features.Dashboards.Queries.GetEventDashboard;
@@ -46,13 +47,19 @@ public class GetEventDashboardQueryHandler(IApplicationDbContext dbContext) : IR
             ))
             .ToListAsync(cancellationToken);
 
+        var funds = await dbContext.RecipientFunds
+            .Where(f => f.EventId == request.EventId)
+            .Select(f => new FundSummaryDto(f.Id, f.Name, f.CollectedAmount, f.TargetAmount))
+            .ToListAsync(cancellationToken);
+
         return new EventDashboardDto(
             @event.Id,
             @event.Title,
             totals,
             contributionCount,
             donorCount,
-            recentContributions
+            recentContributions,
+            funds
         );
     }
 }

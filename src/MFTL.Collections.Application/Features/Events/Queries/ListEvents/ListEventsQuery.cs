@@ -25,9 +25,9 @@ public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestH
             .ToListAsync(cancellationToken);
 
         var collectorCounts = await dbContext.UserScopeAssignments
-            .Where(a => a.ScopeType == Domain.Entities.ScopeType.Event && eventIds.Contains(a.TargetId) && a.Role == "Collector")
+            .Where(a => a.ScopeType == Domain.Entities.ScopeType.Event && a.TargetId.HasValue && eventIds.Contains(a.TargetId.Value) && a.Role == "Collector")
             .GroupBy(a => a.TargetId)
-            .Select(g => new { EventId = g.Key, Count = g.Count() })
+            .Select(g => new { EventId = g.Key!.Value, Count = g.Count() })
             .ToDictionaryAsync(x => x.EventId, x => x.Count, cancellationToken);
 
         return events.Select(e => 
