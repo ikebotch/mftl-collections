@@ -19,8 +19,7 @@ public class CreateEventFunction(IMediator mediator, ILogger<CreateEventFunction
     {
         logger.LogInformation("Processing CreateEvent request.");
 
-        var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        var createEventRequest = JsonSerializer.Deserialize<CreateEventRequest>(requestBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var createEventRequest = await req.ReadFromJsonAsync<CreateEventRequest>();
 
         if (createEventRequest == null)
         {
