@@ -48,7 +48,9 @@ public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestH
                 e.RecipientFunds.Sum(f => f.TargetAmount),
                 e.RecipientFunds.Count,
                 collectorCounts.GetValueOrDefault(e.Id, 0),
-                e.Slug);
+                e.Slug,
+                e.DisplayImageUrl,
+                e.ReceiptLogoUrl);
         });
     }
 }
