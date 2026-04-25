@@ -27,7 +27,13 @@ public class CreateEventFunction(IMediator mediator, ILogger<CreateEventFunction
             return new BadRequestObjectResult(new ApiResponse(false, "Invalid request body.", CorrelationId: req.GetOrCreateCorrelationId()));
         }
 
-        var command = new CreateEventCommand(createEventRequest.Title, createEventRequest.Description, createEventRequest.EventDate);
+        var command = new CreateEventCommand(
+            createEventRequest.Title, 
+            createEventRequest.Description, 
+            createEventRequest.EventDate,
+            createEventRequest.Slug,
+            createEventRequest.DisplayImageUrl,
+            createEventRequest.ReceiptLogoUrl);
         var result = await mediator.Send(command);
 
         return new OkObjectResult(new ApiResponse<EventDto>(true, "Event created successfully.", result, CorrelationId: req.GetOrCreateCorrelationId()));

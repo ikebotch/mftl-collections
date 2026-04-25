@@ -42,7 +42,9 @@ public class EventFunctions(IMediator mediator)
             request.Description,
             request.EventDate,
             request.IsActive,
-            request.Slug));
+            request.Slug,
+            request.DisplayImageUrl,
+            request.ReceiptLogoUrl));
 
         return new OkObjectResult(new ApiResponse<EventDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
