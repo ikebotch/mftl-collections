@@ -36,7 +36,10 @@ public record EventDashboardDto(
     IEnumerable<CurrencyTotalDto> Totals,
     int ContributionCount,
     int DonorCount,
-    IEnumerable<RecentContributionDto> RecentContributions);
+    IEnumerable<RecentContributionDto> RecentContributions,
+    IEnumerable<FundSummaryDto> Funds);
+
+public record FundSummaryDto(Guid Id, string Name, decimal Collected, decimal Target);
 
 public record SettlementDto(
     Guid Id,

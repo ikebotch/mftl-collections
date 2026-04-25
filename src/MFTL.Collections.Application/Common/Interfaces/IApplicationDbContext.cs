@@ -14,6 +14,7 @@ public interface IApplicationDbContext
     DbSet<Receipt> Receipts { get; }
     DbSet<User> Users { get; }
     DbSet<UserScopeAssignment> UserScopeAssignments { get; }
+    DbSet<Settlement> Settlements { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

@@ -5,11 +5,20 @@ using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Domain.Common;
 using MFTL.Collections.Contracts.Requests;
+using MFTL.Collections.Contracts.Common;
 using Mapster;
 
 namespace MFTL.Collections.Application.Features.Events.Commands.UpdateEvent;
 
-public record UpdateEventCommand(Guid Id, string Title, string Description, DateTimeOffset? EventDate, bool IsActive, string? Slug = null) : IRequest<EventDto>;
+public record UpdateEventCommand(
+    Guid Id, 
+    string Title, 
+    string Description, 
+    DateTimeOffset? EventDate, 
+    bool IsActive, 
+    string? Slug = null,
+    string? DisplayImageUrl = null,
+    string? ReceiptLogoUrl = null) : IRequest<EventDto>;
 
 public class UpdateEventCommandValidator : AbstractValidator<UpdateEventCommand>
 {
@@ -31,6 +40,7 @@ public class UpdateEventCommandHandler(IApplicationDbContext dbContext) : IReque
     public async Task<EventDto> Handle(UpdateEventCommand request, CancellationToken cancellationToken)
     {
         var @event = await dbContext.Events
+            .Include(e => e.RecipientFunds)
             .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
         if (@event == null)
@@ -52,6 +62,8 @@ public class UpdateEventCommandHandler(IApplicationDbContext dbContext) : IReque
         @event.EventDate = request.EventDate;
         @event.IsActive = request.IsActive;
         @event.Slug = slug;
+        @event.DisplayImageUrl = request.DisplayImageUrl;
+        @event.ReceiptLogoUrl = request.ReceiptLogoUrl;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -61,10 +73,12 @@ public class UpdateEventCommandHandler(IApplicationDbContext dbContext) : IReque
             @event.Description,
             @event.EventDate,
             @event.IsActive,
-            0, // These will be filled by a separate query or computed in a real scenario
+            new List<CurrencyTotalDto>(), // Filled by frontend refresh or separate load
+            @event.RecipientFunds.Sum(f => f.TargetAmount),
+            @event.RecipientFunds.Count,
             0,
-            0,
-            0,
-            @event.Slug);
+            @event.Slug,
+            @event.DisplayImageUrl,
+            @event.ReceiptLogoUrl);
     }
 }
