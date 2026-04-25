@@ -37,3 +37,12 @@ public record EventDashboardDto(
     int ContributionCount,
     int DonorCount,
     IEnumerable<RecentContributionDto> RecentContributions);
+
+public record SettlementDto(
+    Guid Id,
+    string CollectorName,
+    decimal Amount,
+    string Currency,
+    string Status,
+    DateTimeOffset Date,
+    string? Note = null);

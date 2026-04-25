@@ -20,6 +20,8 @@ public sealed class Event : BaseTenantEntity
     public string Description { get; set; } = string.Empty;
     public DateTimeOffset? EventDate { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? DisplayImageUrl { get; set; }
+    public string? ReceiptLogoUrl { get; set; }
     public string? Metadata { get; set; }
 
     public ICollection<RecipientFund> RecipientFunds { get; set; } = new List<RecipientFund>();
@@ -85,4 +87,18 @@ public sealed class Receipt : BaseTenantEntity
     public ReceiptStatus Status { get; set; } = ReceiptStatus.Issued;
     public string? Note { get; set; }
     public string? Metadata { get; set; }
+}
+
+public sealed class Settlement : BaseTenantEntity
+{
+    public Guid CollectorId { get; set; }
+    public User Collector { get; set; } = null!;
+    
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "GHS";
+    public DateTimeOffset SettlementDate { get; set; } = DateTimeOffset.UtcNow;
+    public string Status { get; set; } = "Pending"; // Pending, Reviewed, Completed
+    public string? Note { get; set; }
+    public Guid? ReviewedByUserId { get; set; }
+    public User? ReviewedByUser { get; set; }
 }
