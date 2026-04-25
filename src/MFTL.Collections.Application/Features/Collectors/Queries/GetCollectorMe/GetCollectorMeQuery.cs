@@ -16,7 +16,8 @@ public sealed record CollectorMeDto(
     int ReceiptsIssuedToday,
     DateTimeOffset? LastActiveAt,
     bool HasAssignments,
-    string? BlockedReason);
+    string? BlockedReason,
+    IEnumerable<Guid>? EventIds = null);
 
 public record GetCollectorMeQuery(string? ExplicitUserId = null) : IRequest<CollectorMeDto>;
 
@@ -80,6 +81,7 @@ public class GetCollectorMeQueryHandler(
             hasAssignments,
             user.IsActive
                 ? (hasAssignments ? null : "No event and fund assignments are active for this collector.")
-                : "Collector is inactive.");
+                : "Collector is inactive.",
+            assignments.Where(a => a.ScopeType == ScopeType.Event).Select(a => a.TargetId ?? Guid.Empty));
     }
 }
