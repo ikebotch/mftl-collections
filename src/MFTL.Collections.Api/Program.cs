@@ -5,6 +5,7 @@ using MFTL.Collections.Application.DependencyInjection;
 using MFTL.Collections.Infrastructure.DependencyInjection;
 using MFTL.Collections.Api.Middleware;
 using MFTL.Collections.Api.Extensions;
+using MFTL.Collections.Api.Infrastructure.Json;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication(worker =>
@@ -17,6 +18,12 @@ var host = new HostBuilder()
         services.AddApplication();
         services.AddInfrastructure(context.Configuration);
         
+        services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.PropertyNameCaseInsensitive = true;
+            options.SerializerOptions.Converters.Add(new FlexibleDateTimeOffsetConverter());
+        });
+
         services.AddCollectionsOpenApi();
     })
     .Build();

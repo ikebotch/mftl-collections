@@ -73,4 +73,17 @@ public static class ApiRoutes
         public const string Base = BasePath + "/users";
         public const string GetById = Base + "/{id}";
     }
+
+    public static class Settlements
+    {
+        public const string Base = BasePath + "/settlements";
+        public const string GetById = Base + "/{id}";
+    }
+
+    public static class Storefront
+    {
+        public const string Base = BasePath + "/storefront";
+        public const string GetEventBySlug = Base + "/events/{slug}";
+        public const string ListFundsByEventSlug = Base + "/events/{slug}/funds";
+    }
 }
