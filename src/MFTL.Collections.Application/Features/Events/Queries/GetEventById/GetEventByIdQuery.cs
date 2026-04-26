@@ -43,6 +43,7 @@ public class GetEventByIdQueryHandler(IApplicationDbContext dbContext) : IReques
             collectorCount,
             e.Slug,
             e.DisplayImageUrl,
-            e.ReceiptLogoUrl);
+            e.ReceiptLogoUrl,
+            e.BranchId);
     }
 }

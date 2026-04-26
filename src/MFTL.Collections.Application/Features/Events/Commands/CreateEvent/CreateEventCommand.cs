@@ -14,6 +14,7 @@ public record CreateEventCommand(
     string Title, 
     string Description, 
     DateTimeOffset? EventDate, 
+    Guid BranchId,
     string? Slug = null,
     string? DisplayImageUrl = null,
     string? ReceiptLogoUrl = null) : IRequest<EventDto>;
@@ -24,6 +25,7 @@ public class CreateEventCommandValidator : AbstractValidator<CreateEventCommand>
     {
         RuleFor(x => x.Title).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.BranchId).NotEmpty().WithMessage("An operational hub (branch) must be selected.");
         RuleFor(x => x.Slug)
             .MaximumLength(100)
             .Matches(@"^[a-z0-9-]*$")
@@ -59,7 +61,8 @@ public class CreateEventCommandHandler(IApplicationDbContext dbContext) : IReque
             EventDate = request.EventDate,
             Slug = slug,
             DisplayImageUrl = request.DisplayImageUrl,
-            ReceiptLogoUrl = request.ReceiptLogoUrl
+            ReceiptLogoUrl = request.ReceiptLogoUrl,
+            BranchId = request.BranchId
         };
 
         dbContext.Events.Add(@event);

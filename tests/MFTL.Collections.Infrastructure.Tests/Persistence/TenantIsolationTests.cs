@@ -71,7 +71,7 @@ public class TenantIsolationTests
             CancellationToken.None);
 
         await new CreateRecipientFundCommandHandler(seedContext).Handle(
-            new CreateRecipientFundCommand(createdEvent.Id, "Education Fund", "Books and fees", 2500m, null),
+            new CreateRecipientFundCommand(createdEvent.Id, "Education Fund", "Books and fees", 2500m, true, null),
             CancellationToken.None);
 
         await using var readContext = CreateDbContext(databaseName, tenantId);
@@ -96,7 +96,7 @@ public class TenantIsolationTests
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
-            new CreateRecipientFundCommand(createdEvent.Id, "Medical Fund", "Emergency support", 5000m, null),
+            new CreateRecipientFundCommand(createdEvent.Id, "Medical Fund", "Emergency support", 5000m, true, null),
             CancellationToken.None);
 
         var collector = await CreateCollectorAsync(dbContext, createdEvent.Id, fundId, collectorAuth0Id);
@@ -193,7 +193,7 @@ public class TenantIsolationTests
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
-            new CreateRecipientFundCommand(createdEvent.Id, "Medical Fund", "Emergency support", 5000m, null),
+            new CreateRecipientFundCommand(createdEvent.Id, "Medical Fund", "Emergency support", 5000m, true, null),
             CancellationToken.None);
 
         await CreateCollectorAsync(dbContext, null, null, collectorAuth0Id);
@@ -236,7 +236,7 @@ public class TenantIsolationTests
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
-            new CreateRecipientFundCommand(createdEvent.Id, "Medical Fund", "Emergency support", 5000m, null),
+            new CreateRecipientFundCommand(createdEvent.Id, "Medical Fund", "Emergency support", 5000m, true, null),
             CancellationToken.None);
 
         await CreateCollectorAsync(dbContext, createdEvent.Id, fundId, collectorAuth0Id, isActive: false);
@@ -278,7 +278,7 @@ public class TenantIsolationTests
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
-            new CreateRecipientFundCommand(createdEvent.Id, "Medical Fund", "Emergency support", 5000m, null),
+            new CreateRecipientFundCommand(createdEvent.Id, "Medical Fund", "Emergency support", 5000m, true, null),
             CancellationToken.None);
 
         await CreateCollectorAsync(dbContext, createdEvent.Id, fundId, "collector-one");
@@ -350,6 +350,7 @@ public class TenantIsolationTests
     private sealed class TestTenantContext : ITenantContext
     {
         public Guid? TenantId { get; init; }
+        public Guid? BranchId { get; init; }
         public string? TenantIdentifier { get; init; }
         public bool IsPlatformContext { get; init; }
     }
@@ -376,7 +377,7 @@ public class TenantIsolationTests
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
-            new CreateRecipientFundCommand(createdEvent.Id, "Support Fund", "Receipt support", 1000m, null),
+            new CreateRecipientFundCommand(createdEvent.Id, "Support Fund", "Receipt support", 1000m, true, null),
             CancellationToken.None);
 
         await CreateCollectorAsync(dbContext, createdEvent.Id, fundId, collectorAuth0Id);

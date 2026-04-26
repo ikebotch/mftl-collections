@@ -30,6 +30,7 @@ public class CreateEventFunction(IMediator mediator, ILogger<CreateEventFunction
             createEventRequest.Title, 
             createEventRequest.Description, 
             createEventRequest.EventDate,
+            createEventRequest.BranchId,
             createEventRequest.Slug,
             createEventRequest.DisplayImageUrl,
             createEventRequest.ReceiptLogoUrl);

@@ -21,6 +21,9 @@ public class CreateRecipientFundCommandHandler(IApplicationDbContext dbContext) 
 {
     public async Task<Guid> Handle(CreateRecipientFundCommand request, CancellationToken cancellationToken)
     {
+        var @event = await dbContext.Events.FindAsync(new object[] { request.EventId }, cancellationToken);
+        if (@event == null) throw new KeyNotFoundException("Event not found.");
+
         var fund = new RecipientFund
         {
             EventId = request.EventId,
@@ -28,7 +31,8 @@ public class CreateRecipientFundCommandHandler(IApplicationDbContext dbContext) 
             Description = request.Description ?? string.Empty,
             TargetAmount = request.TargetAmount,
             IsActive = request.IsActive,
-            Metadata = request.Metadata
+            Metadata = request.Metadata,
+            BranchId = @event.BranchId
         };
 
         dbContext.RecipientFunds.Add(fund);

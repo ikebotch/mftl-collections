@@ -16,6 +16,7 @@ public record UpdateEventCommand(
     string Description, 
     DateTimeOffset? EventDate, 
     bool IsActive, 
+    Guid BranchId,
     string? Slug = null,
     string? DisplayImageUrl = null,
     string? ReceiptLogoUrl = null) : IRequest<EventDto>;
@@ -27,6 +28,7 @@ public class UpdateEventCommandValidator : AbstractValidator<UpdateEventCommand>
         RuleFor(x => x.Id).NotEmpty();
         RuleFor(x => x.Title).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.BranchId).NotEmpty().WithMessage("An operational hub (branch) must be selected.");
         RuleFor(x => x.Slug)
             .MaximumLength(100)
             .Matches(@"^[a-z0-9-]*$")
@@ -69,6 +71,7 @@ public class UpdateEventCommandHandler(IApplicationDbContext dbContext) : IReque
         @event.Slug = slug;
         @event.DisplayImageUrl = request.DisplayImageUrl;
         @event.ReceiptLogoUrl = request.ReceiptLogoUrl;
+        @event.BranchId = request.BranchId;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

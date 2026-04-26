@@ -23,6 +23,97 @@ namespace MFTL.Collections.Infrastructure.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "uuid-ossp");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.AuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EntityName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AuditLogs");
+                });
+
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.Branch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Identifier")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Location")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("Branches");
+                });
+
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Contribution", b =>
                 {
                     b.Property<Guid>("Id")
@@ -32,6 +123,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("ContributorId")
                         .HasColumnType("uuid");
@@ -83,6 +177,8 @@ namespace MFTL.Collections.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("ContributorId");
 
                     b.HasIndex("EventId");
@@ -103,6 +199,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -136,6 +235,8 @@ namespace MFTL.Collections.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BranchId");
+
                     b.ToTable("Contributors");
                 });
 
@@ -143,6 +244,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -191,6 +295,8 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("TenantId");
 
@@ -300,6 +406,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("ContributionId")
                         .HasColumnType("uuid");
 
@@ -352,6 +461,8 @@ namespace MFTL.Collections.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("ContributionId")
                         .IsUnique();
 
@@ -376,6 +487,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("CollectedAmount")
@@ -418,6 +532,8 @@ namespace MFTL.Collections.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("EventId");
 
                     b.ToTable("RecipientFunds");
@@ -431,6 +547,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
 
                     b.Property<decimal>("Amount")
                         .HasColumnType("numeric");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("CollectorId")
                         .HasColumnType("uuid");
@@ -468,6 +587,8 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("CollectorId");
 
@@ -530,11 +651,20 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("InviteStatus")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsPlatformAdmin")
                         .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSuspended")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
@@ -559,6 +689,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CollectorId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -593,8 +726,23 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.ToTable("UserScopeAssignments");
                 });
 
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.Branch", b =>
+                {
+                    b.HasOne("MFTL.Collections.Domain.Entities.Tenant", null)
+                        .WithMany("Branches")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Contribution", b =>
                 {
+                    b.HasOne("MFTL.Collections.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("MFTL.Collections.Domain.Entities.Contributor", "Contributor")
                         .WithMany()
                         .HasForeignKey("ContributorId");
@@ -616,6 +764,8 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Branch");
+
                     b.Navigation("Contributor");
 
                     b.Navigation("Event");
@@ -625,17 +775,42 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.Navigation("RecipientFund");
                 });
 
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.Contributor", b =>
+                {
+                    b.HasOne("MFTL.Collections.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Event", b =>
                 {
+                    b.HasOne("MFTL.Collections.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("MFTL.Collections.Domain.Entities.Tenant", null)
                         .WithMany("Events")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Branch");
                 });
 
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Receipt", b =>
                 {
+                    b.HasOne("MFTL.Collections.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("MFTL.Collections.Domain.Entities.Contribution", "Contribution")
                         .WithOne("Receipt")
                         .HasForeignKey("MFTL.Collections.Domain.Entities.Receipt", "ContributionId")
@@ -670,6 +845,8 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("Branch");
+
                     b.Navigation("Contribution");
 
                     b.Navigation("Event");
@@ -683,17 +860,31 @@ namespace MFTL.Collections.Infrastructure.Migrations
 
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.RecipientFund", b =>
                 {
+                    b.HasOne("MFTL.Collections.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("MFTL.Collections.Domain.Entities.Event", "Event")
                         .WithMany("RecipientFunds")
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Branch");
+
                     b.Navigation("Event");
                 });
 
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Settlement", b =>
                 {
+                    b.HasOne("MFTL.Collections.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("MFTL.Collections.Domain.Entities.User", "Collector")
                         .WithMany()
                         .HasForeignKey("CollectorId")
@@ -703,6 +894,8 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.HasOne("MFTL.Collections.Domain.Entities.User", "ReviewedByUser")
                         .WithMany()
                         .HasForeignKey("ReviewedByUserId");
+
+                    b.Navigation("Branch");
 
                     b.Navigation("Collector");
 
@@ -744,6 +937,8 @@ namespace MFTL.Collections.Infrastructure.Migrations
 
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Tenant", b =>
                 {
+                    b.Navigation("Branches");
+
                     b.Navigation("Events");
 
                     b.Navigation("Receipts");

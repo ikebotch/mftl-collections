@@ -6,6 +6,7 @@ namespace MFTL.Collections.Application.Common.Interfaces;
 public interface IApplicationDbContext
 {
     DbSet<Tenant> Tenants { get; }
+    DbSet<Branch> Branches { get; }
     DbSet<Event> Events { get; }
     DbSet<RecipientFund> RecipientFunds { get; }
     DbSet<Contributor> Contributors { get; }
@@ -15,6 +16,7 @@ public interface IApplicationDbContext
     DbSet<User> Users { get; }
     DbSet<UserScopeAssignment> UserScopeAssignments { get; }
     DbSet<Settlement> Settlements { get; }
+    DbSet<AuditLog> AuditLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

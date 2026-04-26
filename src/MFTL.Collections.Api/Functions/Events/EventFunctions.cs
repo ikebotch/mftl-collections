@@ -26,7 +26,10 @@ public class EventFunctions(IMediator mediator)
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Events.Base)] HttpRequest req)
     {
-        var result = await mediator.Send(new ListEventsQuery());
+        var branchIdStr = req.Query["branchId"];
+        Guid? branchId = Guid.TryParse(branchIdStr, out var bid) ? bid : null;
+
+        var result = await mediator.Send(new ListEventsQuery(branchId));
         return new OkObjectResult(new ApiResponse<IEnumerable<EventDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
@@ -43,6 +46,7 @@ public class EventFunctions(IMediator mediator)
             request.Description,
             request.EventDate,
             request.IsActive,
+            request.BranchId,
             request.Slug,
             request.DisplayImageUrl,
             request.ReceiptLogoUrl));

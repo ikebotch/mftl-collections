@@ -35,6 +35,7 @@ public class CollectionsDbContextFactory : IDesignTimeDbContextFactory<Collectio
     private class DesignTimeTenantContext : ITenantContext
     {
         public Guid? TenantId => null;
+        public Guid? BranchId => null;
         public string? TenantIdentifier => null;
         public bool IsPlatformContext => true;
     }
