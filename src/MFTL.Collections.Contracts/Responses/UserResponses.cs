@@ -7,7 +7,8 @@ public record UserDto(
     string Role,
     string Status,
     string InviteState,
-    string Scope);
+    string Scope,
+    DateTimeOffset? LastLoginAt);
 
 public record UserDetailDto(
     Guid Id,
@@ -16,11 +17,14 @@ public record UserDetailDto(
     string Name,
     string PhoneNumber,
     string Status,
+    string InviteStatus,
     DateTimeOffset CreatedAt,
+    DateTimeOffset? LastLoginAt,
     IEnumerable<ScopeAssignmentDto> ScopeAssignments);
 
 public record ScopeAssignmentDto(
     Guid Id,
     string Role,
     string ScopeType,
-    Guid? TargetId);
+    Guid? TargetId,
+    string? TargetName);

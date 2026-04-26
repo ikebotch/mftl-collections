@@ -7,13 +7,20 @@ using MFTL.Collections.Domain.Enums;
 
 namespace MFTL.Collections.Application.Features.Events.Queries.ListEvents;
 
-public record ListEventsQuery() : IRequest<IEnumerable<EventDto>>;
+public record ListEventsQuery(Guid? BranchId = null) : IRequest<IEnumerable<EventDto>>;
 
 public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<ListEventsQuery, IEnumerable<EventDto>>
 {
     public async Task<IEnumerable<EventDto>> Handle(ListEventsQuery request, CancellationToken cancellationToken)
     {
-        var events = await dbContext.Events
+        var query = dbContext.Events.AsQueryable();
+
+        if (request.BranchId.HasValue)
+        {
+            query = query.Where(e => e.BranchId == request.BranchId.Value);
+        }
+
+        var events = await query
             .Include(e => e.RecipientFunds)
             .OrderByDescending(e => e.CreatedAt)
             .ToListAsync(cancellationToken);

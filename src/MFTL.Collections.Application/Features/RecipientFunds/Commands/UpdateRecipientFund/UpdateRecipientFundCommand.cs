@@ -26,11 +26,18 @@ public class UpdateRecipientFundCommandHandler(IApplicationDbContext dbContext) 
 
         if (fund == null) return false;
 
+        var @event = await dbContext.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == fund.EventId, cancellationToken);
+        
         fund.Name = request.Name;
         fund.Description = request.Description ?? string.Empty;
         fund.TargetAmount = request.TargetAmount;
         fund.IsActive = request.IsActive;
         fund.Metadata = request.Metadata;
+        
+        if (@event != null)
+        {
+            fund.BranchId = @event.BranchId;
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

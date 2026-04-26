@@ -75,12 +75,27 @@ public static class ApiRoutes
         public const string Base = BasePath + "/users";
         public const string GetById = Base + "/{id}";
         public const string Update = Base + "/{id}";
+        public const string Invite = Base + "/invite";
+        public const string UpdateStatus = Base + "/{id}/status";
+        public const string Audit = Base + "/{id}/audit";
     }
 
     public static class Settlements
     {
         public const string Base = BasePath + "/settlements";
         public const string GetById = Base + "/{id}";
+    }
+
+    public static class Branches
+    {
+        public const string Base = BasePath + "/branches";
+        public const string GetById = Base + "/{id}";
+        public const string Update = Base + "/{id}";
+    }
+
+    public static class Tenants
+    {
+        public const string Base = BasePath + "/tenants";
     }
 
     public static class Storefront

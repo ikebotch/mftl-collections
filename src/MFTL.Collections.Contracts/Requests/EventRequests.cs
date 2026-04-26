@@ -6,6 +6,7 @@ public record CreateEventRequest(
     string Title,
     string Description,
     DateTimeOffset? EventDate,
+    Guid BranchId,
     string? Slug = null,
     string? DisplayImageUrl = null,
     string? ReceiptLogoUrl = null);
@@ -15,6 +16,7 @@ public record UpdateEventRequest(
     string Description,
     DateTimeOffset? EventDate,
     bool IsActive,
+    Guid BranchId,
     string? Slug = null,
     string? DisplayImageUrl = null,
     string? ReceiptLogoUrl = null);
@@ -31,4 +33,5 @@ public record EventDto(
     int CollectorCount = 0,
     string? Slug = null,
     string? DisplayImageUrl = null,
-    string? ReceiptLogoUrl = null);
+    string? ReceiptLogoUrl = null,
+    Guid BranchId = default);

@@ -11,6 +11,7 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
     private readonly ITenantContext _tenantContext = tenantContext;
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<RecipientFund> RecipientFunds => Set<RecipientFund>();
     public DbSet<Contributor> Contributors => Set<Contributor>();
@@ -20,6 +21,7 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
     public DbSet<Settlement> Settlements => Set<Settlement>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UserScopeAssignment> UserScopeAssignments => Set<UserScopeAssignment>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

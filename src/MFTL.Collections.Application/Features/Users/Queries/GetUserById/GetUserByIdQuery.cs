@@ -20,20 +20,45 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
             throw new KeyNotFoundException("User not found.");
         }
 
+        var scopeDtos = new List<ScopeAssignmentDto>();
+        foreach (var a in user.ScopeAssignments)
+        {
+            string? targetName = null;
+            if (a.ScopeType == Domain.Entities.ScopeType.Event && a.TargetId.HasValue)
+            {
+                targetName = await dbContext.Events.Where(e => e.Id == a.TargetId).Select(e => e.Title).FirstOrDefaultAsync(cancellationToken);
+            }
+            else if (a.ScopeType == Domain.Entities.ScopeType.RecipientFund && a.TargetId.HasValue)
+            {
+                targetName = await dbContext.RecipientFunds.Where(f => f.Id == a.TargetId).Select(f => f.Name).FirstOrDefaultAsync(cancellationToken);
+            }
+            else if (a.ScopeType == Domain.Entities.ScopeType.Branch && a.TargetId.HasValue)
+            {
+                targetName = await dbContext.Branches.Where(b => b.Id == a.TargetId).Select(b => b.Name).FirstOrDefaultAsync(cancellationToken);
+            }
+            else if (a.ScopeType == Domain.Entities.ScopeType.Tenant && a.TargetId.HasValue)
+            {
+                targetName = await dbContext.Tenants.Where(t => t.Id == a.TargetId).Select(t => t.Name).FirstOrDefaultAsync(cancellationToken);
+            }
+
+            scopeDtos.Add(new ScopeAssignmentDto(
+                a.Id,
+                a.Role,
+                a.ScopeType.ToString(),
+                a.TargetId,
+                targetName));
+        }
+
         return new UserDetailDto(
             user.Id,
             user.Auth0Id,
             user.Email,
             user.Name,
             user.PhoneNumber,
-            user.IsActive ? "Active" : "Inactive",
+            user.IsSuspended ? "Suspended" : (user.IsActive ? "Active" : "Inactive"),
+            user.InviteStatus.ToString(),
             user.CreatedAt,
-            user.ScopeAssignments.Select(a => new ScopeAssignmentDto(
-                a.Id,
-                a.Role,
-                a.ScopeType.ToString(),
-                a.TargetId
-            ))
-        );
+            user.LastLoginAt,
+            scopeDtos);
     }
 }
