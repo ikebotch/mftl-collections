@@ -108,3 +108,35 @@ public sealed class CompositeTenantResolver(IEnumerable<ITenantResolver> resolve
         return new TenantResolutionResult(null, null, false);
     }
 }
+
+public sealed class BranchContext : IBranchContext
+{
+    public Guid? BranchId { get; private set; }
+
+    public void UseBranch(Guid branchId)
+    {
+        BranchId = branchId;
+    }
+
+    public void Clear()
+    {
+        BranchId = null;
+    }
+}
+
+public sealed class HeaderBranchResolver(FunctionHttpRequestAccessor requestAccessor)
+{
+    public Task<Guid?> ResolveAsync()
+    {
+        if (requestAccessor.Headers.TryGetValue("X-Branch-Id", out var branchIdValues))
+        {
+            var branchIdStr = branchIdValues.FirstOrDefault();
+            if (Guid.TryParse(branchIdStr, out var branchId))
+            {
+                return Task.FromResult<Guid?>(branchId);
+            }
+        }
+
+        return Task.FromResult<Guid?>(null);
+    }
+}

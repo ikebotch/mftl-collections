@@ -28,7 +28,9 @@ public sealed class UserScopeAssignment : BaseEntity
 public enum ScopeType
 {
     Platform,
-    Tenant,
+    Organisation, // Alias for Tenant
+    Branch,
     Event,
-    RecipientFund
+    RecipientFund,
+    CollectorSelf
 }

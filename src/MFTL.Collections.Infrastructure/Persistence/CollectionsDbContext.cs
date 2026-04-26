@@ -6,9 +6,13 @@ using System.Linq.Expressions;
 
 namespace MFTL.Collections.Infrastructure.Persistence;
 
-public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> options, ITenantContext tenantContext) : DbContext(options), IApplicationDbContext
+public sealed class CollectionsDbContext(
+    DbContextOptions<CollectionsDbContext> options, 
+    ITenantContext tenantContext,
+    IBranchContext branchContext) : DbContext(options), IApplicationDbContext
 {
     private readonly ITenantContext _tenantContext = tenantContext;
+    private readonly IBranchContext _branchContext = branchContext;
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Event> Events => Set<Event>();
@@ -27,9 +31,13 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
-            if (typeof(BaseTenantEntity).IsAssignableFrom(entityType.ClrType))
+            var isTenantEntity = typeof(BaseTenantEntity).IsAssignableFrom(entityType.ClrType);
+            var branchIdProperty = entityType.FindProperty("BranchId");
+            var hasBranchId = branchIdProperty != null && (branchIdProperty.ClrType == typeof(Guid) || branchIdProperty.ClrType == typeof(Guid?));
+
+            if (isTenantEntity || hasBranchId)
             {
-                modelBuilder.Entity(entityType.ClrType).HasQueryFilter(CreateTenantFilter(entityType.ClrType));
+                modelBuilder.Entity(entityType.ClrType).HasQueryFilter(CreateCombinedFilter(entityType.ClrType, hasBranchId));
             }
         }
         
@@ -37,24 +45,62 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
         modelBuilder.HasPostgresExtension("uuid-ossp");
     }
 
-    private LambdaExpression CreateTenantFilter(Type type)
+    private LambdaExpression CreateCombinedFilter(Type type, bool hasBranchId)
     {
         var parameter = Expression.Parameter(type, "x");
-        var property = Expression.Property(parameter, nameof(BaseTenantEntity.TenantId));
         
-        var context = Expression.Constant(this);
-        var tenantContextField = typeof(CollectionsDbContext).GetField("_tenantContext", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var accessor = Expression.Field(context, tenantContextField!);
-        var tenantIdProperty = typeof(ITenantContext).GetProperty(nameof(ITenantContext.TenantId));
-        var tenantId = Expression.Property(accessor, tenantIdProperty!);
-        var isPlatformContextProperty = typeof(ITenantContext).GetProperty(nameof(ITenantContext.IsPlatformContext));
-        var isPlatformContext = Expression.Property(accessor, isPlatformContextProperty!);
-        
-        var propertyAsNullable = Expression.Convert(property, typeof(Guid?));
-        var tenantMatch = Expression.Equal(propertyAsNullable, tenantId);
-        var filter = Expression.OrElse(isPlatformContext, tenantMatch);
-        
-        return Expression.Lambda(filter, parameter);
+        // Tenant Filter
+        Expression tenantFilter;
+        if (typeof(BaseTenantEntity).IsAssignableFrom(type))
+        {
+            var property = Expression.Property(parameter, nameof(BaseTenantEntity.TenantId));
+            var context = Expression.Constant(this);
+            var tenantContextField = typeof(CollectionsDbContext).GetField("_tenantContext", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var accessor = Expression.Field(context, tenantContextField!);
+            var tenantIdProperty = typeof(ITenantContext).GetProperty(nameof(ITenantContext.TenantId));
+            var tenantId = Expression.Property(accessor, tenantIdProperty!);
+            var isPlatformContextProperty = typeof(ITenantContext).GetProperty(nameof(ITenantContext.IsPlatformContext));
+            var isPlatformContext = Expression.Property(accessor, isPlatformContextProperty!);
+            
+            var propertyAsNullable = Expression.Convert(property, typeof(Guid?));
+            var tenantMatch = Expression.Equal(propertyAsNullable, tenantId);
+            tenantFilter = Expression.OrElse(isPlatformContext, tenantMatch);
+        }
+        else
+        {
+            tenantFilter = Expression.Constant(true);
+        }
+
+        // Branch Filter
+        if (hasBranchId)
+        {
+            var branchProperty = Expression.Property(parameter, "BranchId");
+            var context = Expression.Constant(this);
+            var branchContextField = typeof(CollectionsDbContext).GetField("_branchContext", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var accessor = Expression.Field(context, branchContextField!);
+            var branchIdProperty = typeof(IBranchContext).GetProperty(nameof(IBranchContext.BranchId));
+            var branchId = Expression.Property(accessor, branchIdProperty!);
+            
+            // If branchId in context is NULL, we don't filter by branch (allow all branches for the tenant)
+            var branchIdIsNull = Expression.Equal(branchId, Expression.Constant(null, typeof(Guid?)));
+            
+            Expression branchMatch;
+            if (branchProperty.Type == typeof(Guid?))
+            {
+                branchMatch = Expression.Equal(branchProperty, branchId);
+            }
+            else
+            {
+                // For non-nullable Guid properties, we use the value if not null
+                // EF Core handles the conversion in the generated SQL
+                branchMatch = Expression.Equal(branchProperty, Expression.Convert(branchId, typeof(Guid)));
+            }
+            
+            var branchFilter = Expression.OrElse(branchIdIsNull, branchMatch);
+            return Expression.Lambda(Expression.AndAlso(tenantFilter, branchFilter), parameter);
+        }
+
+        return Expression.Lambda(tenantFilter, parameter);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
