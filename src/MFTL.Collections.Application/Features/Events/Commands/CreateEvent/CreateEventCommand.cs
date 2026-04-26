@@ -5,11 +5,19 @@ using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Domain.Common;
 using MFTL.Collections.Contracts.Requests;
+using MFTL.Collections.Contracts.Common;
 using Mapster;
 
 namespace MFTL.Collections.Application.Features.Events.Commands.CreateEvent;
 
-public record CreateEventCommand(string Title, string Description, DateTimeOffset? EventDate, string? Slug = null) : IRequest<EventDto>;
+public record CreateEventCommand(
+    string Title, 
+    string Description, 
+    DateTimeOffset? EventDate, 
+    Guid BranchId,
+    string? Slug = null,
+    string? DisplayImageUrl = null,
+    string? ReceiptLogoUrl = null) : IRequest<EventDto>;
 
 public class CreateEventCommandValidator : AbstractValidator<CreateEventCommand>
 {
@@ -17,6 +25,7 @@ public class CreateEventCommandValidator : AbstractValidator<CreateEventCommand>
     {
         RuleFor(x => x.Title).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.BranchId).NotEmpty().WithMessage("An operational hub (branch) must be selected.");
         RuleFor(x => x.Slug)
             .MaximumLength(100)
             .Matches(@"^[a-z0-9-]*$")
@@ -51,6 +60,9 @@ public class CreateEventCommandHandler(IApplicationDbContext dbContext) : IReque
             Description = request.Description,
             EventDate = request.EventDate,
             Slug = slug,
+            DisplayImageUrl = request.DisplayImageUrl,
+            ReceiptLogoUrl = request.ReceiptLogoUrl,
+            BranchId = request.BranchId
         };
 
         dbContext.Events.Add(@event);
@@ -62,10 +74,12 @@ public class CreateEventCommandHandler(IApplicationDbContext dbContext) : IReque
             @event.Description,
             @event.EventDate,
             @event.IsActive,
+            new List<CurrencyTotalDto>(),
             0,
             0,
             0,
-            0,
-            @event.Slug);
+            @event.Slug,
+            @event.DisplayImageUrl,
+            @event.ReceiptLogoUrl);
     }
 }

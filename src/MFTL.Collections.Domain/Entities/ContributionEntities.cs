@@ -10,7 +10,16 @@ public sealed class Tenant : BaseEntity
     public bool IsActive { get; set; } = true;
     
     public ICollection<Event> Events { get; set; } = new List<Event>();
+    public ICollection<Branch> Branches { get; set; } = new List<Branch>();
     public ICollection<Receipt> Receipts { get; set; } = new List<Receipt>();
+}
+
+public sealed class Branch : BaseTenantEntity
+{
+    public string Name { get; set; } = string.Empty;
+    public string Identifier { get; set; } = string.Empty;
+    public string? Location { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 public sealed class Event : BaseTenantEntity
@@ -20,7 +29,11 @@ public sealed class Event : BaseTenantEntity
     public string Description { get; set; } = string.Empty;
     public DateTimeOffset? EventDate { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? DisplayImageUrl { get; set; }
+    public string? ReceiptLogoUrl { get; set; }
     public string? Metadata { get; set; }
+    public Guid BranchId { get; set; }
+    public Branch? Branch { get; set; }
 
     public ICollection<RecipientFund> RecipientFunds { get; set; } = new List<RecipientFund>();
     public ICollection<Receipt> Receipts { get; set; } = new List<Receipt>();
@@ -34,7 +47,10 @@ public sealed class RecipientFund : BaseTenantEntity
     public string Description { get; set; } = string.Empty;
     public decimal TargetAmount { get; set; }
     public decimal CollectedAmount { get; set; }
+    public bool IsActive { get; set; } = true;
     public string? Metadata { get; set; }
+    public Guid BranchId { get; set; }
+    public Branch? Branch { get; set; }
     public ICollection<Receipt> Receipts { get; set; } = new List<Receipt>();
 }
 
@@ -44,6 +60,8 @@ public sealed class Contributor : BaseTenantEntity
     public string Email { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
     public bool IsAnonymous { get; set; }
+    public Guid BranchId { get; set; }
+    public Branch? Branch { get; set; }
 }
 
 public sealed class Contribution : BaseTenantEntity
@@ -64,6 +82,8 @@ public sealed class Contribution : BaseTenantEntity
     public Payment? Payment { get; set; }
     public string? Note { get; set; }
     public string? Reference { get; set; }
+    public Guid BranchId { get; set; }
+    public Branch? Branch { get; set; }
     public Receipt? Receipt { get; set; }
 }
 
@@ -85,4 +105,22 @@ public sealed class Receipt : BaseTenantEntity
     public ReceiptStatus Status { get; set; } = ReceiptStatus.Issued;
     public string? Note { get; set; }
     public string? Metadata { get; set; }
+    public Guid BranchId { get; set; }
+    public Branch? Branch { get; set; }
+}
+
+public sealed class Settlement : BaseTenantEntity
+{
+    public Guid CollectorId { get; set; }
+    public User Collector { get; set; } = null!;
+    
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "GHS";
+    public DateTimeOffset SettlementDate { get; set; } = DateTimeOffset.UtcNow;
+    public string Status { get; set; } = "Pending"; // Pending, Reviewed, Completed
+    public string? Note { get; set; }
+    public Guid BranchId { get; set; }
+    public Branch? Branch { get; set; }
+    public Guid? ReviewedByUserId { get; set; }
+    public User? ReviewedByUser { get; set; }
 }

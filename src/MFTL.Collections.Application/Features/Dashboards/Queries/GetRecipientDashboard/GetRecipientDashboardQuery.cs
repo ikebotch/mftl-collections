@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 using MFTL.Collections.Contracts.Responses;
+using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Domain.Enums;
 
 namespace MFTL.Collections.Application.Features.Dashboards.Queries.GetRecipientDashboard;

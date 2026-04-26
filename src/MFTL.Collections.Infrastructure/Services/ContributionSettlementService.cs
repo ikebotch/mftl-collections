@@ -89,6 +89,7 @@ public sealed class ContributionSettlementService(
                 IssuedAt = DateTimeOffset.UtcNow,
                 Status = ReceiptStatus.Issued,
                 Note = contribution.Note,
+                BranchId = contribution.BranchId
             };
 
             dbContext.Receipts.Add(receipt);

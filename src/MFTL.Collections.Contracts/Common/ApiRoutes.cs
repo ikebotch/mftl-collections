@@ -11,6 +11,7 @@ public static class ApiRoutes
         public const string Base = BasePath + "/events";
         public const string GetById = Base + "/{id}";
         public const string Update = Base + "/{id}";
+        public const string AssignStaff = Base + "/{id}/staff";
     }
 
     public static class RecipientFunds
@@ -26,6 +27,7 @@ public static class ApiRoutes
         public const string Base = BasePath + "/contributions";
         public const string GetById = Base + "/{id}";
         public const string RecordCash = Base + "/cash";
+        public const string Update = Base + "/{id}";
     }
 
     public static class Donors
@@ -72,5 +74,34 @@ public static class ApiRoutes
     {
         public const string Base = BasePath + "/users";
         public const string GetById = Base + "/{id}";
+        public const string Update = Base + "/{id}";
+        public const string Invite = Base + "/invite";
+        public const string UpdateStatus = Base + "/{id}/status";
+        public const string Audit = Base + "/{id}/audit";
+    }
+
+    public static class Settlements
+    {
+        public const string Base = BasePath + "/settlements";
+        public const string GetById = Base + "/{id}";
+    }
+
+    public static class Branches
+    {
+        public const string Base = BasePath + "/branches";
+        public const string GetById = Base + "/{id}";
+        public const string Update = Base + "/{id}";
+    }
+
+    public static class Tenants
+    {
+        public const string Base = BasePath + "/tenants";
+    }
+
+    public static class Storefront
+    {
+        public const string Base = BasePath + "/storefront";
+        public const string GetEventBySlug = Base + "/events/{slug}";
+        public const string ListFundsByEventSlug = Base + "/events/{slug}/funds";
     }
 }

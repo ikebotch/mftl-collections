@@ -7,13 +7,20 @@ using MFTL.Collections.Domain.Enums;
 
 namespace MFTL.Collections.Application.Features.Events.Queries.ListEvents;
 
-public record ListEventsQuery() : IRequest<IEnumerable<EventDto>>;
+public record ListEventsQuery(Guid? BranchId = null) : IRequest<IEnumerable<EventDto>>;
 
 public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<ListEventsQuery, IEnumerable<EventDto>>
 {
     public async Task<IEnumerable<EventDto>> Handle(ListEventsQuery request, CancellationToken cancellationToken)
     {
-        var events = await dbContext.Events
+        var query = dbContext.Events.AsQueryable();
+
+        if (request.BranchId.HasValue)
+        {
+            query = query.Where(e => e.BranchId == request.BranchId.Value);
+        }
+
+        var events = await query
             .Include(e => e.RecipientFunds)
             .OrderByDescending(e => e.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -25,9 +32,9 @@ public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestH
             .ToListAsync(cancellationToken);
 
         var collectorCounts = await dbContext.UserScopeAssignments
-            .Where(a => a.ScopeType == Domain.Entities.ScopeType.Event && eventIds.Contains(a.TargetId) && a.Role == "Collector")
+            .Where(a => a.ScopeType == Domain.Entities.ScopeType.Event && a.TargetId.HasValue && eventIds.Contains(a.TargetId.Value) && a.Role == "Collector")
             .GroupBy(a => a.TargetId)
-            .Select(g => new { EventId = g.Key, Count = g.Count() })
+            .Select(g => new { EventId = g.Key!.Value, Count = g.Count() })
             .ToDictionaryAsync(x => x.EventId, x => x.Count, cancellationToken);
 
         return events.Select(e => 
@@ -48,7 +55,9 @@ public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestH
                 e.RecipientFunds.Sum(f => f.TargetAmount),
                 e.RecipientFunds.Count,
                 collectorCounts.GetValueOrDefault(e.Id, 0),
-                e.Slug);
+                e.Slug,
+                e.DisplayImageUrl,
+                e.ReceiptLogoUrl);
         });
     }
 }

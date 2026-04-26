@@ -6,16 +6,25 @@ using MFTL.Collections.Domain.Entities;
 
 namespace MFTL.Collections.Application.Features.Collectors.Queries.ListCollectors;
 
-public record ListCollectorsQuery() : IRequest<IEnumerable<CollectorMeDto>>;
+public record ListCollectorsQuery(Guid? EventId = null) : IRequest<IEnumerable<CollectorMeDto>>;
 
 public class ListCollectorsQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<ListCollectorsQuery, IEnumerable<CollectorMeDto>>
 {
     public async Task<IEnumerable<CollectorMeDto>> Handle(ListCollectorsQuery request, CancellationToken cancellationToken)
     {
-        var collectors = await dbContext.Users
+        var query = dbContext.Users
             .Include(u => u.ScopeAssignments)
-            .Where(u => u.ScopeAssignments.Any(a => a.Role == "Collector"))
-            .ToListAsync(cancellationToken);
+            .Where(u => u.ScopeAssignments.Any(a => a.Role == "Collector"));
+
+        if (request.EventId.HasValue)
+        {
+            query = query.Where(u => u.ScopeAssignments.Any(a => 
+                (a.ScopeType == ScopeType.Event && a.TargetId == request.EventId.Value) ||
+                (a.ScopeType == ScopeType.RecipientFund && dbContext.RecipientFunds.Any(rf => rf.Id == a.TargetId && rf.EventId == request.EventId.Value))
+            ));
+        }
+
+        var collectors = await query.ToListAsync(cancellationToken);
 
         var today = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
         
@@ -46,13 +55,15 @@ public class ListCollectorsQueryHandler(IApplicationDbContext dbContext) : IRequ
                 user.IsActive ? "Active" : "Inactive",
                 eventCount,
                 fundCount,
-                receiptsToday.Sum(r => r.Contribution.Amount),
+                receiptsToday.Sum(r => r.Contribution?.Amount ?? 0),
                 receiptsToday.Count,
                 lastActive,
                 hasAssignments,
                 user.IsActive
                     ? (hasAssignments ? null : "No assignments")
-                    : "Inactive"));
+                    : "Inactive",
+                user.PhoneNumber,
+                assignments.Where(a => a.ScopeType == ScopeType.Event).Select(a => a.TargetId ?? Guid.Empty)));
         }
 
         return results;

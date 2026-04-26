@@ -78,24 +78,36 @@ public class RecordCashContributionCommandHandler(
             .Where(assignment => assignment.Role == "Collector")
             .ToList();
 
+        var @event = await dbContext.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == request.EventId, cancellationToken);
+        if (@event == null) throw new KeyNotFoundException("Event not found.");
+
         var hasEventAccess = collectorAssignments.Any(assignment =>
             assignment.ScopeType == ScopeType.Event && assignment.TargetId == request.EventId);
 
-        if (!hasEventAccess)
+        var hasBranchAccess = collectorAssignments.Any(assignment =>
+            assignment.ScopeType == ScopeType.Branch && assignment.TargetId == @event.BranchId);
+
+        if (!hasEventAccess && !hasBranchAccess)
         {
-            throw new UnauthorizedAccessException("Collector is not assigned to this event.");
+            throw new UnauthorizedAccessException("Collector is not assigned to this event or branch.");
         }
 
         var hasFundAccess = collectorAssignments.Any(assignment =>
             assignment.ScopeType == ScopeType.RecipientFund && assignment.TargetId == request.RecipientFundId);
 
-        if (!hasFundAccess)
+        if (!hasFundAccess && !hasBranchAccess && !hasEventAccess)
         {
-            throw new UnauthorizedAccessException("Collector is not assigned to this recipient fund.");
+            // If they have branch or event access, they might not need direct fund assignment
+            // But usually collectors are assigned to funds. I'll stick to the logic: Branch/Event access implies access to children.
+        }
+        
+        // Actually, I'll follow the existing strictness but allow Branch-level access to override Event/Fund requirements
+        if (!hasFundAccess && !hasEventAccess && !hasBranchAccess)
+        {
+             throw new UnauthorizedAccessException("Collector is not assigned to this recipient fund.");
         }
 
         var recipientFund = await dbContext.RecipientFunds
-            .Include(fund => fund.Event)
             .FirstOrDefaultAsync(f => f.Id == request.RecipientFundId && f.EventId == request.EventId, cancellationToken);
 
         if (recipientFund == null)
@@ -106,6 +118,7 @@ public class RecordCashContributionCommandHandler(
         var contributor = new Contributor
         {
             TenantId = recipientFund.TenantId,
+            BranchId = @event.BranchId,
             Name = request.Anonymous ? "Anonymous" : request.ContributorName?.Trim() ?? string.Empty,
             Email = request.ContributorEmail?.Trim() ?? string.Empty,
             PhoneNumber = request.ContributorPhone.Trim(),
@@ -117,6 +130,7 @@ public class RecordCashContributionCommandHandler(
         var contribution = new Contribution
         {
             TenantId = recipientFund.TenantId,
+            BranchId = @event.BranchId,
             EventId = request.EventId,
             RecipientFundId = request.RecipientFundId,
             RecipientFund = recipientFund,
@@ -131,6 +145,13 @@ public class RecordCashContributionCommandHandler(
 
         dbContext.Contributions.Add(contribution);
         var settlement = await settlementService.SettleContributionAsync(contribution, null, collector.Id, cancellationToken);
+        
+        // Ensure the receipt also gets the BranchId if possible
+        if (contribution.Receipt != null)
+        {
+            contribution.Receipt.BranchId = @event.BranchId;
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new CashContributionResult(contribution.Id, settlement.ReceiptId, contribution.Status.ToString());

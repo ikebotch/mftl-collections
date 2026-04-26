@@ -1,19 +1,29 @@
 using MediatR;
+using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Responses;
+using Microsoft.EntityFrameworkCore;
 
 namespace MFTL.Collections.Application.Features.Users.Queries.ListUsers;
 
 public record ListUsersQuery() : IRequest<IEnumerable<UserDto>>;
 
-public class ListUsersHandler : IRequestHandler<ListUsersQuery, IEnumerable<UserDto>>
+public class ListUsersHandler(IApplicationDbContext dbContext) : IRequestHandler<ListUsersQuery, IEnumerable<UserDto>>
 {
-    public Task<IEnumerable<UserDto>> Handle(ListUsersQuery request, CancellationToken cancellationToken)
+    public async Task<IEnumerable<UserDto>> Handle(ListUsersQuery request, CancellationToken cancellationToken)
     {
-        return Task.FromResult<IEnumerable<UserDto>>(new List<UserDto>
-        {
-            new(Guid.NewGuid(), "Isaac Botchway", "admin@mftl.com", "Platform Admin", "Active", "Accepted", "Global"),
-            new(Guid.NewGuid(), "Samuel Osei", "sam@field.com", "Collector", "Active", "Accepted", "Assigned Events"),
-            new(Guid.NewGuid(), "Grace Mensah", "grace@super.com", "Supervisor", "Active", "Pending", "Regional")
-        });
+        var users = await dbContext.Users
+            .Include(u => u.ScopeAssignments)
+            .ToListAsync(cancellationToken);
+
+        return users.Select(u => new UserDto(
+            u.Id,
+            u.Name,
+            u.Email,
+            u.ScopeAssignments.FirstOrDefault()?.Role ?? (u.IsPlatformAdmin ? "Platform Admin" : "User"),
+            u.IsSuspended ? "Suspended" : (u.IsActive ? "Active" : "Inactive"),
+            u.InviteStatus.ToString(),
+            u.ScopeAssignments.FirstOrDefault()?.ScopeType.ToString() ?? "Global",
+            u.LastLoginAt
+        ));
     }
 }

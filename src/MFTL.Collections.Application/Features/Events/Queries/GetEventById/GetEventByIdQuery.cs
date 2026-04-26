@@ -41,6 +41,9 @@ public class GetEventByIdQueryHandler(IApplicationDbContext dbContext) : IReques
             e.RecipientFunds.Sum(f => f.TargetAmount),
             e.RecipientFunds.Count,
             collectorCount,
-            e.Slug);
+            e.Slug,
+            e.DisplayImageUrl,
+            e.ReceiptLogoUrl,
+            e.BranchId);
     }
 }

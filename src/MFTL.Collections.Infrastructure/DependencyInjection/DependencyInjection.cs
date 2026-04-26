@@ -76,6 +76,7 @@ public static class DependencyInjection
         // Additional services for payments and dashboards
         services.AddScoped<IPaymentStateService, PaymentStateService>();
         services.AddScoped<IDashboardProjectionUpdater, DashboardProjectionUpdater>();
+        services.AddScoped<IEmailService, MockEmailService>();
 
         return services;
     }

@@ -19,15 +19,21 @@ public class CreateEventFunction(IMediator mediator, ILogger<CreateEventFunction
     {
         logger.LogInformation("Processing CreateEvent request.");
 
-        var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        var createEventRequest = JsonSerializer.Deserialize<CreateEventRequest>(requestBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var createEventRequest = await req.ReadFromJsonAsync<CreateEventRequest>();
 
         if (createEventRequest == null)
         {
             return new BadRequestObjectResult(new ApiResponse(false, "Invalid request body.", CorrelationId: req.GetOrCreateCorrelationId()));
         }
 
-        var command = new CreateEventCommand(createEventRequest.Title, createEventRequest.Description, createEventRequest.EventDate);
+        var command = new CreateEventCommand(
+            createEventRequest.Title, 
+            createEventRequest.Description, 
+            createEventRequest.EventDate,
+            createEventRequest.BranchId,
+            createEventRequest.Slug,
+            createEventRequest.DisplayImageUrl,
+            createEventRequest.ReceiptLogoUrl);
         var result = await mediator.Send(command);
 
         return new OkObjectResult(new ApiResponse<EventDto>(true, "Event created successfully.", result, CorrelationId: req.GetOrCreateCorrelationId()));

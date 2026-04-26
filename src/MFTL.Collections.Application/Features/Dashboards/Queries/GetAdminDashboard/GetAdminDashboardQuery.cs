@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Responses;
+using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Domain.Enums;
 
 namespace MFTL.Collections.Application.Features.Dashboards.Queries.GetAdminDashboard;
@@ -32,9 +33,12 @@ public class GetAdminDashboardHandler(IApplicationDbContext dbContext) : IReques
         
         var totalReceipts = await dbContext.Receipts.CountAsync(cancellationToken);
         
-        // Collectors are users with the Collector role
-        var totalCollectors = await dbContext.Users
-            .CountAsync(u => u.Role == "Collector", cancellationToken);
+        // Collectors are users with the Collector role in scope assignments
+        var totalCollectors = await dbContext.UserScopeAssignments
+            .Where(a => a.Role == "Collector")
+            .Select(a => a.UserId)
+            .Distinct()
+            .CountAsync(cancellationToken);
 
         var recentContributions = await dbContext.Contributions
             .Include(c => c.Event)
