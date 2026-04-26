@@ -16,7 +16,7 @@ public class UserFunctions(IMediator mediator)
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.GetById)] HttpRequest req, Guid id)
     {
         var result = await mediator.Send(new Application.Features.Users.Queries.GetUserById.GetUserByIdQuery(id));
-        return new OkObjectResult(new ApiResponse<UserDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+        return new OkObjectResult(new ApiResponse<UserDetailDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
     [Function("UpdateUser")]
