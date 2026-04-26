@@ -79,23 +79,24 @@ public class GetCollectorAssignmentsQueryHandler(
             .Distinct()
             .ToList();
 
-        if (eventIds.Count == 0 || fundIds.Count == 0)
+        if (eventIds.Count == 0 && fundIds.Count == 0)
         {
             return new CollectorAssignmentsDto(
                 false,
-                "No event and fund assignments are active for this collector.",
+                "No active campaign or fund assignments established for this collector.",
                 [],
                 []);
         }
 
         var funds = await dbContext.RecipientFunds
-            .Where(fund => fundIds.Contains(fund.Id) && eventIds.Contains(fund.EventId))
+            .Where(fund => fundIds.Contains(fund.Id) || eventIds.Contains(fund.EventId))
             .ToListAsync(cancellationToken);
 
-        var allowedEventIds = funds.Select(f => f.EventId).Distinct().ToList();
+        var allowedEventIdsFromFunds = funds.Select(f => f.EventId).Distinct().ToList();
+        var allAllowedEventIds = eventIds.Concat(allowedEventIdsFromFunds).Distinct().ToList();
 
         var events = await dbContext.Events
-            .Where(e => allowedEventIds.Contains(e.Id))
+            .Where(e => allAllowedEventIds.Contains(e.Id))
             .ToListAsync(cancellationToken);
 
         return new CollectorAssignmentsDto(

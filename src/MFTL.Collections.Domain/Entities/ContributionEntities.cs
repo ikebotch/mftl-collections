@@ -36,6 +36,7 @@ public sealed class RecipientFund : BaseTenantEntity
     public string Description { get; set; } = string.Empty;
     public decimal TargetAmount { get; set; }
     public decimal CollectedAmount { get; set; }
+    public bool IsActive { get; set; } = true;
     public string? Metadata { get; set; }
     public ICollection<Receipt> Receipts { get; set; } = new List<Receipt>();
 }

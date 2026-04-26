@@ -11,7 +11,8 @@ public record UpdateCollectorCommand(
     string Email,
     string? Phone = null,
     string? Status = null,
-    IEnumerable<Guid>? EventIds = null) : IRequest<bool>;
+    IEnumerable<Guid>? EventIds = null,
+    IEnumerable<Guid>? FundIds = null) : IRequest<bool>;
 
 public class UpdateCollectorCommandHandler(IApplicationDbContext dbContext) : IRequestHandler<UpdateCollectorCommand, bool>
 {
@@ -48,6 +49,30 @@ public class UpdateCollectorCommandHandler(IApplicationDbContext dbContext) : IR
                     UserId = user.Id,
                     ScopeType = ScopeType.Event,
                     TargetId = eventId,
+                    Role = "Collector"
+                });
+            }
+        }
+
+        // Update Fund Assignments
+        if (request.FundIds != null)
+        {
+            var existingFundAssignments = user.ScopeAssignments
+                .Where(a => a.ScopeType == ScopeType.RecipientFund && a.Role == "Collector")
+                .ToList();
+
+            foreach (var assignment in existingFundAssignments)
+            {
+                user.ScopeAssignments.Remove(assignment);
+            }
+
+            foreach (var fundId in request.FundIds)
+            {
+                user.ScopeAssignments.Add(new UserScopeAssignment
+                {
+                    UserId = user.Id,
+                    ScopeType = ScopeType.RecipientFund,
+                    TargetId = fundId,
                     Role = "Collector"
                 });
             }

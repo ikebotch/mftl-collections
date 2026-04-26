@@ -34,6 +34,7 @@ public class ListRecipientFundsQueryHandler(IApplicationDbContext dbContext) : I
                 f.Name,
                 f.Description,
                 f.TargetAmount,
+                f.IsActive,
                 totals);
         });
     }

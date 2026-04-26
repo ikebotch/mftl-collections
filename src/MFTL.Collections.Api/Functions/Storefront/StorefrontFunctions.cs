@@ -33,7 +33,7 @@ public class StorefrontFunctions(IMediator mediator, IApplicationDbContext dbCon
     public async Task<IActionResult> ListFundsByEventSlug(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Storefront.ListFundsByEventSlug)] HttpRequest req, string slug)
     {
-        var e = await dbContext.Events.FirstOrDefaultAsync(x => x.Slug == slug);
+        var e = await dbContext.Events.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Slug == slug);
         if (e == null)
         {
             return new NotFoundObjectResult(new ApiResponse(false, $"Event with slug '{slug}' not found.", CorrelationId: req.GetOrCreateCorrelationId()));

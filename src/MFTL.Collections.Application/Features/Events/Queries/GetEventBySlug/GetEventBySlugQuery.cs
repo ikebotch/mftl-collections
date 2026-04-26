@@ -14,12 +14,14 @@ public class GetEventBySlugQueryHandler(IApplicationDbContext dbContext) : IRequ
     public async Task<EventDto> Handle(GetEventBySlugQuery request, CancellationToken cancellationToken)
     {
         var e = await dbContext.Events
+            .IgnoreQueryFilters()
             .Include(e => e.RecipientFunds)
             .FirstOrDefaultAsync(x => x.Slug == request.Slug, cancellationToken);
 
         if (e == null) throw new KeyNotFoundException($"Event with slug '{request.Slug}' not found.");
 
         var eventContributions = await dbContext.Contributions
+            .IgnoreQueryFilters()
             .Where(c => c.EventId == e.Id && c.Status == ContributionStatus.Completed)
             .ToListAsync(cancellationToken);
 
@@ -29,6 +31,7 @@ public class GetEventBySlugQueryHandler(IApplicationDbContext dbContext) : IRequ
             .ToList();
 
         var collectorCount = await dbContext.UserScopeAssignments
+            .IgnoreQueryFilters()
             .CountAsync(a => a.ScopeType == Domain.Entities.ScopeType.Event && a.TargetId == e.Id && a.Role == "Collector", cancellationToken);
 
         return new EventDto(

@@ -6,7 +6,7 @@ using FluentValidation;
 
 namespace MFTL.Collections.Application.Features.RecipientFunds.Commands.CreateRecipientFund;
 
-public record CreateRecipientFundCommand(Guid EventId, string Name, string? Description, decimal TargetAmount, string? Metadata) : IRequest<Guid>;
+public record CreateRecipientFundCommand(Guid EventId, string Name, string? Description, decimal TargetAmount, bool IsActive, string? Metadata) : IRequest<Guid>;
 
 public class CreateRecipientFundCommandValidator : AbstractValidator<CreateRecipientFundCommand>
 {
@@ -27,6 +27,7 @@ public class CreateRecipientFundCommandHandler(IApplicationDbContext dbContext) 
             Name = request.Name,
             Description = request.Description ?? string.Empty,
             TargetAmount = request.TargetAmount,
+            IsActive = request.IsActive,
             Metadata = request.Metadata
         };
 

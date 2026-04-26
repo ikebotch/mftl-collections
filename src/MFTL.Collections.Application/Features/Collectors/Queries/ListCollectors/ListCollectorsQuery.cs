@@ -55,13 +55,14 @@ public class ListCollectorsQueryHandler(IApplicationDbContext dbContext) : IRequ
                 user.IsActive ? "Active" : "Inactive",
                 eventCount,
                 fundCount,
-                receiptsToday.Sum(r => r.Contribution.Amount),
+                receiptsToday.Sum(r => r.Contribution?.Amount ?? 0),
                 receiptsToday.Count,
                 lastActive,
                 hasAssignments,
                 user.IsActive
                     ? (hasAssignments ? null : "No assignments")
                     : "Inactive",
+                user.PhoneNumber,
                 assignments.Where(a => a.ScopeType == ScopeType.Event).Select(a => a.TargetId ?? Guid.Empty)));
         }
 

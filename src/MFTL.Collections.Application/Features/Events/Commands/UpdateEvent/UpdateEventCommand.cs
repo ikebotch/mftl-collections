@@ -64,7 +64,7 @@ public class UpdateEventCommandHandler(IApplicationDbContext dbContext) : IReque
 
         @event.Title = request.Title;
         @event.Description = request.Description;
-        @event.EventDate = request.EventDate;
+        @event.EventDate = request.EventDate?.ToUniversalTime();
         @event.IsActive = request.IsActive;
         @event.Slug = slug;
         @event.DisplayImageUrl = request.DisplayImageUrl;

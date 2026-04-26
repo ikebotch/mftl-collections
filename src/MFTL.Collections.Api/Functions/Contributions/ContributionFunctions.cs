@@ -56,6 +56,21 @@ public class ContributionFunctions(IMediator mediator)
         var result = await mediator.Send(new ListContributionsQuery());
         return new OkObjectResult(new ApiResponse<IEnumerable<ContributionListItemDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
+    
+    [Function("UpdateContribution")]
+    public async Task<IActionResult> Update(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = ApiRoutes.Contributions.Update)] HttpRequest req, Guid id)
+    {
+        var body = await new StreamReader(req.Body).ReadToEndAsync();
+        var command = JsonSerializer.Deserialize<Application.Features.Contributions.Commands.UpdateContribution.UpdateContributionCommand>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        
+        if (command == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body.", CorrelationId: req.GetOrCreateCorrelationId()));
+
+        var result = await mediator.Send(command with { Id = id });
+        if (!result) return new NotFoundResult();
+        
+        return new OkObjectResult(new ApiResponse<bool>(true, "Contribution updated.", result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
 }
 
 public record RecordCashContributionRequest(

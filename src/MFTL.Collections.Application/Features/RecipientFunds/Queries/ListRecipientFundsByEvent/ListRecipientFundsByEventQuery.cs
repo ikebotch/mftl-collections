@@ -14,12 +14,14 @@ public class ListRecipientFundsByEventQueryHandler(IApplicationDbContext dbConte
     public async Task<IEnumerable<RecipientFundDto>> Handle(ListRecipientFundsByEventQuery request, CancellationToken cancellationToken)
     {
         var funds = await dbContext.RecipientFunds
+            .IgnoreQueryFilters()
             .Where(f => f.EventId == request.EventId)
             .ToListAsync(cancellationToken);
 
         var fundIds = funds.Select(f => f.Id).ToList();
 
         var contributions = await dbContext.Contributions
+            .IgnoreQueryFilters()
             .Where(c => fundIds.Contains(c.RecipientFundId) && c.Status == ContributionStatus.Completed)
             .ToListAsync(cancellationToken);
 
@@ -37,6 +39,7 @@ public class ListRecipientFundsByEventQueryHandler(IApplicationDbContext dbConte
                 f.Name,
                 f.Description,
                 f.TargetAmount,
+                f.IsActive,
                 totals);
         });
     }
