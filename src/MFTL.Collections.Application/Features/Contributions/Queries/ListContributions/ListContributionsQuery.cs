@@ -39,8 +39,8 @@ public class ListContributionsQueryHandler(IApplicationDbContext dbContext)
             .Select(contribution => new ContributionListItemDto(
                 contribution.Id,
                 contribution.CreatedAt,
-                contribution.Event.Title,
-                contribution.RecipientFund.Name,
+                contribution.Event != null ? contribution.Event.Title : "Unknown Event",
+                contribution.RecipientFund != null ? contribution.RecipientFund.Name : "General Fund",
                 contribution.Method,
                 contribution.Status.ToString(),
                 contribution.Amount,

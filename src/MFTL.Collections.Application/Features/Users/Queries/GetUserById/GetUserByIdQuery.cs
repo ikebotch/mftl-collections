@@ -5,11 +5,11 @@ using MFTL.Collections.Contracts.Responses;
 
 namespace MFTL.Collections.Application.Features.Users.Queries.GetUserById;
 
-public record GetUserByIdQuery(Guid Id) : IRequest<UserDto>;
+public record GetUserByIdQuery(Guid Id) : IRequest<UserDetailDto>;
 
-public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<GetUserByIdQuery, UserDto>
+public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<GetUserByIdQuery, UserDetailDto>
 {
-    public async Task<UserDto> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
+    public async Task<UserDetailDto> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
     {
         var user = await dbContext.Users
             .Include(u => u.ScopeAssignments)
@@ -20,7 +20,7 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
             throw new KeyNotFoundException("User not found.");
         }
 
-        return new UserDto(
+        return new UserDetailDto(
             user.Id,
             user.Auth0Id,
             user.Email,
@@ -32,8 +32,7 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
                 a.Id,
                 a.Role,
                 a.ScopeType.ToString(),
-                a.TargetId,
-                a.IsActive
+                a.TargetId
             ))
         );
     }
