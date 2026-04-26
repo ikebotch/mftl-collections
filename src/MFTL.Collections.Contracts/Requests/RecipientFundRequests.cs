@@ -14,4 +14,5 @@ public record RecipientFundDto(
     string Name,
     string Description,
     decimal TargetAmount,
+    bool IsActive,
     IEnumerable<CurrencyTotalDto> Totals);

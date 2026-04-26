@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MFTL.Collections.Application.Features.RecipientFunds.Commands.UpdateRecipientFund;
 
-public record UpdateRecipientFundCommand(Guid Id, string Name, string? Description, decimal TargetAmount, string? Metadata) : IRequest<bool>;
+public record UpdateRecipientFundCommand(Guid Id, string Name, string? Description, decimal TargetAmount, bool IsActive, string? Metadata) : IRequest<bool>;
 
 public class UpdateRecipientFundCommandValidator : AbstractValidator<UpdateRecipientFundCommand>
 {
@@ -29,6 +29,7 @@ public class UpdateRecipientFundCommandHandler(IApplicationDbContext dbContext) 
         fund.Name = request.Name;
         fund.Description = request.Description ?? string.Empty;
         fund.TargetAmount = request.TargetAmount;
+        fund.IsActive = request.IsActive;
         fund.Metadata = request.Metadata;
 
         await dbContext.SaveChangesAsync(cancellationToken);

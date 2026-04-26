@@ -27,6 +27,7 @@ public static class ApiRoutes
         public const string Base = BasePath + "/contributions";
         public const string GetById = Base + "/{id}";
         public const string RecordCash = Base + "/cash";
+        public const string Update = Base + "/{id}";
     }
 
     public static class Donors
@@ -73,6 +74,7 @@ public static class ApiRoutes
     {
         public const string Base = BasePath + "/users";
         public const string GetById = Base + "/{id}";
+        public const string Update = Base + "/{id}";
     }
 
     public static class Settlements
