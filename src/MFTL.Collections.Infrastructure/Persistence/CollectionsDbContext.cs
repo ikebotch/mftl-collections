@@ -48,6 +48,12 @@ public sealed class CollectionsDbContext(
         modelBuilder.HasPostgresExtension("uuid-ossp");
     }
 
+    public Guid? CurrentTenantId => _tenantContext.TenantId;
+    public IReadOnlyList<Guid> CurrentTenantIds => _tenantContext.TenantIds;
+    public Guid? CurrentBranchId => _branchContext.BranchId;
+    public IReadOnlyList<Guid> CurrentBranchIds => _branchContext.BranchIds;
+    public bool IsPlatformContext => _tenantContext.IsPlatformContext;
+
     private LambdaExpression CreateCombinedFilter(Type type, bool hasBranchId)
     {
         var parameter = Expression.Parameter(type, "x");
@@ -57,17 +63,20 @@ public sealed class CollectionsDbContext(
         if (typeof(BaseTenantEntity).IsAssignableFrom(type))
         {
             var property = Expression.Property(parameter, nameof(BaseTenantEntity.TenantId));
-            var context = Expression.Constant(this);
-            var tenantContextField = typeof(CollectionsDbContext).GetField("_tenantContext", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var accessor = Expression.Field(context, tenantContextField!);
-            var tenantIdProperty = typeof(ITenantContext).GetProperty(nameof(ITenantContext.TenantId));
-            var tenantId = Expression.Property(accessor, tenantIdProperty!);
-            var isPlatformContextProperty = typeof(ITenantContext).GetProperty(nameof(ITenantContext.IsPlatformContext));
-            var isPlatformContext = Expression.Property(accessor, isPlatformContextProperty!);
             
-            var propertyAsNullable = Expression.Convert(property, typeof(Guid?));
-            var tenantMatch = Expression.Equal(propertyAsNullable, tenantId);
-            tenantFilter = Expression.OrElse(isPlatformContext, tenantMatch);
+            var tenantIdsProperty = typeof(CollectionsDbContext).GetProperty(nameof(CurrentTenantIds));
+            var tenantIds = Expression.Property(Expression.Constant(this), tenantIdsProperty!);
+            
+            var isPlatformProperty = typeof(CollectionsDbContext).GetProperty(nameof(IsPlatformContext));
+            var isPlatform = Expression.Property(Expression.Constant(this), isPlatformProperty!);
+            
+            // Contains logic: x => IsPlatform || CurrentTenantIds.Contains(x.TenantId)
+            var containsMethod = typeof(Enumerable).GetMethods()
+                .First(m => m.Name == "Contains" && m.GetParameters().Length == 2)
+                .MakeGenericMethod(typeof(Guid));
+            
+            var tenantMatch = Expression.Call(null, containsMethod, tenantIds, property);
+            tenantFilter = Expression.OrElse(isPlatform, tenantMatch);
         }
         else
         {
@@ -78,28 +87,39 @@ public sealed class CollectionsDbContext(
         if (hasBranchId)
         {
             var branchProperty = Expression.Property(parameter, "BranchId");
-            var context = Expression.Constant(this);
-            var branchContextField = typeof(CollectionsDbContext).GetField("_branchContext", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var accessor = Expression.Field(context, branchContextField!);
-            var branchIdProperty = typeof(IBranchContext).GetProperty(nameof(IBranchContext.BranchId));
-            var branchId = Expression.Property(accessor, branchIdProperty!);
             
-            // If branchId in context is NULL, we don't filter by branch (allow all branches for the tenant)
-            var branchIdIsNull = Expression.Equal(branchId, Expression.Constant(null, typeof(Guid?)));
+            var branchIdsProperty = typeof(CollectionsDbContext).GetProperty(nameof(CurrentBranchIds));
+            var branchIds = Expression.Property(Expression.Constant(this), branchIdsProperty!);
+            
+            // If branchIds in context is EMPTY, we don't filter by branch (allow all branches for the tenant)
+            // Use IReadOnlyCollection because Count is defined there, and Reflection doesn't find inherited properties on interfaces
+            var countProperty = typeof(IReadOnlyCollection<Guid>).GetProperty(nameof(IReadOnlyCollection<Guid>.Count));
+            var branchIdsIsEmpty = Expression.Equal(Expression.Property(branchIds, countProperty!), Expression.Constant(0));
+            
+            // Contains logic: x => BranchIds.IsEmpty() || CurrentBranchIds.Contains(x.BranchId)
+            var containsMethod = typeof(Enumerable).GetMethods()
+                .First(m => m.Name == "Contains" && m.GetParameters().Length == 2)
+                .MakeGenericMethod(typeof(Guid));
             
             Expression branchMatch;
             if (branchProperty.Type == typeof(Guid?))
             {
-                branchMatch = Expression.Equal(branchProperty, branchId);
+                // For nullable Guid properties, we check if they have a value and if that value is in the list
+                var hasValueProperty = typeof(Guid?).GetProperty(nameof(Nullable<Guid>.HasValue));
+                var valueProperty = typeof(Guid?).GetProperty(nameof(Nullable<Guid>.Value));
+                
+                var hasValue = Expression.Property(branchProperty, hasValueProperty!);
+                var value = Expression.Property(branchProperty, valueProperty!);
+                
+                var inList = Expression.Call(null, containsMethod, branchIds, value);
+                branchMatch = Expression.AndAlso(hasValue, inList);
             }
             else
             {
-                // For non-nullable Guid properties, we use the value if not null
-                // EF Core handles the conversion in the generated SQL
-                branchMatch = Expression.Equal(branchProperty, Expression.Convert(branchId, typeof(Guid)));
+                branchMatch = Expression.Call(null, containsMethod, branchIds, branchProperty);
             }
             
-            var branchFilter = Expression.OrElse(branchIdIsNull, branchMatch);
+            var branchFilter = Expression.OrElse(branchIdsIsEmpty, branchMatch);
             return Expression.Lambda(Expression.AndAlso(tenantFilter, branchFilter), parameter);
         }
 

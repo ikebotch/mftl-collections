@@ -8,7 +8,8 @@ public record UserDto(
     string Status,
     string InviteState,
     string Scope,
-    DateTimeOffset? LastLoginAt);
+    DateTimeOffset? LastLoginAt,
+    bool IsPlatformAdmin);
 
 public record UserDetailDto(
     Guid Id,

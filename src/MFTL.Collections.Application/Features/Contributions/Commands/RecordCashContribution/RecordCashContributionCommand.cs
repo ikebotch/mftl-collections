@@ -55,15 +55,6 @@ public class RecordCashContributionCommandHandler(
             .Include(user => user.ScopeAssignments)
             .FirstOrDefaultAsync(user => user.Auth0Id == collectorAuth0Id, cancellationToken);
 
-        if (collector == null && !string.IsNullOrWhiteSpace(request.ExplicitUserId))
-        {
-            collector = await dbContext.Users
-                .Include(user => user.ScopeAssignments)
-                .Where(user => user.IsActive && user.ScopeAssignments.Any(assignment => assignment.Role == "Collector"))
-                .OrderBy(user => user.CreatedAt)
-                .FirstOrDefaultAsync(cancellationToken);
-        }
-
         if (collector == null)
         {
             throw new UnauthorizedAccessException("Collector profile not found.");

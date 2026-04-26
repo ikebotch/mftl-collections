@@ -8,7 +8,7 @@ namespace MFTL.Collections.Application.Features.Collectors.Queries.ListCollector
 
 public record ListCollectorsQuery(Guid? EventId = null) : IRequest<IEnumerable<CollectorMeDto>>;
 
-public class ListCollectorsQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<ListCollectorsQuery, IEnumerable<CollectorMeDto>>
+public class ListCollectorsQueryHandler(IApplicationDbContext dbContext, IBranchContext branchContext) : IRequestHandler<ListCollectorsQuery, IEnumerable<CollectorMeDto>>
 {
     public async Task<IEnumerable<CollectorMeDto>> Handle(ListCollectorsQuery request, CancellationToken cancellationToken)
     {
@@ -16,6 +16,12 @@ public class ListCollectorsQueryHandler(IApplicationDbContext dbContext) : IRequ
             .Include(u => u.ScopeAssignments)
             .Where(u => u.ScopeAssignments.Any(a => a.Role == "Collector"));
 
+        if (branchContext.BranchIds.Count > 0)
+        {
+            query = query.Where(u => u.ScopeAssignments.Any(a => 
+                a.ScopeType == ScopeType.Branch && a.TargetId.HasValue && branchContext.BranchIds.Contains(a.TargetId.Value)));
+        }
+        
         if (request.EventId.HasValue)
         {
             query = query.Where(u => u.ScopeAssignments.Any(a => 

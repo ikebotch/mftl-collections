@@ -26,6 +26,7 @@ public static class TenantRequestPolicy
         "RenderOpenApiDocument",
         "RenderSwaggerDocument",
         "RenderSwaggerUI",
+        "ListTenants",
     };
 
     public static bool RequiresTenant(string functionName) => !PlatformFunctionNames.Contains(functionName);

@@ -6,27 +6,35 @@ namespace MFTL.Collections.Infrastructure.Tenancy;
 
 public sealed class TenantContext : ITenantContext
 {
-    public Guid? TenantId { get; set; }
+    public Guid? TenantId => TenantIds.Count == 1 ? TenantIds[0] : null;
+    public List<Guid> TenantIds { get; set; } = new();
+    IReadOnlyList<Guid> ITenantContext.TenantIds => TenantIds;
     public string? TenantIdentifier { get; set; }
     public bool IsPlatformContext { get; private set; }
 
     public void UseTenant(Guid tenantId, string? identifier)
     {
-        TenantId = tenantId;
+        TenantIds = new List<Guid> { tenantId };
         TenantIdentifier = identifier;
+        IsPlatformContext = false;
+    }
+
+    public void UseTenants(IEnumerable<Guid> tenantIds)
+    {
+        TenantIds = tenantIds.ToList();
         IsPlatformContext = false;
     }
 
     public void UsePlatformContext()
     {
-        TenantId = null;
+        TenantIds.Clear();
         TenantIdentifier = null;
         IsPlatformContext = true;
     }
 
     public void Clear()
     {
-        TenantId = null;
+        TenantIds.Clear();
         TenantIdentifier = null;
         IsPlatformContext = false;
     }
@@ -111,16 +119,23 @@ public sealed class CompositeTenantResolver(IEnumerable<ITenantResolver> resolve
 
 public sealed class BranchContext : IBranchContext
 {
-    public Guid? BranchId { get; private set; }
+    public Guid? BranchId => BranchIds.Count == 1 ? BranchIds[0] : null;
+    public List<Guid> BranchIds { get; set; } = new();
+    IReadOnlyList<Guid> IBranchContext.BranchIds => BranchIds;
 
     public void UseBranch(Guid branchId)
     {
-        BranchId = branchId;
+        BranchIds = new List<Guid> { branchId };
+    }
+
+    public void UseBranches(IEnumerable<Guid> branchIds)
+    {
+        BranchIds = branchIds.ToList();
     }
 
     public void Clear()
     {
-        BranchId = null;
+        BranchIds.Clear();
     }
 }
 

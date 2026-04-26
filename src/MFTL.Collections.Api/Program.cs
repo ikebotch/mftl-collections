@@ -12,6 +12,7 @@ var host = new HostBuilder()
     {
         worker.UseMiddleware<ExceptionHandlingMiddleware>();
         worker.UseMiddleware<TenantResolutionMiddleware>();
+        worker.UseMiddleware<UserProvisioningMiddleware>();
     })
     .ConfigureServices((context, services) =>
     {

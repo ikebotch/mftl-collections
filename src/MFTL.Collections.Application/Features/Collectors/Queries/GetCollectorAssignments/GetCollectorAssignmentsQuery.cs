@@ -47,15 +47,6 @@ public class GetCollectorAssignmentsQueryHandler(
             .Include(u => u.ScopeAssignments)
             .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
 
-        if (user == null && !string.IsNullOrWhiteSpace(request.ExplicitUserId))
-        {
-            user = await dbContext.Users
-                .Include(u => u.ScopeAssignments)
-                .Where(u => u.IsActive && u.ScopeAssignments.Any(a => a.Role == "Collector"))
-                .OrderBy(u => u.CreatedAt)
-                .FirstOrDefaultAsync(cancellationToken);
-        }
-
         if (user == null)
         {
             throw new KeyNotFoundException("Collector profile not found.");

@@ -35,6 +35,7 @@ public class CollectionsDbContextFactory : IDesignTimeDbContextFactory<Collectio
     private class DesignTimeTenantContext : ITenantContext
     {
         public Guid? TenantId => null;
+        public IReadOnlyList<Guid> TenantIds => Array.Empty<Guid>();
         public string? TenantIdentifier => null;
         public bool IsPlatformContext => true;
     }
@@ -42,7 +43,9 @@ public class CollectionsDbContextFactory : IDesignTimeDbContextFactory<Collectio
     private class DesignTimeBranchContext : IBranchContext
     {
         public Guid? BranchId => null;
+        public IReadOnlyList<Guid> BranchIds => Array.Empty<Guid>();
         public void UseBranch(Guid branchId) { }
+        public void UseBranches(IEnumerable<Guid> branchIds) { }
         public void Clear() { }
     }
 }
