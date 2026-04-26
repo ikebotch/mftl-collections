@@ -7,7 +7,6 @@ namespace MFTL.Collections.Infrastructure.Tenancy;
 public sealed class TenantContext : ITenantContext
 {
     public Guid? TenantId { get; set; }
-    public Guid? BranchId { get; set; }
     public string? TenantIdentifier { get; set; }
     public bool IsPlatformContext { get; private set; }
 
@@ -18,15 +17,9 @@ public sealed class TenantContext : ITenantContext
         IsPlatformContext = false;
     }
 
-    public void UseBranch(Guid branchId)
-    {
-        BranchId = branchId;
-    }
-
     public void UsePlatformContext()
     {
         TenantId = null;
-        BranchId = null;
         TenantIdentifier = null;
         IsPlatformContext = true;
     }
@@ -34,7 +27,6 @@ public sealed class TenantContext : ITenantContext
     public void Clear()
     {
         TenantId = null;
-        BranchId = null;
         TenantIdentifier = null;
         IsPlatformContext = false;
     }

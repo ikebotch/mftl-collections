@@ -25,8 +25,9 @@ public class TenantIsolationTests
         var databaseName = Guid.NewGuid().ToString();
 
         await using var writeContext = CreateDbContext(databaseName, tenantId);
+        var branchId = Guid.NewGuid();
         var createdEvent = await new CreateEventCommandHandler(writeContext).Handle(
-            new CreateEventCommand("Tenant event", "Live tenant readback", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Tenant event", "Live tenant readback", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
         await using var readContext = CreateDbContext(databaseName, tenantId);
@@ -46,8 +47,9 @@ public class TenantIsolationTests
         var databaseName = Guid.NewGuid().ToString();
 
         await using var writeContext = CreateDbContext(databaseName, tenantA);
+        var branchId = Guid.NewGuid();
         var createdEvent = await new CreateEventCommandHandler(writeContext).Handle(
-            new CreateEventCommand("Tenant A event", "Hidden from tenant B", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Tenant A event", "Hidden from tenant B", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
         await using var readContext = CreateDbContext(databaseName, tenantB);
@@ -66,8 +68,9 @@ public class TenantIsolationTests
         var databaseName = Guid.NewGuid().ToString();
 
         await using var seedContext = CreateDbContext(databaseName, tenantId);
+        var branchId = Guid.NewGuid();
         var createdEvent = await new CreateEventCommandHandler(seedContext).Handle(
-            new CreateEventCommand("Fund event", "Recipient fund test", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Fund event", "Recipient fund test", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
         await new CreateRecipientFundCommandHandler(seedContext).Handle(
@@ -91,8 +94,9 @@ public class TenantIsolationTests
         const string collectorAuth0Id = "collector-auth0";
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
+        var branchId = Guid.NewGuid();
         var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
-            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
@@ -188,8 +192,9 @@ public class TenantIsolationTests
         const string collectorAuth0Id = "collector-no-assignment";
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
+        var branchId = Guid.NewGuid();
         var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
-            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
@@ -231,8 +236,9 @@ public class TenantIsolationTests
         const string collectorAuth0Id = "collector-inactive";
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
+        var branchId = Guid.NewGuid();
         var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
-            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
@@ -273,8 +279,9 @@ public class TenantIsolationTests
         var databaseName = Guid.NewGuid().ToString();
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
+        var branchId = Guid.NewGuid();
         var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
-            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
@@ -344,15 +351,23 @@ public class TenantIsolationTests
             IsPlatformContext = platformAccess,
         };
 
-        return new CollectionsDbContext(options, tenantContext);
+        var branchContext = new TestBranchContext();
+
+        return new CollectionsDbContext(options, tenantContext, branchContext);
     }
 
     private sealed class TestTenantContext : ITenantContext
     {
         public Guid? TenantId { get; init; }
-        public Guid? BranchId { get; init; }
         public string? TenantIdentifier { get; init; }
         public bool IsPlatformContext { get; init; }
+    }
+
+    private sealed class TestBranchContext : IBranchContext
+    {
+        public Guid? BranchId { get; set; }
+        public void UseBranch(Guid branchId) => BranchId = branchId;
+        public void Clear() => BranchId = null;
     }
 
     private sealed class TestCurrentUserService(string? userId = null, string? email = null) : ICurrentUserService
@@ -372,8 +387,9 @@ public class TenantIsolationTests
     {
         await using var dbContext = CreateDbContext(databaseName, tenantId);
         const string collectorAuth0Id = "collector-receipt";
+        var branchId = Guid.NewGuid();
         var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
-            new CreateEventCommand("Receipt event", "Receipt readback", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Receipt event", "Receipt readback", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(

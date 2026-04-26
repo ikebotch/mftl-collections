@@ -29,14 +29,20 @@ public class CollectionsDbContextFactory : IDesignTimeDbContextFactory<Collectio
         var optionsBuilder = new DbContextOptionsBuilder<CollectionsDbContext>();
         optionsBuilder.UseNpgsql(connectionString);
 
-        return new CollectionsDbContext(optionsBuilder.Options, new DesignTimeTenantContext());
+        return new CollectionsDbContext(optionsBuilder.Options, new DesignTimeTenantContext(), new DesignTimeBranchContext());
     }
 
     private class DesignTimeTenantContext : ITenantContext
     {
         public Guid? TenantId => null;
-        public Guid? BranchId => null;
         public string? TenantIdentifier => null;
         public bool IsPlatformContext => true;
+    }
+
+    private class DesignTimeBranchContext : IBranchContext
+    {
+        public Guid? BranchId => null;
+        public void UseBranch(Guid branchId) { }
+        public void Clear() { }
     }
 }

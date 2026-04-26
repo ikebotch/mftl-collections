@@ -6,10 +6,10 @@ namespace MFTL.Collections.Application.Features.Branches.Commands.UpdateBranch;
 
 public record UpdateBranchCommand(
     Guid Id,
-    string Name,
-    string Identifier,
-    string? Location,
-    bool IsActive) : IRequest<bool>;
+    string? Name = null,
+    string? Identifier = null,
+    string? Location = null,
+    bool? IsActive = null) : IRequest<bool>;
 
 public class UpdateBranchCommandHandler(IApplicationDbContext dbContext) : IRequestHandler<UpdateBranchCommand, bool>
 {
@@ -20,10 +20,10 @@ public class UpdateBranchCommandHandler(IApplicationDbContext dbContext) : IRequ
 
         if (branch == null) return false;
 
-        branch.Name = request.Name;
-        branch.Identifier = request.Identifier;
-        branch.Location = request.Location;
-        branch.IsActive = request.IsActive;
+        if (request.Name != null) branch.Name = request.Name;
+        if (request.Identifier != null) branch.Identifier = request.Identifier;
+        if (request.Location != null) branch.Location = request.Location;
+        if (request.IsActive.HasValue) branch.IsActive = request.IsActive.Value;
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return true;

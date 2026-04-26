@@ -30,7 +30,10 @@ public class BranchIsolationTests
         var currentUserServiceMock = new Mock<ICurrentUserService>();
         currentUserServiceMock.Setup(u => u.UserId).Returns(userId);
 
-        using (var context = new CollectionsDbContext(options, null!))
+        var tenantContextMock = new Mock<ITenantContext>();
+        var branchContextMock = new Mock<IBranchContext>();
+
+        using (var context = new CollectionsDbContext(options, tenantContextMock.Object, branchContextMock.Object))
         {
             var user = new User { Auth0Id = userId, Email = "branch@test.com" };
             context.Users.Add(user);
@@ -74,7 +77,10 @@ public class BranchIsolationTests
         var currentUserServiceMock = new Mock<ICurrentUserService>();
         currentUserServiceMock.Setup(u => u.UserId).Returns(userId);
 
-        using (var context = new CollectionsDbContext(options, null!))
+        var tenantContextMock = new Mock<ITenantContext>();
+        var branchContextMock = new Mock<IBranchContext>();
+
+        using (var context = new CollectionsDbContext(options, tenantContextMock.Object, branchContextMock.Object))
         {
             var user = new User { Auth0Id = userId, Email = "branch@test.com" };
             context.Users.Add(user);
@@ -117,7 +123,10 @@ public class BranchIsolationTests
         var currentUserServiceMock = new Mock<ICurrentUserService>();
         currentUserServiceMock.Setup(u => u.UserId).Returns(userId);
 
-        using (var context = new CollectionsDbContext(options, null!))
+        var tenantContextMock = new Mock<ITenantContext>();
+        var branchContextMock = new Mock<IBranchContext>();
+
+        using (var context = new CollectionsDbContext(options, tenantContextMock.Object, branchContextMock.Object))
         {
             var user = new User { Auth0Id = userId, Email = "branch@test.com" };
             context.Users.Add(user);
@@ -131,7 +140,7 @@ public class BranchIsolationTests
             context.Events.Add(new Event { Id = Guid.NewGuid(), TenantId = tenantId, BranchId = branch1Id, Title = "B1 Event 1", Slug = "b1-e1" });
             context.Events.Add(new Event { Id = Guid.NewGuid(), TenantId = tenantId, BranchId = branch1Id, Title = "B1 Event 2", Slug = "b1-e2" });
             context.Events.Add(new Event { Id = Guid.NewGuid(), TenantId = tenantId, BranchId = branch2Id, Title = "B2 Event", Slug = "b2-e1" });
-            context.Events.Add(new Event { Id = Guid.NewGuid(), TenantId = tenantId, BranchId = null, Title = "Global Event", Slug = "global-e1" });
+            context.Events.Add(new Event { Id = Guid.NewGuid(), TenantId = tenantId, BranchId = Guid.NewGuid(), Title = "Global Event", Slug = "global-e1" });
 
             await context.SaveChangesAsync();
 

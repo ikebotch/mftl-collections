@@ -59,6 +59,16 @@ public class BranchFunctions(IMediator mediator)
         return new OkObjectResult(new ApiResponse<bool>(true, "Branch updated.", result));
     }
 
+    [Function("DeactivateBranch")]
+    public async Task<IActionResult> Deactivate(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "patch", Route = "v1/branches/{id}/deactivate")] HttpRequest req, Guid id)
+    {
+        var result = await mediator.Send(new Application.Features.Branches.Commands.UpdateBranch.UpdateBranchCommand(Id: id, IsActive: false));
+        if (!result) return new NotFoundResult();
+        
+        return new OkObjectResult(new ApiResponse<bool>(true, "Branch deactivated.", result));
+    }
+
     [Function("DeleteBranch")]
     public async Task<IActionResult> Delete(
         [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = ApiRoutes.Branches.GetById)] HttpRequest req, Guid id)
@@ -66,6 +76,6 @@ public class BranchFunctions(IMediator mediator)
         var result = await mediator.Send(new Application.Features.Branches.Commands.DeleteBranch.DeleteBranchCommand(id));
         if (!result) return new NotFoundResult();
         
-        return new OkObjectResult(new ApiResponse<bool>(true, "Branch deleted/deactivated.", result));
+        return new OkObjectResult(new ApiResponse<bool>(true, "Branch deleted.", result));
     }
 }

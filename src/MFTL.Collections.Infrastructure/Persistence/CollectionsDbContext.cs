@@ -125,6 +125,20 @@ public sealed class CollectionsDbContext(
                         {
                             tenantEntity.TenantId = _tenantContext.TenantId.Value;
                         }
+
+                        // Also handle BranchId if it exists on the entity
+                        var branchIdMetadata = entry.Metadata.FindProperty("BranchId");
+                        if (branchIdMetadata != null)
+                        {
+                            var branchIdProperty = entry.Property("BranchId");
+                            if (branchIdProperty.CurrentValue == null || (Guid)branchIdProperty.CurrentValue == Guid.Empty)
+                            {
+                                if (_branchContext.BranchId.HasValue)
+                                {
+                                    branchIdProperty.CurrentValue = _branchContext.BranchId.Value;
+                                }
+                            }
+                        }
                     }
                     break;
                 case EntityState.Modified:

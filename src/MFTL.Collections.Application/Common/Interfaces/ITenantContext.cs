@@ -3,7 +3,6 @@ namespace MFTL.Collections.Application.Common.Interfaces;
 public interface ITenantContext
 {
     Guid? TenantId { get; }
-    Guid? BranchId { get; }
     string? TenantIdentifier { get; }
     bool IsPlatformContext { get; }
 }

@@ -36,7 +36,7 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
             {
                 targetName = await dbContext.Branches.Where(b => b.Id == a.TargetId).Select(b => b.Name).FirstOrDefaultAsync(cancellationToken);
             }
-            else if (a.ScopeType == Domain.Entities.ScopeType.Tenant && a.TargetId.HasValue)
+            else if (a.ScopeType == Domain.Entities.ScopeType.Organisation && a.TargetId.HasValue)
             {
                 targetName = await dbContext.Tenants.Where(t => t.Id == a.TargetId).Select(t => t.Name).FirstOrDefaultAsync(cancellationToken);
             }

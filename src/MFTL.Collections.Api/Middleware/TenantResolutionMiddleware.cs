@@ -58,12 +58,15 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
 
         tenantContext.UseTenant(resolution.TenantId.Value, resolution.Identifier);
 
+        var branchContext = (BranchContext)context.InstanceServices.GetRequiredService<IBranchContext>();
+        branchContext.Clear();
+
         if (request.Headers.TryGetValues("X-Branch-Id", out var branchIdValues))
         {
             var branchIdStr = branchIdValues.FirstOrDefault();
             if (Guid.TryParse(branchIdStr, out var branchId))
             {
-                tenantContext.UseBranch(branchId);
+                branchContext.UseBranch(branchId);
             }
         }
 

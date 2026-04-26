@@ -1,7 +1,6 @@
-using Auth0.ManagementApi;
-using Auth0.ManagementApi.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Net.Http.Json;
 
 namespace MFTL.Collections.Infrastructure.Identity.Auth0.Provisioning;
 
@@ -29,18 +28,12 @@ public sealed class Auth0ProvisioningService(
 
         logger.LogInformation("Starting Auth0 Provisioning. Mode: {Mode}", apply ? "Apply" : "Dry-run");
 
-        // 1. Get Access Token for Management API
-        // In a real scenario, you'd use a token fetcher. For this tool, we'll assume the client can handle it or we use a simple HTTP request.
-        // Auth0.ManagementApi v7+ handles the token via ManagementApiClient if you provide the token.
-        // We'll need to fetch the token first.
-
         var token = await GetManagementTokenAsync();
-        using var client = new ManagementApiClient(token, new Uri($"https://{_options.Domain}/api/v2"));
+        using var client = new HttpClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        var baseUrl = $"https://{_options.Domain}/api/v2";
 
-        // 2. Define Permissions
         var permissions = GetDefaultPermissions();
-        
-        // 3. Define Roles
         var roles = GetDefaultRoles();
 
         logger.LogInformation("Found {PermissionCount} permissions to ensure.", permissions.Count);
@@ -48,8 +41,8 @@ public sealed class Auth0ProvisioningService(
 
         if (apply)
         {
-            await EnsurePermissionsExistAsync(client, permissions);
-            await EnsureRolesExistAsync(client, roles, permissions);
+            await EnsurePermissionsExistAsync(client, baseUrl, permissions);
+            await EnsureRolesExistAsync(client, baseUrl, roles);
         }
         else
         {
@@ -59,7 +52,6 @@ public sealed class Auth0ProvisioningService(
 
     private async Task<string> GetManagementTokenAsync()
     {
-        // Simple token fetch logic using HttpClient
         using var client = new HttpClient();
         var response = await client.PostAsJsonAsync($"https://{_options.Domain}/oauth/token", new
         {
@@ -74,12 +66,12 @@ public sealed class Auth0ProvisioningService(
         return result?.AccessToken ?? throw new InvalidOperationException("Failed to fetch Auth0 Management token.");
     }
 
-    private async Task EnsurePermissionsExistAsync(IManagementApiClient client, List<string> permissions)
+    private async Task EnsurePermissionsExistAsync(HttpClient client, string baseUrl, List<string> permissions)
     {
-        // In Auth0, permissions are attached to an API (Resource Server)
-        // We need to find our API and update its scopes
-        var resourceServers = await client.ResourceServers.GetAllAsync(new GetResourceServersRequest());
-        var api = resourceServers.FirstOrDefault(s => s.Identifier == _options.ApiAudience);
+        var response = await client.GetAsync($"{baseUrl}/resource-servers");
+        response.EnsureSuccessStatusCode();
+        var apiList = await response.Content.ReadFromJsonAsync<List<ResourceServerResponse>>();
+        var api = apiList?.FirstOrDefault(s => s.Identifier == _options.ApiAudience);
 
         if (api == null)
         {
@@ -96,35 +88,36 @@ public sealed class Auth0ProvisioningService(
             var updatedScopes = api.Scopes.ToList();
             updatedScopes.AddRange(newScopes.Select(p => new ResourceServerScope { Value = p, Description = $"Auto-generated permission: {p}" }));
 
-            await client.ResourceServers.UpdateAsync(api.Id, new ResourceServerUpdateRequest
+            var updateResponse = await client.PatchAsJsonAsync($"{baseUrl}/resource-servers/{api.Id}", new
             {
-                Scopes = updatedScopes
+                scopes = updatedScopes
             });
-        }
-        else
-        {
-            logger.LogInformation("All permissions already exist in API.");
+            updateResponse.EnsureSuccessStatusCode();
         }
     }
 
-    private async Task EnsureRolesExistAsync(IManagementApiClient client, List<RoleDefinition> roles, List<string> allPermissions)
+    private async Task EnsureRolesExistAsync(HttpClient client, string baseUrl, List<RoleDefinition> roles)
     {
-        var existingRoles = await client.Roles.GetAllAsync(new GetRolesRequest());
+        var response = await client.GetAsync($"{baseUrl}/roles");
+        response.EnsureSuccessStatusCode();
+        var existingRoles = await response.Content.ReadFromJsonAsync<List<Auth0RoleResponse>>();
 
         foreach (var roleDef in roles)
         {
-            var role = existingRoles.FirstOrDefault(r => r.Name == roleDef.Name);
-            string roleId;
+            var role = existingRoles?.FirstOrDefault(r => r.Name == roleDef.Name);
+            string? roleId;
 
             if (role == null)
             {
                 logger.LogInformation("Creating role: {Role}", roleDef.Name);
-                var newRole = await client.Roles.CreateAsync(new RoleCreateRequest
+                var createResponse = await client.PostAsJsonAsync($"{baseUrl}/roles", new
                 {
-                    Name = roleDef.Name,
-                    Description = roleDef.Description
+                    name = roleDef.Name,
+                    description = roleDef.Description
                 });
-                roleId = newRole.Id;
+                createResponse.EnsureSuccessStatusCode();
+                var newRole = await createResponse.Content.ReadFromJsonAsync<Auth0RoleResponse>();
+                roleId = newRole?.Id;
             }
             else
             {
@@ -132,26 +125,31 @@ public sealed class Auth0ProvisioningService(
                 roleId = role.Id;
             }
 
-            // Assign permissions to role
-            var rolePermissions = await client.Roles.GetPermissionsAsync(roleId, new PaginationInfo());
-            var existingPerms = rolePermissions.Select(p => p.PermissionName).ToHashSet();
-            
+            if (string.IsNullOrEmpty(roleId)) continue;
+
+            // Get existing permissions for role
+            var permsResponse = await client.GetAsync($"{baseUrl}/roles/{roleId}/permissions");
+            permsResponse.EnsureSuccessStatusCode();
+            var existingPerms = await permsResponse.Content.ReadFromJsonAsync<List<Auth0PermissionResponse>>();
+            var existingPermSet = existingPerms?.Select(p => p.PermissionName).ToHashSet() ?? new HashSet<string>();
+
             var permsToAssign = roleDef.Permissions
-                .Where(p => !existingPerms.Contains(p))
-                .Select(p => new PermissionRequirement
+                .Where(p => !existingPermSet.Contains(p))
+                .Select(p => new
                 {
-                    PermissionName = p,
-                    ResourceServerIdentifier = _options.ApiAudience
+                    permission_name = p,
+                    resource_server_identifier = _options.ApiAudience
                 })
                 .ToList();
 
             if (permsToAssign.Any())
             {
                 logger.LogInformation("Assigning {Count} permissions to role {Role}", permsToAssign.Count, roleDef.Name);
-                await client.Roles.AssignPermissionsAsync(roleId, new AssignPermissionsRequest
+                var assignResponse = await client.PostAsJsonAsync($"{baseUrl}/roles/{roleId}/permissions", new
                 {
-                    Permissions = permsToAssign
+                    permissions = permsToAssign
                 });
+                assignResponse.EnsureSuccessStatusCode();
             }
         }
     }
@@ -184,20 +182,30 @@ public sealed class Auth0ProvisioningService(
         {
             new("Platform Admin", "Full system access across all organisations.", GetDefaultPermissions()),
             new("Organisation Admin", "Manage all branches and campaigns within their organisation.", 
-                new List<string> { "branches.*", "events.*", "funds.*", "contributions.*", "collectors.*", "donors.*", "receipts.*", "payments.*", "settlements.*", "reports.*", "users.*", "settings.update", "audit.view" }),
+                new List<string> { "organisations.view", "organisations.update", "branches.view", "branches.create", "branches.update", "events.view", "events.create", "events.update", "funds.view", "funds.create", "contributions.view", "reports.view", "users.view", "users.invite" }),
+            new("Finance Officer", "Audit contributions and manage settlements.",
+                new List<string> { "contributions.view", "receipts.view", "receipts.export", "payments.view", "settlements.view", "reports.view" }),
             new("Branch Manager", "Manage events and field operations for a specific hub.",
-                new List<string> { "events.*", "funds.*", "contributions.*", "collectors.view", "collectors.assign", "receipts.view", "reports.view" }),
+                new List<string> { "branches.view", "events.view", "events.create", "events.update", "funds.view", "collectors.view", "collectors.assign" }),
+            new("Event Manager", "Plan and execute specific campaigns.",
+                new List<string> { "events.view", "events.update", "funds.view", "funds.create", "collectors.view" }),
             new("Collector", "Record cash contributions in the field.",
                 new List<string> { "contributions.record_cash", "events.view", "funds.view" }),
-            new("Finance Officer", "Audit contributions and manage settlements.",
-                new List<string> { "contributions.view", "receipts.*", "payments.view", "settlements.*", "reports.view" }),
-            new("Auditor", "Read-only access to all operational and financial logs.",
-                new List<string> { "events.view", "funds.view", "contributions.view", "receipts.view", "audit.view", "reports.view" }),
-            new("Viewer", "Basic read-only access to explicitly assigned scopes.",
+            new("Recipient Manager", "Manage beneficiary funds and donor relationships.",
+                new List<string> { "funds.view", "funds.update", "donors.view" }),
+            new("Reporting Officer", "Generate and export system-wide reports.",
+                new List<string> { "reports.view", "reports.export" }),
+            new("Audit/Security Officer", "Monitor audit logs and security settings.",
+                new List<string> { "audit.view", "users.view", "settings.update" }),
+            new("General Staff/Viewer", "Basic read-only access to assigned context.",
                 new List<string> { "events.view", "funds.view", "reports.view" })
         };
     }
 
     private record RoleDefinition(string Name, string Description, List<string> Permissions);
     private class TokenResponse { [System.Text.Json.Serialization.JsonPropertyName("access_token")] public string AccessToken { get; set; } = string.Empty; }
+    private class ResourceServerResponse { public string Id { get; set; } = string.Empty; public string Identifier { get; set; } = string.Empty; public List<ResourceServerScope> Scopes { get; set; } = new(); }
+    private class ResourceServerScope { public string Value { get; set; } = string.Empty; public string Description { get; set; } = string.Empty; }
+    private class Auth0RoleResponse { public string Id { get; set; } = string.Empty; public string Name { get; set; } = string.Empty; }
+    private class Auth0PermissionResponse { [System.Text.Json.Serialization.JsonPropertyName("permission_name")] public string PermissionName { get; set; } = string.Empty; }
 }

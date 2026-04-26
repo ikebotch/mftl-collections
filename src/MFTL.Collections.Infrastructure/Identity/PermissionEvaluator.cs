@@ -13,15 +13,15 @@ public sealed class PermissionEvaluator(
     private static readonly Dictionary<string, List<string>> RolePermissions = new()
     {
         { "Platform Admin", new() { "*" } },
-        { "Organisation Admin", new() { "branches.*", "events.*", "funds.*", "contributions.*", "collectors.*", "donors.*", "receipts.*", "payments.*", "settlements.*", "reports.*", "users.*", "settings.update", "audit.view" } },
-        { "Branch Manager", new() { "events.*", "funds.*", "contributions.*", "collectors.view", "collectors.assign", "receipts.view", "reports.view" } },
-        { "Finance Officer", new() { "contributions.view", "receipts.*", "payments.view", "settlements.*", "reports.view" } },
-        { "Settlement Manager", new() { "settlements.*", "payments.view", "reports.view" } },
-        { "Collector", new() { "contributions.record_cash", "events.view", "funds.view" } },
-        { "Auditor", new() { "events.view", "funds.view", "contributions.view", "receipts.view", "audit.view", "reports.view" } },
-        { "Event Manager", new() { "events.*", "funds.*", "contributions.view" } },
-        { "Fund Viewer", new() { "funds.view", "events.view" } },
-        { "Viewer", new() { "events.view", "funds.view", "reports.view" } }
+        { "Organisation Admin", new() { "organisations.*", "branches.*", "events.*", "funds.*", "contributions.*", "collectors.*", "donors.*", "receipts.*", "payments.*", "settlements.*", "reports.*", "users.*", "settings.update", "audit.view" } },
+        { "Branch Manager", new() { "branches.view", "branches.manage", "events.*", "funds.*", "contributions.view", "collectors.view", "collectors.assign", "reports.view" } },
+        { "Finance Officer", new() { "contributions.*", "receipts.*", "payments.*", "settlements.view", "reports.finance" } },
+        { "Event Manager", new() { "events.*", "funds.*", "contributions.view", "collectors.view" } },
+        { "Collector", new() { "contributions.create", "receipts.issue", "events.view", "funds.view" } },
+        { "Recipient Manager", new() { "funds.manage", "donors.view", "events.view" } },
+        { "Reporting Officer", new() { "reports.view", "analytics.view" } },
+        { "Audit/Security Officer", new() { "audit.view", "security.manage", "logs.view" } },
+        { "General Staff/Viewer", new() { "events.view", "funds.view", "branches.view" } }
     };
 
     public async Task<bool> HasPermissionAsync(string permission, Guid? scopeId = null)
