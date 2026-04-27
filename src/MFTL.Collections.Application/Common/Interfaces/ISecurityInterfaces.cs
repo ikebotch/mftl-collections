@@ -8,6 +8,8 @@ public interface ICurrentUserService
     string? Email { get; }
     ClaimsPrincipal? User { get; }
     bool IsAuthenticated { get; }
+    bool IsPlatformAdmin { get; }
+    IEnumerable<string> Roles { get; }
 }
 
 public interface IScopeAccessService

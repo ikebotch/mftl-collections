@@ -15,7 +15,21 @@ public class UserFunctions(IMediator mediator)
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.Base)] HttpRequest req)
     {
-        var result = await mediator.Send(new ListUsersQuery());
+        var branchIds = req.Query["branchId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToList();
+
+        var tenantIds = req.Query["tenantId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToList();
+
+        var result = await mediator.Send(new ListUsersQuery(
+            branchIds.Count > 0 ? branchIds : null,
+            tenantIds.Count > 0 ? tenantIds : null));
         return new OkObjectResult(new ApiResponse<IEnumerable<UserDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
@@ -24,6 +38,14 @@ public class UserFunctions(IMediator mediator)
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.GetById)] HttpRequest req, Guid id)
     {
         var result = await mediator.Send(new Application.Features.Users.Queries.GetUserById.GetUserByIdQuery(id));
+        return new OkObjectResult(new ApiResponse<UserDetailDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
+    [Function("GetMe")]
+    public async Task<IActionResult> GetMe(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.Me)] HttpRequest req)
+    {
+        var result = await mediator.Send(new Application.Features.Users.Queries.GetMe.GetMeQuery());
         return new OkObjectResult(new ApiResponse<UserDetailDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 

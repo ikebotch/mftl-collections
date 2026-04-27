@@ -27,6 +27,13 @@ public static class TenantRequestPolicy
         "RenderSwaggerDocument",
         "RenderSwaggerUI",
         "ListTenants",
+        "ListBranches",
+        "CoreListUsers",
+        "ListCollectors",
+        "ListEvents",
+        "ListContributions",
+        "ListRecipientFunds",
+        "GetAdminDashboard"
     };
 
     public static bool RequiresTenant(string functionName) => !PlatformFunctionNames.Contains(functionName);

@@ -14,10 +14,12 @@ public class BranchFunctions(IMediator mediator)
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Branches.Base)] HttpRequest req)
     {
-        var tenantIdStr = req.Query["tenantId"];
-        Guid? tenantId = Guid.TryParse(tenantIdStr, out var tid) ? tid : null;
+        var tenantIds = req.Query["tenantId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .ToList();
         
-        var result = await mediator.Send(new ListBranchesQuery(tenantId));
+        var result = await mediator.Send(new ListBranchesQuery(tenantIds.Count > 0 ? tenantIds : null));
         return new OkObjectResult(new ApiResponse<IEnumerable<BranchDto>>(true, "Branches retrieved.", result));
     }
 

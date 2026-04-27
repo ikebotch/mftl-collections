@@ -26,10 +26,21 @@ public class EventFunctions(IMediator mediator)
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Events.Base)] HttpRequest req)
     {
-        var branchIdStr = req.Query["branchId"];
-        Guid? branchId = Guid.TryParse(branchIdStr, out var bid) ? bid : null;
+        var branchIds = req.Query["branchId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToList();
 
-        var result = await mediator.Send(new ListEventsQuery(branchId));
+        var tenantIds = req.Query["tenantId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToList();
+
+        var result = await mediator.Send(new ListEventsQuery(
+            branchIds.Count > 0 ? branchIds : null,
+            tenantIds.Count > 0 ? tenantIds : null));
         return new OkObjectResult(new ApiResponse<IEnumerable<EventDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 

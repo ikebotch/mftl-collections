@@ -3,21 +3,27 @@ using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Responses;
 
-namespace MFTL.Collections.Application.Features.Users.Queries.GetUserById;
+namespace MFTL.Collections.Application.Features.Users.Queries.GetMe;
 
-public record GetUserByIdQuery(Guid Id) : IRequest<UserDetailDto>;
+public record GetMeQuery : IRequest<UserDetailDto>;
 
-public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<GetUserByIdQuery, UserDetailDto>
+public class GetMeQueryHandler(IApplicationDbContext dbContext, ICurrentUserService currentUserService) : IRequestHandler<GetMeQuery, UserDetailDto>
 {
-    public async Task<UserDetailDto> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
+    public async Task<UserDetailDto> Handle(GetMeQuery request, CancellationToken cancellationToken)
     {
+        var auth0Id = currentUserService.UserId;
+        if (string.IsNullOrEmpty(auth0Id))
+        {
+            throw new UnauthorizedAccessException("Not authenticated.");
+        }
+
         var user = await dbContext.Users
             .Include(u => u.ScopeAssignments)
-            .FirstOrDefaultAsync(u => u.Id == request.Id, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
 
         if (user == null)
         {
-            throw new KeyNotFoundException("User not found.");
+            throw new KeyNotFoundException("User identity not found in local matrix.");
         }
 
         var scopeDtos = new List<ScopeAssignmentDto>();
@@ -61,6 +67,6 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
             user.LastLoginAt,
             user.IsPlatformAdmin,
             scopeDtos,
-            Enumerable.Empty<string>());
+            currentUserService.Roles);
     }
 }

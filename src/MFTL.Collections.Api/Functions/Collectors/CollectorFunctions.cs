@@ -49,7 +49,22 @@ public class CollectorFunctions(IMediator mediator)
             eventId = parsedId;
         }
 
-        var result = await mediator.Send(new Application.Features.Collectors.Queries.ListCollectors.ListCollectorsQuery(eventId));
+        var branchIds = req.Query["branchId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToList();
+
+        var tenantIds = req.Query["tenantId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToList();
+
+        var result = await mediator.Send(new Application.Features.Collectors.Queries.ListCollectors.ListCollectorsQuery(
+            eventId,
+            branchIds.Count > 0 ? branchIds : null,
+            tenantIds.Count > 0 ? tenantIds : null));
         return new OkObjectResult(new ApiResponse<IEnumerable<CollectorMeDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 

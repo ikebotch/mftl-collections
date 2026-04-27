@@ -7,6 +7,12 @@ public sealed class Tenant : BaseEntity
 {
     public string Name { get; set; } = string.Empty;
     public string Identifier { get; set; } = string.Empty; // subdomain or slug
+    public string? SupportEmail { get; set; }
+    public string? MissionStatement { get; set; }
+    public string DefaultCurrency { get; set; } = "GHS";
+    public string DefaultLocale { get; set; } = "en-GH";
+    public string? PrimaryLogoUrl { get; set; }
+    public string? PosLogoUrl { get; set; }
     public bool IsActive { get; set; } = true;
     
     public ICollection<Event> Events { get; set; } = new List<Event>();

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Contracts.Common;
 
 namespace MFTL.Collections.Application.Features.Contributions.Queries.ListContributions;
 
@@ -20,22 +21,44 @@ public sealed record ContributionListItemDto(
     string? Note,
     Guid? ReceiptId);
 
-public record ListContributionsQuery() : IRequest<IEnumerable<ContributionListItemDto>>;
+public record ListContributionsQuery(
+    int Page = 1,
+    int PageSize = 10,
+    IEnumerable<Guid>? BranchIds = null,
+    IEnumerable<Guid>? TenantIds = null) : IRequest<PagedResponse<ContributionListItemDto>>;
 
 public class ListContributionsQueryHandler(IApplicationDbContext dbContext)
-    : IRequestHandler<ListContributionsQuery, IEnumerable<ContributionListItemDto>>
+    : IRequestHandler<ListContributionsQuery, PagedResponse<ContributionListItemDto>>
 {
-    public async Task<IEnumerable<ContributionListItemDto>> Handle(
+    public async Task<PagedResponse<ContributionListItemDto>> Handle(
         ListContributionsQuery request,
         CancellationToken cancellationToken)
     {
-        return await dbContext.Contributions
+        var query = dbContext.Contributions
             .Include(c => c.Event)
             .Include(c => c.RecipientFund)
             .Include(c => c.Contributor)
             .Include(c => c.Receipt)
-                .ThenInclude(r => r.RecordedByUser)
-            .OrderByDescending(c => c.CreatedAt)
+                .ThenInclude(r => r!.RecordedByUser)
+            .AsQueryable();
+
+        if (request.BranchIds != null && request.BranchIds.Any())
+        {
+            query = query.Where(c => request.BranchIds.Contains(c.BranchId));
+        }
+
+        if (request.TenantIds != null && request.TenantIds.Any())
+        {
+            query = query.Where(c => request.TenantIds.Contains(c.TenantId));
+        }
+
+        query = query.OrderByDescending(c => c.CreatedAt);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        
+        var items = await query
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
             .Select(contribution => new ContributionListItemDto(
                 contribution.Id,
                 contribution.CreatedAt,
@@ -52,5 +75,7 @@ public class ListContributionsQueryHandler(IApplicationDbContext dbContext)
                 contribution.Note,
                 contribution.Receipt != null ? contribution.Receipt.Id : (Guid?)null))
             .ToListAsync(cancellationToken);
+
+        return new PagedResponse<ContributionListItemDto>(items, totalCount, request.Page, request.PageSize);
     }
 }

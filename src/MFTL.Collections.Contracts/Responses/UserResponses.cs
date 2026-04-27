@@ -21,7 +21,9 @@ public record UserDetailDto(
     string InviteStatus,
     DateTimeOffset CreatedAt,
     DateTimeOffset? LastLoginAt,
-    IEnumerable<ScopeAssignmentDto> ScopeAssignments);
+    bool IsPlatformAdmin,
+    IEnumerable<ScopeAssignmentDto> ScopeAssignments,
+    IEnumerable<string> Auth0Roles);
 
 public record ScopeAssignmentDto(
     Guid Id,

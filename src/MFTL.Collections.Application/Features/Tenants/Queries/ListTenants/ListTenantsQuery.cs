@@ -14,6 +14,15 @@ public class ListTenantsQueryHandler(
 {
     public async Task<IEnumerable<TenantDto>> Handle(ListTenantsQuery request, CancellationToken cancellationToken)
     {
+        var query = dbContext.Tenants.AsQueryable();
+        
+        if (currentUserService.IsPlatformAdmin)
+        {
+            return await query
+                .Select(t => new TenantDto(t.Id, t.Name, t.Identifier))
+                .ToListAsync(cancellationToken);
+        }
+
         var auth0Id = currentUserService.UserId;
         var user = await dbContext.Users
             .Include(u => u.ScopeAssignments)
@@ -21,18 +30,13 @@ public class ListTenantsQueryHandler(
 
         if (user == null) return Enumerable.Empty<TenantDto>();
 
-        var query = dbContext.Tenants.AsQueryable();
+        var assignedTenantIds = user.ScopeAssignments
+            .Where(a => a.ScopeType == Domain.Entities.ScopeType.Organisation && a.TargetId.HasValue)
+            .Select(a => a.TargetId!.Value)
+            .Distinct()
+            .ToList();
 
-        if (!user.IsPlatformAdmin)
-        {
-            var assignedTenantIds = user.ScopeAssignments
-                .Where(a => a.ScopeType == Domain.Entities.ScopeType.Organisation && a.TargetId.HasValue)
-                .Select(a => a.TargetId!.Value)
-                .Distinct()
-                .ToList();
-
-            query = query.Where(t => assignedTenantIds.Contains(t.Id));
-        }
+        query = query.Where(t => assignedTenantIds.Contains(t.Id));
 
         return await query
             .Select(t => new TenantDto(t.Id, t.Name, t.Identifier))

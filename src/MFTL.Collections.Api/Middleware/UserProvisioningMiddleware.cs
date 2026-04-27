@@ -31,10 +31,16 @@ public sealed class UserProvisioningMiddleware : IFunctionsWorkerMiddleware
         var user = await dbContext.Users
             .FirstOrDefaultAsync(u => u.Auth0Id == userService.UserId);
 
-        var roles = userService.User?.FindAll(RoleClaim).Select(c => c.Value).ToList() ?? new List<string>();
+        var roles = userService.User?.Claims
+            .Where(c => c.Type == RoleClaim || c.Type == ClaimTypes.Role || c.Type == "role")
+            .Select(c => c.Value)
+            .Distinct()
+            .ToList() ?? new List<string>();
+            
         var isPlatformAdmin = roles.Any(r => 
             string.Equals(r, "Platform Admin", StringComparison.OrdinalIgnoreCase) || 
-            string.Equals(r, "super_admin", StringComparison.OrdinalIgnoreCase));
+            string.Equals(r, "super_admin", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(r, "platform_admin", StringComparison.OrdinalIgnoreCase));
         var name = userService.User?.FindFirstValue("name") ?? userService.User?.FindFirstValue(ClaimTypes.Name) ?? "New User";
         var email = userService.Email ?? userService.User?.FindFirstValue(ClaimTypes.Email) ?? "";
 

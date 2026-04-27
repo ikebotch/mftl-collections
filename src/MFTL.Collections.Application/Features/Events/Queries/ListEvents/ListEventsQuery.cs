@@ -7,7 +7,9 @@ using MFTL.Collections.Domain.Enums;
 
 namespace MFTL.Collections.Application.Features.Events.Queries.ListEvents;
 
-public record ListEventsQuery(Guid? BranchId = null) : IRequest<IEnumerable<EventDto>>;
+public record ListEventsQuery(
+    IEnumerable<Guid>? BranchIds = null,
+    IEnumerable<Guid>? TenantIds = null) : IRequest<IEnumerable<EventDto>>;
 
 public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<ListEventsQuery, IEnumerable<EventDto>>
 {
@@ -15,9 +17,14 @@ public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestH
     {
         var query = dbContext.Events.AsQueryable();
 
-        if (request.BranchId.HasValue)
+        if (request.BranchIds != null && request.BranchIds.Any())
         {
-            query = query.Where(e => e.BranchId == request.BranchId.Value);
+            query = query.Where(e => request.BranchIds.Contains(e.BranchId));
+        }
+
+        if (request.TenantIds != null && request.TenantIds.Any())
+        {
+            query = query.Where(e => request.TenantIds.Contains(e.TenantId));
         }
 
         var events = await query

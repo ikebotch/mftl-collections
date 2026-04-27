@@ -44,8 +44,10 @@ public class CollectionsDbContextFactory : IDesignTimeDbContextFactory<Collectio
     {
         public Guid? BranchId => null;
         public IReadOnlyList<Guid> BranchIds => Array.Empty<Guid>();
+        public bool IsGlobalContext => true;
         public void UseBranch(Guid branchId) { }
         public void UseBranches(IEnumerable<Guid> branchIds) { }
+        public void UseGlobalContext() { }
         public void Clear() { }
     }
 }

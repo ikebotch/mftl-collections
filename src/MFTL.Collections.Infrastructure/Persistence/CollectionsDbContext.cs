@@ -3,6 +3,7 @@ using MFTL.Collections.Domain.Common;
 using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Application.Common.Interfaces;
 using System.Linq.Expressions;
+using MFTL.Collections.Infrastructure.Tenancy;
 
 namespace MFTL.Collections.Infrastructure.Persistence;
 
@@ -40,7 +41,7 @@ public sealed class CollectionsDbContext(
 
             if (isTenantEntity || hasBranchId)
             {
-                modelBuilder.Entity(entityType.ClrType).HasQueryFilter(CreateCombinedFilter(entityType.ClrType, hasBranchId));
+                modelBuilder.Entity(entityType.ClrType).HasQueryFilter(CreateCombinedFilter(entityType.ClrType));
             }
         }
         
@@ -53,63 +54,63 @@ public sealed class CollectionsDbContext(
     public Guid? CurrentBranchId => _branchContext.BranchId;
     public IReadOnlyList<Guid> CurrentBranchIds => _branchContext.BranchIds;
     public bool IsPlatformContext => _tenantContext.IsPlatformContext;
+    public bool IsGlobalBranchContext => _branchContext.IsGlobalContext;
 
-    private LambdaExpression CreateCombinedFilter(Type type, bool hasBranchId)
+    // These properties are accessed by the query filters via 'this'
+    public bool IsPlatformFilter => TenancyContextStore.IsPlatform;
+    public Guid[] TenantIdsFilter => TenancyContextStore.CurrentTenantIds;
+    public bool IsGlobalBranchFilter => TenancyContextStore.IsGlobalBranch;
+    public Guid[] BranchIdsFilter => TenancyContextStore.CurrentBranchIds;
+
+    private LambdaExpression CreateCombinedFilter(Type type)
     {
         var parameter = Expression.Parameter(type, "x");
-        
+        Expression combinedFilter = Expression.Constant(true);
+
         // Tenant Filter
-        Expression tenantFilter;
         if (typeof(BaseTenantEntity).IsAssignableFrom(type))
         {
-            var property = Expression.Property(parameter, nameof(BaseTenantEntity.TenantId));
+            var tenantProperty = Expression.Property(parameter, nameof(BaseTenantEntity.TenantId));
             
-            var tenantIdsProperty = typeof(CollectionsDbContext).GetProperty(nameof(CurrentTenantIds));
-            var tenantIds = Expression.Property(Expression.Constant(this), tenantIdsProperty!);
+            // x => this.IsPlatformFilter || this.TenantIdsFilter.Contains(x.TenantId)
+            var isPlatform = Expression.Property(Expression.Constant(this), nameof(IsPlatformFilter));
+            var tenantIds = Expression.Property(Expression.Constant(this), nameof(TenantIdsFilter));
             
-            var isPlatformProperty = typeof(CollectionsDbContext).GetProperty(nameof(IsPlatformContext));
-            var isPlatform = Expression.Property(Expression.Constant(this), isPlatformProperty!);
-            
-            // Contains logic: x => IsPlatform || CurrentTenantIds.Contains(x.TenantId)
             var containsMethod = typeof(Enumerable).GetMethods()
                 .First(m => m.Name == "Contains" && m.GetParameters().Length == 2)
                 .MakeGenericMethod(typeof(Guid));
             
-            var tenantMatch = Expression.Call(null, containsMethod, tenantIds, property);
-            tenantFilter = Expression.OrElse(isPlatform, tenantMatch);
-        }
-        else
-        {
-            tenantFilter = Expression.Constant(true);
+            var tenantMatch = Expression.Call(null, containsMethod, tenantIds, tenantProperty);
+            var tenantFilter = Expression.OrElse(isPlatform, tenantMatch);
+            
+            combinedFilter = Expression.AndAlso(combinedFilter, tenantFilter);
         }
 
         // Branch Filter
-        if (hasBranchId)
+        var branchPropertyInfo = type.GetProperty("BranchId");
+        if (branchPropertyInfo != null)
         {
-            var branchProperty = Expression.Property(parameter, "BranchId");
+            var branchProperty = Expression.Property(parameter, branchPropertyInfo);
             
-            var branchIdsProperty = typeof(CollectionsDbContext).GetProperty(nameof(CurrentBranchIds));
-            var branchIds = Expression.Property(Expression.Constant(this), branchIdsProperty!);
+            // x => this.IsGlobalBranchFilter || this.BranchIdsFilter.Length == 0 || this.BranchIdsFilter.Contains(x.BranchId)
+            var isGlobalBranch = Expression.Property(Expression.Constant(this), nameof(IsGlobalBranchFilter));
+            var branchIds = Expression.Property(Expression.Constant(this), nameof(BranchIdsFilter));
+
+            var lengthProperty = typeof(Array).GetProperty(nameof(Array.Length))!;
+            var branchIdsIsEmpty = Expression.Equal(Expression.Property(branchIds, lengthProperty), Expression.Constant(0));
             
-            // If branchIds in context is EMPTY, we don't filter by branch (allow all branches for the tenant)
-            // Use IReadOnlyCollection because Count is defined there, and Reflection doesn't find inherited properties on interfaces
-            var countProperty = typeof(IReadOnlyCollection<Guid>).GetProperty(nameof(IReadOnlyCollection<Guid>.Count));
-            var branchIdsIsEmpty = Expression.Equal(Expression.Property(branchIds, countProperty!), Expression.Constant(0));
-            
-            // Contains logic: x => BranchIds.IsEmpty() || CurrentBranchIds.Contains(x.BranchId)
             var containsMethod = typeof(Enumerable).GetMethods()
                 .First(m => m.Name == "Contains" && m.GetParameters().Length == 2)
                 .MakeGenericMethod(typeof(Guid));
             
             Expression branchMatch;
-            if (branchProperty.Type == typeof(Guid?))
+            if (branchPropertyInfo.PropertyType == typeof(Guid?))
             {
-                // For nullable Guid properties, we check if they have a value and if that value is in the list
-                var hasValueProperty = typeof(Guid?).GetProperty(nameof(Nullable<Guid>.HasValue));
-                var valueProperty = typeof(Guid?).GetProperty(nameof(Nullable<Guid>.Value));
+                var valueProperty = typeof(Guid?).GetProperty(nameof(Nullable<Guid>.Value))!;
+                var hasValueProperty = typeof(Guid?).GetProperty(nameof(Nullable<Guid>.HasValue))!;
                 
-                var hasValue = Expression.Property(branchProperty, hasValueProperty!);
-                var value = Expression.Property(branchProperty, valueProperty!);
+                var value = Expression.Property(branchProperty, valueProperty);
+                var hasValue = Expression.Property(branchProperty, hasValueProperty);
                 
                 var inList = Expression.Call(null, containsMethod, branchIds, value);
                 branchMatch = Expression.AndAlso(hasValue, inList);
@@ -119,11 +120,11 @@ public sealed class CollectionsDbContext(
                 branchMatch = Expression.Call(null, containsMethod, branchIds, branchProperty);
             }
             
-            var branchFilter = Expression.OrElse(branchIdsIsEmpty, branchMatch);
-            return Expression.Lambda(Expression.AndAlso(tenantFilter, branchFilter), parameter);
+            var branchFilter = Expression.OrElse(isGlobalBranch, Expression.OrElse(branchIdsIsEmpty, branchMatch));
+            combinedFilter = Expression.AndAlso(combinedFilter, branchFilter);
         }
 
-        return Expression.Lambda(tenantFilter, parameter);
+        return Expression.Lambda(combinedFilter, parameter);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -133,17 +134,27 @@ public sealed class CollectionsDbContext(
             switch (entry.State)
             {
                 case EntityState.Added:
-                    entry.Entity.CreatedAt = DateTimeOffset.UtcNow;
+                case EntityState.Modified:
+                    entry.Entity.CreatedAt = entry.State == EntityState.Added ? DateTimeOffset.UtcNow : entry.Entity.CreatedAt;
+                    entry.Entity.ModifiedAt = entry.State == EntityState.Modified ? DateTimeOffset.UtcNow : entry.Entity.ModifiedAt;
+
                     if (entry.Entity is BaseTenantEntity tenantEntity)
                     {
-                        if (!_tenantContext.TenantId.HasValue)
+                        if (!_tenantContext.TenantId.HasValue && !IsPlatformContext)
                         {
-                            throw new InvalidOperationException("Tenant context is required when creating tenant-owned entities.");
+                             throw new InvalidOperationException("Select an organisation context before creating or updating operational data.");
                         }
 
-                        if (tenantEntity.TenantId == Guid.Empty)
+                        if (entry.State == EntityState.Added)
                         {
-                            tenantEntity.TenantId = _tenantContext.TenantId.Value;
+                            if (tenantEntity.TenantId == Guid.Empty && _tenantContext.TenantId.HasValue)
+                            {
+                                tenantEntity.TenantId = _tenantContext.TenantId.Value;
+                            }
+                            else if (tenantEntity.TenantId == Guid.Empty)
+                            {
+                                throw new InvalidOperationException("Select an organisation context before creating operational data.");
+                            }
                         }
 
                         // Also handle BranchId if it exists on the entity
@@ -157,12 +168,13 @@ public sealed class CollectionsDbContext(
                                 {
                                     branchIdProperty.CurrentValue = _branchContext.BranchId.Value;
                                 }
+                                else if (!_branchContext.IsGlobalContext && !IsPlatformContext)
+                                {
+                                    throw new InvalidOperationException("Select a branch context before creating branch-scoped data.");
+                                }
                             }
                         }
                     }
-                    break;
-                case EntityState.Modified:
-                    entry.Entity.ModifiedAt = DateTimeOffset.UtcNow;
                     break;
             }
         }

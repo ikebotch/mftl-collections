@@ -53,8 +53,28 @@ public class ContributionFunctions(IMediator mediator)
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Contributions.Base)] HttpRequest req)
     {
-        var result = await mediator.Send(new ListContributionsQuery());
-        return new OkObjectResult(new ApiResponse<IEnumerable<ContributionListItemDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+        int.TryParse(req.Query["page"], out var page);
+        int.TryParse(req.Query["pageSize"], out var pageSize);
+
+        var branchIds = req.Query["branchId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToList();
+
+        var tenantIds = req.Query["tenantId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToList();
+        
+        var result = await mediator.Send(new ListContributionsQuery(
+            page > 0 ? page : 1, 
+            pageSize > 0 ? pageSize : 10,
+            branchIds.Count > 0 ? branchIds : null,
+            tenantIds.Count > 0 ? tenantIds : null));
+            
+        return new OkObjectResult(new ApiResponse<PagedResponse<ContributionListItemDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
     
     [Function("UpdateContribution")]

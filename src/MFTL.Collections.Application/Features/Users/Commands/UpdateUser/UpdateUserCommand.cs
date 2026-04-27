@@ -11,6 +11,7 @@ public record UpdateUserCommand : IRequest<bool>
     public string? Name { get; init; }
     public string? PhoneNumber { get; init; }
     public bool IsActive { get; init; }
+    public bool? IsPlatformAdmin { get; init; }
 }
 
 public class UpdateUserCommandValidator : AbstractValidator<UpdateUserCommand>
@@ -36,6 +37,10 @@ public class UpdateUserCommandHandler(IApplicationDbContext dbContext) : IReques
         user.Name = request.Name ?? user.Name;
         user.PhoneNumber = request.PhoneNumber ?? user.PhoneNumber;
         user.IsActive = request.IsActive;
+        if (request.IsPlatformAdmin.HasValue)
+        {
+            user.IsPlatformAdmin = request.IsPlatformAdmin.Value;
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

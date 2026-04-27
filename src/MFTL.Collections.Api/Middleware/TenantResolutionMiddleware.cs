@@ -31,12 +31,16 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
 
         var tenantContext = (TenantContext)context.InstanceServices.GetRequiredService<ITenantContext>();
         tenantContext.Clear();
+        var branchContext = (BranchContext)context.InstanceServices.GetRequiredService<IBranchContext>();
+        branchContext.Clear();
         var requestAccessor = context.InstanceServices.GetRequiredService<FunctionHttpRequestAccessor>();
         requestAccessor.Clear();
 
         if (!TenantRequestPolicy.RequiresTenant(context.FunctionDefinition.Name))
         {
             tenantContext.UsePlatformContext();
+            branchContext.UseGlobalContext();
+            SyncContextToStore(tenantContext, branchContext);
             await next(context);
             return;
         }
@@ -60,46 +64,62 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
             return;
         }
 
-        tenantContext.UseTenant(resolution.TenantId.Value, resolution.Identifier);
-        
-        // Security Check: Verify user has access to this tenant
+        // Multi-tenant resolution
+        var requestedTenantIds = new List<Guid> { resolution.TenantId.Value };
+        if (request.Headers.TryGetValues(options.HeaderName, out var tenantIdValues))
+        {
+            var headerIds = tenantIdValues
+                .SelectMany(v => v.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                .Select(v => Guid.TryParse(v, out var id) ? id : Guid.Empty)
+                .Distinct()
+                .ToList();
+            
+            if (headerIds.Count > 0)
+            {
+                requestedTenantIds = headerIds;
+            }
+        }
+
+        // Security Check: Verify user has access to requested tenants
         var userService = context.InstanceServices.GetRequiredService<ICurrentUserService>();
-        if (userService.IsAuthenticated && !string.IsNullOrEmpty(userService.UserId))
+        if (userService.IsAuthenticated && !string.IsNullOrEmpty(userService.UserId) && !userService.IsPlatformAdmin)
         {
             var dbContext = context.InstanceServices.GetRequiredService<IApplicationDbContext>();
             var user = await dbContext.Users
                 .Include(u => u.ScopeAssignments)
                 .FirstOrDefaultAsync(u => u.Auth0Id == userService.UserId);
 
-            if (user != null && !user.IsPlatformAdmin)
+            if (user != null)
             {
-                var hasTenantAccess = user.ScopeAssignments.Any(a => a.TargetId == resolution.TenantId.Value);
-                if (!hasTenantAccess)
+                var accessibleTenantIds = user.ScopeAssignments
+                    .Where(a => a.ScopeType == Domain.Entities.ScopeType.Organisation || a.ScopeType == Domain.Entities.ScopeType.Branch)
+                    .Select(a => a.TargetId)
+                    .Where(id => id.HasValue)
+                    .Select(id => id!.Value)
+                    .ToHashSet();
+
+                var authorizedRequestedIds = requestedTenantIds.Where(id => accessibleTenantIds.Contains(id)).ToList();
+                
+                if (authorizedRequestedIds.Count == 0 && requestedTenantIds.Count > 0)
                 {
                     var response = request.CreateResponse(System.Net.HttpStatusCode.Forbidden);
-                    await response.WriteAsJsonAsync(new ApiResponse(false, "You do not have access to this organization.", CorrelationId: request.GetOrCreateCorrelationId()));
+                    await response.WriteAsJsonAsync(new ApiResponse(false, "You do not have access to the requested organizations.", CorrelationId: request.GetOrCreateCorrelationId()));
                     context.GetInvocationResult().Value = response;
                     return;
                 }
+
+                requestedTenantIds = authorizedRequestedIds;
             }
         }
 
-        if (request.Headers.TryGetValues(options.HeaderName, out var tenantIdValues))
+        if (requestedTenantIds.Count > 1)
         {
-            var tenantIds = tenantIdValues
-                .SelectMany(v => v.Split(',', StringSplitOptions.RemoveEmptyEntries))
-                .Select(v => Guid.TryParse(v, out var id) ? id : Guid.Empty)
-                .Where(id => id != Guid.Empty)
-                .ToList();
-            
-            if (tenantIds.Count > 1)
-            {
-                tenantContext.UseTenants(tenantIds);
-            }
+            tenantContext.UseTenants(requestedTenantIds);
         }
-
-        var branchContext = (BranchContext)context.InstanceServices.GetRequiredService<IBranchContext>();
-        branchContext.Clear();
+        else
+        {
+            tenantContext.UseTenant(requestedTenantIds[0], resolution.Identifier);
+        }
 
         if (request.Headers.TryGetValues("X-Branch-Id", out var branchIdValues))
         {
@@ -112,14 +132,14 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
             if (branchIds.Count > 0)
             {
                 // Verify branch access if not platform admin
-                if (userService.IsAuthenticated && !string.IsNullOrEmpty(userService.UserId))
+                if (userService.IsAuthenticated && !string.IsNullOrEmpty(userService.UserId) && !userService.IsPlatformAdmin)
                 {
                     var dbContext = context.InstanceServices.GetRequiredService<IApplicationDbContext>();
                     var user = await dbContext.Users
                         .Include(u => u.ScopeAssignments)
                         .FirstOrDefaultAsync(u => u.Auth0Id == userService.UserId);
 
-                    if (user != null && !user.IsPlatformAdmin)
+                    if (user != null)
                     {
                         // Filter out branches the user isn't assigned to (unless they are an Org Admin for this tenant)
                         var isOrgAdmin = user.ScopeAssignments.Any(a => a.TargetId == resolution.TenantId.Value && a.ScopeType == Domain.Entities.ScopeType.Organisation);
@@ -130,24 +150,39 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
                                 .Select(a => a.TargetId!.Value)
                                 .ToHashSet();
                             
-                            branchIds = branchIds.Where(id => assignedBranchIds.Contains(id)).ToList();
+                            var authorizedBranchIds = branchIds.Where(id => assignedBranchIds.Contains(id)).ToList();
                             
-                            if (branchIds.Count == 0 && branchIdValues.Any())
+                            if (authorizedBranchIds.Count == 0 && branchIds.Count > 0)
                             {
                                 var response = request.CreateResponse(System.Net.HttpStatusCode.Forbidden);
                                 await response.WriteAsJsonAsync(new ApiResponse(false, "You do not have access to the requested branches.", CorrelationId: request.GetOrCreateCorrelationId()));
                                 context.GetInvocationResult().Value = response;
                                 return;
                             }
+
+                            branchIds = authorizedBranchIds;
                         }
                     }
                 }
 
                 branchContext.UseBranches(branchIds);
             }
+            else if (branchIdValues.Any(v => v.Equals("all", StringComparison.OrdinalIgnoreCase)))
+            {
+                branchContext.UseGlobalContext();
+            }
         }
 
+        SyncContextToStore(tenantContext, branchContext);
         await next(context);
+    }
+
+    private void SyncContextToStore(ITenantContext tenantContext, IBranchContext branchContext)
+    {
+        TenancyContextStore.CurrentTenantIds = tenantContext.TenantIds.ToArray();
+        TenancyContextStore.IsPlatform = tenantContext.IsPlatformContext;
+        TenancyContextStore.CurrentBranchIds = branchContext.BranchIds.ToArray();
+        TenancyContextStore.IsGlobalBranch = branchContext.IsGlobalContext;
     }
 }
 

@@ -6,9 +6,12 @@ using MFTL.Collections.Domain.Entities;
 
 namespace MFTL.Collections.Application.Features.Collectors.Queries.ListCollectors;
 
-public record ListCollectorsQuery(Guid? EventId = null) : IRequest<IEnumerable<CollectorMeDto>>;
+public record ListCollectorsQuery(
+    Guid? EventId = null,
+    IEnumerable<Guid>? BranchIds = null,
+    IEnumerable<Guid>? TenantIds = null) : IRequest<IEnumerable<CollectorMeDto>>;
 
-public class ListCollectorsQueryHandler(IApplicationDbContext dbContext, IBranchContext branchContext) : IRequestHandler<ListCollectorsQuery, IEnumerable<CollectorMeDto>>
+public class ListCollectorsQueryHandler(IApplicationDbContext dbContext, IBranchContext branchContext, ITenantContext tenantContext) : IRequestHandler<ListCollectorsQuery, IEnumerable<CollectorMeDto>>
 {
     public async Task<IEnumerable<CollectorMeDto>> Handle(ListCollectorsQuery request, CancellationToken cancellationToken)
     {
@@ -16,10 +19,20 @@ public class ListCollectorsQueryHandler(IApplicationDbContext dbContext, IBranch
             .Include(u => u.ScopeAssignments)
             .Where(u => u.ScopeAssignments.Any(a => a.Role == "Collector"));
 
-        if (branchContext.BranchIds.Count > 0)
+        var effectiveBranchIds = request.BranchIds ?? branchContext.BranchIds;
+        var effectiveTenantIds = request.TenantIds ?? tenantContext.TenantIds;
+
+        if (effectiveBranchIds.Any())
         {
             query = query.Where(u => u.ScopeAssignments.Any(a => 
-                a.ScopeType == ScopeType.Branch && a.TargetId.HasValue && branchContext.BranchIds.Contains(a.TargetId.Value)));
+                a.ScopeType == ScopeType.Branch && a.TargetId.HasValue && effectiveBranchIds.Contains(a.TargetId.Value)));
+        }
+        else if (effectiveTenantIds.Any())
+        {
+            query = query.Where(u => u.ScopeAssignments.Any(a => 
+                (a.ScopeType == ScopeType.Organisation && effectiveTenantIds.Contains(a.TargetId ?? Guid.Empty)) ||
+                (a.ScopeType == ScopeType.Branch && dbContext.Branches.Any(b => b.Id == a.TargetId && effectiveTenantIds.Contains(b.TenantId)))
+            ));
         }
         
         if (request.EventId.HasValue)

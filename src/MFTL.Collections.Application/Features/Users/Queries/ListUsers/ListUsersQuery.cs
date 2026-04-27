@@ -6,9 +6,11 @@ using MFTL.Collections.Domain.Entities;
 
 namespace MFTL.Collections.Application.Features.Users.Queries.ListUsers;
 
-public record ListUsersQuery() : IRequest<IEnumerable<UserDto>>;
+public record ListUsersQuery(
+    IEnumerable<Guid>? BranchIds = null,
+    IEnumerable<Guid>? TenantIds = null) : IRequest<IEnumerable<UserDto>>;
 
-public class ListUsersHandler(IApplicationDbContext dbContext, IBranchContext branchContext) : IRequestHandler<ListUsersQuery, IEnumerable<UserDto>>
+public class ListUsersHandler(IApplicationDbContext dbContext, IBranchContext branchContext, ITenantContext tenantContext) : IRequestHandler<ListUsersQuery, IEnumerable<UserDto>>
 {
     public async Task<IEnumerable<UserDto>> Handle(ListUsersQuery request, CancellationToken cancellationToken)
     {
@@ -16,11 +18,22 @@ public class ListUsersHandler(IApplicationDbContext dbContext, IBranchContext br
             .Include(u => u.ScopeAssignments)
             .AsQueryable();
 
-        if (branchContext.BranchIds.Count > 0)
+        var effectiveBranchIds = request.BranchIds ?? branchContext.BranchIds;
+        var effectiveTenantIds = request.TenantIds ?? tenantContext.TenantIds;
+
+        if (effectiveBranchIds.Any())
         {
             query = query.Where(u => u.ScopeAssignments.Any(a => 
-                (a.ScopeType == ScopeType.Branch && a.TargetId.HasValue && branchContext.BranchIds.Contains(a.TargetId.Value)) ||
-                (a.ScopeType == ScopeType.Organisation) ||
+                (a.ScopeType == ScopeType.Branch && a.TargetId.HasValue && effectiveBranchIds.Contains(a.TargetId.Value)) ||
+                (a.ScopeType == ScopeType.Organisation && effectiveTenantIds.Contains(a.TargetId ?? Guid.Empty)) ||
+                (a.ScopeType == ScopeType.Platform) ||
+                u.IsPlatformAdmin));
+        }
+        else if (effectiveTenantIds.Any())
+        {
+            query = query.Where(u => u.ScopeAssignments.Any(a => 
+                (a.ScopeType == ScopeType.Organisation && effectiveTenantIds.Contains(a.TargetId ?? Guid.Empty)) ||
+                (a.ScopeType == ScopeType.Branch && dbContext.Branches.Any(b => b.Id == a.TargetId && effectiveTenantIds.Contains(b.TenantId))) ||
                 (a.ScopeType == ScopeType.Platform) ||
                 u.IsPlatformAdmin));
         }

@@ -69,10 +69,22 @@ public sealed class HeaderTenantResolver(FunctionHttpRequestAccessor requestAcce
 
         if (requestAccessor.Headers.TryGetValue(options.Value.HeaderName, out var tenantIdValues))
         {
-            var tenantIdStr = tenantIdValues.FirstOrDefault();
-            if (Guid.TryParse(tenantIdStr, out var tenantId))
+            var rawHeader = tenantIdValues.FirstOrDefault();
+            if (string.IsNullOrEmpty(rawHeader))
             {
-                return Task.FromResult(new TenantResolutionResult(tenantId, tenantIdStr));
+                return Task.FromResult(new TenantResolutionResult(null, null, false));
+            }
+
+            // Handle multi-tenant comma separated values
+            var identifiers = rawHeader.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var firstIdStr = identifiers.FirstOrDefault();
+
+            if (Guid.TryParse(firstIdStr, out var tenantId))
+            {
+                // We return the first valid one as the 'Primary' for single-tenant lookups, 
+                // but the middleware should ideally populate the list.
+                // However, this resolver only returns one.
+                return Task.FromResult(new TenantResolutionResult(tenantId, firstIdStr));
             }
         }
 
@@ -122,20 +134,30 @@ public sealed class BranchContext : IBranchContext
     public Guid? BranchId => BranchIds.Count == 1 ? BranchIds[0] : null;
     public List<Guid> BranchIds { get; set; } = new();
     IReadOnlyList<Guid> IBranchContext.BranchIds => BranchIds;
+    public bool IsGlobalContext { get; private set; }
 
     public void UseBranch(Guid branchId)
     {
         BranchIds = new List<Guid> { branchId };
+        IsGlobalContext = false;
     }
 
     public void UseBranches(IEnumerable<Guid> branchIds)
     {
         BranchIds = branchIds.ToList();
+        IsGlobalContext = false;
+    }
+
+    public void UseGlobalContext()
+    {
+        BranchIds.Clear();
+        IsGlobalContext = true;
     }
 
     public void Clear()
     {
         BranchIds.Clear();
+        IsGlobalContext = false;
     }
 }
 
@@ -145,10 +167,14 @@ public sealed class HeaderBranchResolver(FunctionHttpRequestAccessor requestAcce
     {
         if (requestAccessor.Headers.TryGetValue("X-Branch-Id", out var branchIdValues))
         {
-            var branchIdStr = branchIdValues.FirstOrDefault();
-            if (Guid.TryParse(branchIdStr, out var branchId))
+            var rawHeader = branchIdValues.FirstOrDefault();
+            if (!string.IsNullOrEmpty(rawHeader))
             {
-                return Task.FromResult<Guid?>(branchId);
+                var firstIdStr = rawHeader.Split(',', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                if (Guid.TryParse(firstIdStr, out var branchId))
+                {
+                    return Task.FromResult<Guid?>(branchId);
+                }
             }
         }
 
