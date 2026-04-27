@@ -72,16 +72,19 @@ public sealed class CollectionsDbContext(
         {
             var tenantProperty = Expression.Property(parameter, nameof(BaseTenantEntity.TenantId));
             
-            // x => this.IsPlatformFilter || this.TenantIdsFilter.Contains(x.TenantId)
             var isPlatform = Expression.Property(Expression.Constant(this), nameof(IsPlatformFilter));
             var tenantIds = Expression.Property(Expression.Constant(this), nameof(TenantIdsFilter));
+            var lengthProperty = typeof(Array).GetProperty(nameof(Array.Length))!;
+            var tenantIdsIsEmpty = Expression.Equal(Expression.Property(tenantIds, lengthProperty), Expression.Constant(0));
             
             var containsMethod = typeof(Enumerable).GetMethods()
                 .First(m => m.Name == "Contains" && m.GetParameters().Length == 2)
                 .MakeGenericMethod(typeof(Guid));
             
             var tenantMatch = Expression.Call(null, containsMethod, tenantIds, tenantProperty);
-            var tenantFilter = Expression.OrElse(isPlatform, tenantMatch);
+            
+            // x => tenantMatch || (isPlatform && tenantIdsIsEmpty)
+            var tenantFilter = Expression.OrElse(tenantMatch, Expression.AndAlso(isPlatform, tenantIdsIsEmpty));
             
             combinedFilter = Expression.AndAlso(combinedFilter, tenantFilter);
         }
@@ -120,7 +123,7 @@ public sealed class CollectionsDbContext(
                 branchMatch = Expression.Call(null, containsMethod, branchIds, branchProperty);
             }
             
-            var branchFilter = Expression.OrElse(isGlobalBranch, Expression.OrElse(branchIdsIsEmpty, branchMatch));
+            var branchFilter = Expression.OrElse(branchMatch, Expression.AndAlso(isGlobalBranch, branchIdsIsEmpty));
             combinedFilter = Expression.AndAlso(combinedFilter, branchFilter);
         }
 

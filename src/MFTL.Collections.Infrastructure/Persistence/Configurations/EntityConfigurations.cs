@@ -10,7 +10,7 @@ public class EventConfiguration : IEntityTypeConfiguration<Event>
     {
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Title).IsRequired().HasMaxLength(200);
-        builder.HasIndex(x => x.TenantId);
+        builder.HasIndex(x => x.BranchId);
         builder.Property(x => x.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
     }
 }
@@ -20,7 +20,7 @@ public class ContributionConfiguration : IEntityTypeConfiguration<Contribution>
     public void Configure(EntityTypeBuilder<Contribution> builder)
     {
         builder.HasKey(x => x.Id);
-        builder.HasIndex(x => x.TenantId);
+        builder.HasIndex(x => x.BranchId);
         builder.HasIndex(x => x.Reference).IsUnique();
         builder.Property(x => x.Amount).HasPrecision(18, 2);
         builder.HasOne(x => x.Payment)
@@ -54,7 +54,7 @@ public class ReceiptConfiguration : IEntityTypeConfiguration<Receipt>
     public void Configure(EntityTypeBuilder<Receipt> builder)
     {
         builder.HasKey(x => x.Id);
-        builder.HasIndex(x => x.TenantId);
+        builder.HasIndex(x => x.BranchId);
         builder.HasIndex(x => x.ReceiptNumber).IsUnique();
         builder.HasIndex(x => x.ContributionId).IsUnique();
         builder.Property(x => x.ReceiptNumber).IsRequired().HasMaxLength(64);
@@ -73,10 +73,6 @@ public class ReceiptConfiguration : IEntityTypeConfiguration<Receipt>
             .WithMany(x => x.RecordedReceipts)
             .HasForeignKey(x => x.RecordedByUserId)
             .OnDelete(DeleteBehavior.SetNull);
-        builder.HasOne<Tenant>()
-            .WithMany(x => x.Receipts)
-            .HasForeignKey(x => x.TenantId)
-            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

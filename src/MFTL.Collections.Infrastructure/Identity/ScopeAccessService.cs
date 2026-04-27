@@ -77,7 +77,7 @@ public sealed class ScopeAccessService(CollectionsDbContext dbContext, ICurrentU
 
         if (scopes.Any(s => s.ScopeType == ScopeType.Platform || (s.ScopeType == ScopeType.Organisation && s.TargetId == tenantId)))
         {
-            var query = dbContext.Events.Where(e => e.TenantId == tenantId);
+            var query = dbContext.Events.Where(e => e.Branch != null && e.Branch.TenantId == tenantId);
             if (branchId.HasValue) query = query.Where(e => e.BranchId == branchId.Value);
             return await query.Select(e => e.Id).ToListAsync();
         }
@@ -85,7 +85,7 @@ public sealed class ScopeAccessService(CollectionsDbContext dbContext, ICurrentU
         var assignedBranchIds = scopes.Where(s => s.ScopeType == ScopeType.Branch).Select(s => s.TargetId).ToList();
         var assignedEventIds = scopes.Where(s => s.ScopeType == ScopeType.Event).Select(s => s.TargetId).ToList();
 
-        var eventsQuery = dbContext.Events.Where(e => e.TenantId == tenantId);
+        var eventsQuery = dbContext.Events.Where(e => e.Branch != null && e.Branch.TenantId == tenantId);
         
         if (branchId.HasValue)
         {

@@ -43,10 +43,12 @@ public class BranchIsolationTests
                 ScopeType = ScopeType.Branch, 
                 TargetId = branchId 
             });
+            var branch = new Branch { Id = branchId, TenantId = tenantId, Name = "Test Branch", Identifier = "test" };
+            context.Branches.Add(branch);
+
             context.Events.Add(new Event 
             { 
                 Id = eventId, 
-                TenantId = tenantId, 
                 BranchId = branchId, 
                 Title = "Branch Event",
                 Slug = "branch-event"
@@ -90,10 +92,13 @@ public class BranchIsolationTests
                 ScopeType = ScopeType.Branch, 
                 TargetId = myBranchId 
             });
+            var myBranch = new Branch { Id = myBranchId, TenantId = tenantId, Name = "My Branch", Identifier = "my" };
+            var otherBranch = new Branch { Id = otherBranchId, TenantId = tenantId, Name = "Other Branch", Identifier = "other" };
+            context.Branches.AddRange(myBranch, otherBranch);
+
             context.Events.Add(new Event 
             { 
                 Id = eventId, 
-                TenantId = tenantId, 
                 BranchId = otherBranchId, 
                 Title = "Other Branch Event",
                 Slug = "other-branch-event"
@@ -137,10 +142,16 @@ public class BranchIsolationTests
                 TargetId = branch1Id 
             });
 
-            context.Events.Add(new Event { Id = Guid.NewGuid(), TenantId = tenantId, BranchId = branch1Id, Title = "B1 Event 1", Slug = "b1-e1" });
-            context.Events.Add(new Event { Id = Guid.NewGuid(), TenantId = tenantId, BranchId = branch1Id, Title = "B1 Event 2", Slug = "b1-e2" });
-            context.Events.Add(new Event { Id = Guid.NewGuid(), TenantId = tenantId, BranchId = branch2Id, Title = "B2 Event", Slug = "b2-e1" });
-            context.Events.Add(new Event { Id = Guid.NewGuid(), TenantId = tenantId, BranchId = Guid.NewGuid(), Title = "Global Event", Slug = "global-e1" });
+            var b1 = new Branch { Id = branch1Id, TenantId = tenantId, Name = "B1", Identifier = "b1" };
+            var b2 = new Branch { Id = branch2Id, TenantId = tenantId, Name = "B2", Identifier = "b2" };
+            var b3Id = Guid.NewGuid();
+            var b3 = new Branch { Id = b3Id, TenantId = tenantId, Name = "Global", Identifier = "global" };
+            context.Branches.AddRange(b1, b2, b3);
+
+            context.Events.Add(new Event { Id = Guid.NewGuid(), BranchId = branch1Id, Title = "B1 Event 1", Slug = "b1-e1" });
+            context.Events.Add(new Event { Id = Guid.NewGuid(), BranchId = branch1Id, Title = "B1 Event 2", Slug = "b1-e2" });
+            context.Events.Add(new Event { Id = Guid.NewGuid(), BranchId = branch2Id, Title = "B2 Event", Slug = "b2-e1" });
+            context.Events.Add(new Event { Id = Guid.NewGuid(), BranchId = b3Id, Title = "Global Event", Slug = "global-e1" });
 
             await context.SaveChangesAsync();
 

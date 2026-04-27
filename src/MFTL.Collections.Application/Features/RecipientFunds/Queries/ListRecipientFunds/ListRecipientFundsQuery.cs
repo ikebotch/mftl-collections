@@ -26,7 +26,7 @@ public class ListRecipientFundsQueryHandler(IApplicationDbContext dbContext, IBr
         }
         else if (effectiveTenantIds.Any())
         {
-            query = query.Where(f => dbContext.Events.Any(e => e.Id == f.EventId && effectiveTenantIds.Contains(e.TenantId)));
+            query = query.Where(f => dbContext.Events.Any(e => e.Id == f.EventId && e.Branch != null && effectiveTenantIds.Contains(e.Branch.TenantId)));
         }
 
         var funds = await query.ToListAsync(cancellationToken);

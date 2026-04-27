@@ -5,13 +5,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MFTL.Collections.Application.Features.Donors.Queries.ListDonors;
 
-public record ListDonorsQuery() : IRequest<IEnumerable<DonorDto>>;
+public record ListDonorsQuery(IEnumerable<Guid>? TenantIds = null) : IRequest<IEnumerable<DonorDto>>;
 
 public class ListDonorsQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<ListDonorsQuery, IEnumerable<DonorDto>>
 {
     public async Task<IEnumerable<DonorDto>> Handle(ListDonorsQuery request, CancellationToken cancellationToken)
     {
-        return await dbContext.Contributors
+        var query = dbContext.Contributors.AsQueryable();
+
+        if (request.TenantIds != null && request.TenantIds.Any())
+        {
+            query = query.Where(c => c.Branch != null && request.TenantIds.Contains(c.Branch.TenantId));
+        }
+
+        return await query
             .Select(c => new DonorDto(
                 c.Id,
                 c.Name,

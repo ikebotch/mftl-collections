@@ -4,7 +4,7 @@ using MFTL.Collections.Application.Common.Interfaces;
 
 namespace MFTL.Collections.Application.Features.Tenants.Queries.ListTenants;
 
-public record ListTenantsQuery : IRequest<IEnumerable<TenantDto>>;
+public record ListTenantsQuery(IEnumerable<Guid>? TenantIds = null) : IRequest<IEnumerable<TenantDto>>;
 
 public record TenantDto(Guid Id, string Name, string Identifier);
 
@@ -15,28 +15,30 @@ public class ListTenantsQueryHandler(
     public async Task<IEnumerable<TenantDto>> Handle(ListTenantsQuery request, CancellationToken cancellationToken)
     {
         var query = dbContext.Tenants.AsQueryable();
-        
-        if (currentUserService.IsPlatformAdmin)
+
+        // If specific IDs are requested, filter by them
+        if (request.TenantIds != null && request.TenantIds.Any())
         {
-            return await query
-                .Select(t => new TenantDto(t.Id, t.Name, t.Identifier))
-                .ToListAsync(cancellationToken);
+            query = query.Where(t => request.TenantIds.Contains(t.Id));
         }
+        else if (!currentUserService.IsPlatformAdmin)
+        {
+            // If not platform admin and no specific IDs, show only assigned tenants
+            var auth0Id = currentUserService.UserId;
+            var user = await dbContext.Users
+                .Include(u => u.ScopeAssignments)
+                .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
 
-        var auth0Id = currentUserService.UserId;
-        var user = await dbContext.Users
-            .Include(u => u.ScopeAssignments)
-            .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
+            if (user == null) return Enumerable.Empty<TenantDto>();
 
-        if (user == null) return Enumerable.Empty<TenantDto>();
+            var assignedTenantIds = user.ScopeAssignments
+                .Where(a => a.ScopeType == Domain.Entities.ScopeType.Organisation && a.TargetId.HasValue)
+                .Select(a => a.TargetId!.Value)
+                .Distinct()
+                .ToList();
 
-        var assignedTenantIds = user.ScopeAssignments
-            .Where(a => a.ScopeType == Domain.Entities.ScopeType.Organisation && a.TargetId.HasValue)
-            .Select(a => a.TargetId!.Value)
-            .Distinct()
-            .ToList();
-
-        query = query.Where(t => assignedTenantIds.Contains(t.Id));
+            query = query.Where(t => assignedTenantIds.Contains(t.Id));
+        }
 
         return await query
             .Select(t => new TenantDto(t.Id, t.Name, t.Identifier))

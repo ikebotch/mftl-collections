@@ -36,14 +36,7 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
         var requestAccessor = context.InstanceServices.GetRequiredService<FunctionHttpRequestAccessor>();
         requestAccessor.Clear();
 
-        if (!TenantRequestPolicy.RequiresTenant(context.FunctionDefinition.Name))
-        {
-            tenantContext.UsePlatformContext();
-            branchContext.UseGlobalContext();
-            SyncContextToStore(tenantContext, branchContext);
-            await next(context);
-            return;
-        }
+        bool requiresTenant = TenantRequestPolicy.RequiresTenant(context.FunctionDefinition.Name);
 
         requestAccessor.SetRequest(
             request.Headers.ToDictionary(
@@ -57,10 +50,20 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
         var result = await resolver.ResolveAsync();
         var resolution = TenantRequestPolicy.Evaluate(context.FunctionDefinition.Name, request.Headers, result, options);
 
-        if (!resolution.Success || !resolution.TenantId.HasValue)
+        if (requiresTenant && (!resolution.Success || !resolution.TenantId.HasValue))
         {
             var errorResponse = await TenantRequestPolicy.CreateErrorResponseAsync(request, resolution);
             context.GetInvocationResult().Value = errorResponse;
+            return;
+        }
+
+        // Default to Platform/Global if not required and no resolution
+        if (!requiresTenant && (!resolution.Success || !resolution.TenantId.HasValue))
+        {
+            tenantContext.UsePlatformContext();
+            branchContext.UseGlobalContext();
+            SyncContextToStore(tenantContext, branchContext);
+            await next(context);
             return;
         }
 

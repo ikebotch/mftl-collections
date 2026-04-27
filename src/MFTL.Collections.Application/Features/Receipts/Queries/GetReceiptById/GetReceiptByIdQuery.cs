@@ -12,6 +12,7 @@ public class GetReceiptByIdQueryHandler(IApplicationDbContext dbContext) : IRequ
     public async Task<ReceiptDto> Handle(GetReceiptByIdQuery request, CancellationToken cancellationToken)
     {
         var receipt = await dbContext.Receipts
+            .Include(r => r.Branch)
             .Include(r => r.Event)
             .Include(r => r.RecipientFund)
             .Include(r => r.Contribution)
@@ -30,7 +31,7 @@ public class GetReceiptByIdQueryHandler(IApplicationDbContext dbContext) : IRequ
             receipt.ReceiptNumber,
             receipt.Status.ToString(),
             receipt.IssuedAt,
-            receipt.TenantId,
+            receipt.Branch!.TenantId,
             receipt.EventId,
             receipt.Event.Title,
             receipt.RecipientFundId,

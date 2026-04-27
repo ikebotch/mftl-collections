@@ -24,7 +24,7 @@ public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestH
 
         if (request.TenantIds != null && request.TenantIds.Any())
         {
-            query = query.Where(e => request.TenantIds.Contains(e.TenantId));
+            query = query.Where(e => e.Branch != null && request.TenantIds.Contains(e.Branch.TenantId));
         }
 
         var events = await query

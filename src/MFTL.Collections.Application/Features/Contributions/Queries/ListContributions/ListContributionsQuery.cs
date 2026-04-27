@@ -49,7 +49,7 @@ public class ListContributionsQueryHandler(IApplicationDbContext dbContext)
 
         if (request.TenantIds != null && request.TenantIds.Any())
         {
-            query = query.Where(c => request.TenantIds.Contains(c.TenantId));
+            query = query.Where(c => c.Branch != null && request.TenantIds.Contains(c.Branch.TenantId));
         }
 
         query = query.OrderByDescending(c => c.CreatedAt);

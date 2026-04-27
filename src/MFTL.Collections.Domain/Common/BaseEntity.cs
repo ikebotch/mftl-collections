@@ -13,3 +13,8 @@ public abstract class BaseTenantEntity : BaseEntity
 {
     public Guid TenantId { get; set; }
 }
+
+public abstract class BaseBranchEntity : BaseEntity
+{
+    public Guid BranchId { get; set; }
+}

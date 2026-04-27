@@ -127,13 +127,14 @@ public class TenantIsolationTests
             CancellationToken.None);
 
         var contribution = await dbContext.Contributions
+            .Include(c => c.Branch)
             .Include(c => c.RecipientFund)
             .Include(c => c.Receipt)
             .FirstAsync(c => c.Id == result.ContributionId);
 
         contribution.Status.Should().Be(ContributionStatus.Completed);
         contribution.RecipientFund.CollectedAmount.Should().Be(150m);
-        contribution.TenantId.Should().Be(tenantId);
+        contribution.Branch.TenantId.Should().Be(tenantId);
         contribution.Receipt.Should().NotBeNull();
         contribution.Receipt!.ReceiptNumber.Should().Be("RCT-TEST-0001");
         contribution.Receipt.RecordedByUserId.Should().Be(collector.Id);
@@ -359,6 +360,7 @@ public class TenantIsolationTests
     private sealed class TestTenantContext : ITenantContext
     {
         public Guid? TenantId { get; init; }
+        public IReadOnlyList<Guid> TenantIds => TenantId.HasValue ? new[] { TenantId.Value } : Array.Empty<Guid>();
         public string? TenantIdentifier { get; init; }
         public bool IsPlatformContext { get; init; }
     }
@@ -366,16 +368,22 @@ public class TenantIsolationTests
     private sealed class TestBranchContext : IBranchContext
     {
         public Guid? BranchId { get; set; }
+        public IReadOnlyList<Guid> BranchIds => BranchId.HasValue ? new[] { BranchId.Value } : Array.Empty<Guid>();
+        public bool IsGlobalContext => !BranchId.HasValue;
         public void UseBranch(Guid branchId) => BranchId = branchId;
+        public void UseBranches(IEnumerable<Guid> branchIds) => BranchId = branchIds.FirstOrDefault();
+        public void UseGlobalContext() => BranchId = null;
         public void Clear() => BranchId = null;
     }
 
-    private sealed class TestCurrentUserService(string? userId = null, string? email = null) : ICurrentUserService
+    private sealed class TestCurrentUserService(string? userId = null, string? email = null, bool isPlatformAdmin = false) : ICurrentUserService
     {
         public string? UserId => userId;
         public string? Email => email;
         public System.Security.Claims.ClaimsPrincipal? User => null;
-        public bool IsAuthenticated => false;
+        public bool IsAuthenticated => !string.IsNullOrEmpty(userId);
+        public bool IsPlatformAdmin => isPlatformAdmin;
+        public IEnumerable<string> Roles => Enumerable.Empty<string>();
     }
 
     private sealed class StaticReceiptNumberGenerator(string receiptNumber) : IReceiptNumberGenerator

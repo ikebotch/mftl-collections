@@ -16,7 +16,12 @@ public class DonorFunctions(IMediator mediator)
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Donors.Base)] HttpRequest req)
     {
-        var result = await mediator.Send(new ListDonorsQuery());
+        var tenantIds = req.Query["tenantId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .ToList();
+
+        var result = await mediator.Send(new ListDonorsQuery(tenantIds.Count > 0 ? tenantIds : null));
         return new OkObjectResult(new ApiResponse<IEnumerable<DonorDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
