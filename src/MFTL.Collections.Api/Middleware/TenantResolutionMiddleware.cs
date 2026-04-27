@@ -68,12 +68,18 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
         }
 
         // Multi-tenant resolution
-        var requestedTenantIds = new List<Guid> { resolution.TenantId.Value };
+        var requestedTenantIds = new List<Guid>();
+        if (resolution.TenantId.HasValue)
+        {
+            requestedTenantIds.Add(resolution.TenantId.Value);
+        }
+
         if (request.Headers.TryGetValues(options.HeaderName, out var tenantIdValues))
         {
             var headerIds = tenantIdValues
                 .SelectMany(v => v.Split(',', StringSplitOptions.RemoveEmptyEntries))
                 .Select(v => Guid.TryParse(v, out var id) ? id : Guid.Empty)
+                .Where(id => id != Guid.Empty)
                 .Distinct()
                 .ToList();
             
@@ -81,6 +87,24 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
             {
                 requestedTenantIds = headerIds;
             }
+            else if (!requiresTenant)
+            {
+                // If platform route and header is empty/invalid, force platform context
+                tenantContext.UsePlatformContext();
+                branchContext.UseGlobalContext();
+                SyncContextToStore(tenantContext, branchContext);
+                await next(context);
+                return;
+            }
+        }
+
+        if (requestedTenantIds.Count == 0 && !requiresTenant)
+        {
+            tenantContext.UsePlatformContext();
+            branchContext.UseGlobalContext();
+            SyncContextToStore(tenantContext, branchContext);
+            await next(context);
+            return;
         }
 
         // Security Check: Verify user has access to requested tenants
@@ -145,7 +169,9 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
                     if (user != null)
                     {
                         // Filter out branches the user isn't assigned to (unless they are an Org Admin for this tenant)
-                        var isOrgAdmin = user.ScopeAssignments.Any(a => a.TargetId == resolution.TenantId.Value && a.ScopeType == Domain.Entities.ScopeType.Organisation);
+                        // Note: If multiple tenants are requested, we'd need more complex logic, but usually it's one tenant context
+                        var isOrgAdmin = user.ScopeAssignments.Any(a => a.ScopeType == Domain.Entities.ScopeType.Organisation && requestedTenantIds.Contains(a.TargetId ?? Guid.Empty));
+                        
                         if (!isOrgAdmin)
                         {
                             var assignedBranchIds = user.ScopeAssignments
@@ -170,10 +196,14 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
 
                 branchContext.UseBranches(branchIds);
             }
-            else if (branchIdValues.Any(v => v.Equals("all", StringComparison.OrdinalIgnoreCase)))
+            else
             {
                 branchContext.UseGlobalContext();
             }
+        }
+        else
+        {
+            branchContext.UseGlobalContext();
         }
 
         SyncContextToStore(tenantContext, branchContext);
