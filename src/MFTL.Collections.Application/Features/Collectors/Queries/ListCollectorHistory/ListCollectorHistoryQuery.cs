@@ -37,14 +37,6 @@ public class ListCollectorHistoryQueryHandler(
         var user = await dbContext.Users
             .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
 
-        if (user == null && !string.IsNullOrWhiteSpace(request.ExplicitUserId))
-        {
-            user = await dbContext.Users
-                .Where(u => u.IsActive && u.ScopeAssignments.Any(a => a.Role == "Collector"))
-                .OrderBy(u => u.CreatedAt)
-                .FirstOrDefaultAsync(cancellationToken);
-        }
-
         if (user == null)
         {
             throw new KeyNotFoundException("Collector profile not found.");

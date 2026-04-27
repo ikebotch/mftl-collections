@@ -8,6 +8,7 @@ using MFTL.Collections.Infrastructure.Persistence;
 using MFTL.Collections.Infrastructure.Payments;
 using MFTL.Collections.Infrastructure.Services;
 using MFTL.Collections.Infrastructure.Identity;
+using MFTL.Collections.Infrastructure.Identity.Auth0.Provisioning;
 
 namespace MFTL.Collections.Infrastructure.DependencyInjection;
 
@@ -25,10 +26,25 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IScopeAccessService, ScopeAccessService>();
+        services.AddScoped<IPermissionEvaluator, PermissionEvaluator>();
+        
+        services.Configure<Auth0ProvisioningOptions>(options =>
+        {
+            options.Domain = configuration["Values:Auth0:Domain"] ?? string.Empty;
+            options.ManagementClientId = configuration["Values:AUTH0_MANAGEMENT_CLIENT_ID"] ?? string.Empty;
+            options.ManagementClientSecret = configuration["Values:AUTH0_MANAGEMENT_CLIENT_SECRET"] ?? string.Empty;
+            options.ManagementAudience = configuration["Values:AUTH0_MANAGEMENT_AUDIENCE"] ?? $"https://{options.Domain}/api/v2/";
+            options.ApiAudience = configuration["Values:Auth0:Audience"] ?? string.Empty;
+        });
+        services.AddScoped<Auth0ProvisioningService>();
         
         services.AddScoped<FunctionHttpRequestAccessor>();
         services.AddScoped<TenantContext>();
         services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
+        
+        services.AddScoped<BranchContext>();
+        services.AddScoped<IBranchContext>(sp => sp.GetRequiredService<BranchContext>());
+        services.AddScoped<HeaderBranchResolver>();
         
         services.AddScoped<IPaymentOrchestrator, PaymentOrchestrator>();
         services.AddScoped<IPaymentWebhookProcessor, PaymentWebhookProcessor>();
@@ -60,6 +76,7 @@ public static class DependencyInjection
         // Additional services for payments and dashboards
         services.AddScoped<IPaymentStateService, PaymentStateService>();
         services.AddScoped<IDashboardProjectionUpdater, DashboardProjectionUpdater>();
+        services.AddScoped<IEmailService, MockEmailService>();
 
         return services;
     }

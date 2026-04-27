@@ -8,6 +8,7 @@ using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Application.Features.Events.Queries.GetEventById;
 using MFTL.Collections.Application.Features.Events.Queries.ListEvents;
 using MFTL.Collections.Application.Features.Events.Commands.UpdateEvent;
+using MFTL.Collections.Application.Features.Events.Commands.AssignStaff;
 
 namespace MFTL.Collections.Api.Functions.Events;
 
@@ -25,7 +26,19 @@ public class EventFunctions(IMediator mediator)
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Events.Base)] HttpRequest req)
     {
-        var result = await mediator.Send(new ListEventsQuery());
+        var branchIds = req.Query["branchId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .ToList();
+
+        var tenantIds = req.Query["tenantId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .ToList();
+
+        var result = await mediator.Send(new ListEventsQuery(
+            branchIds.Count > 0 ? branchIds : null,
+            tenantIds.Count > 0 ? tenantIds : null));
         return new OkObjectResult(new ApiResponse<IEnumerable<EventDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
@@ -42,8 +55,22 @@ public class EventFunctions(IMediator mediator)
             request.Description,
             request.EventDate,
             request.IsActive,
-            request.Slug));
+            request.BranchId,
+            request.Slug,
+            request.DisplayImageUrl,
+            request.ReceiptLogoUrl));
 
         return new OkObjectResult(new ApiResponse<EventDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
+    [Function("AssignStaffToEvent")]
+    public async Task<IActionResult> AssignStaff(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Events.AssignStaff)] HttpRequest req, Guid id)
+    {
+        var request = await req.ReadFromJsonAsync<IEnumerable<Guid>>();
+        if (request == null) return new BadRequestObjectResult("Invalid request body. Expected a list of User IDs.");
+
+        var result = await mediator.Send(new AssignStaffToEventCommand(id, request));
+        return new OkObjectResult(new ApiResponse<bool>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 }

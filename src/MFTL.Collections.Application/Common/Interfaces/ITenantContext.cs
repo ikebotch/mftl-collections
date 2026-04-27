@@ -3,6 +3,7 @@ namespace MFTL.Collections.Application.Common.Interfaces;
 public interface ITenantContext
 {
     Guid? TenantId { get; }
+    IReadOnlyList<Guid> TenantIds { get; }
     string? TenantIdentifier { get; }
     bool IsPlatformContext { get; }
 }

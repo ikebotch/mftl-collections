@@ -79,7 +79,6 @@ public sealed class ContributionSettlementService(
         {
             receipt = new Receipt
             {
-                TenantId = contribution.TenantId == Guid.Empty ? contribution.RecipientFund.TenantId : contribution.TenantId,
                 EventId = contribution.EventId,
                 RecipientFundId = contribution.RecipientFundId,
                 ContributionId = contribution.Id,
@@ -89,6 +88,7 @@ public sealed class ContributionSettlementService(
                 IssuedAt = DateTimeOffset.UtcNow,
                 Status = ReceiptStatus.Issued,
                 Note = contribution.Note,
+                BranchId = contribution.BranchId
             };
 
             dbContext.Receipts.Add(receipt);

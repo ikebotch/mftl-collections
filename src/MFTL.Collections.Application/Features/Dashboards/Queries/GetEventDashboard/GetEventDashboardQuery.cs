@@ -1,39 +1,64 @@
 using MFTL.Collections.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-
 using MFTL.Collections.Contracts.Responses;
+using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Domain.Enums;
 
 namespace MFTL.Collections.Application.Features.Dashboards.Queries.GetEventDashboard;
 
 public record GetEventDashboardQuery(Guid EventId) : IRequest<EventDashboardDto>;
 
-
 public class GetEventDashboardQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<GetEventDashboardQuery, EventDashboardDto>
 {
     public async Task<EventDashboardDto> Handle(GetEventDashboardQuery request, CancellationToken cancellationToken)
     {
         var @event = await dbContext.Events
-            .Include(e => e.RecipientFunds)
             .FirstOrDefaultAsync(e => e.Id == request.EventId, cancellationToken);
 
         if (@event == null) throw new KeyNotFoundException("Event not found.");
 
-        var funds = @event.RecipientFunds.Select(f => new FundSummaryDto(f.Id, f.Name, f.CollectedAmount, f.TargetAmount)).ToList();
+        var contributionsQuery = dbContext.Contributions
+            .Where(c => c.EventId == request.EventId && c.Status == ContributionStatus.Completed);
+
+        var totals = await contributionsQuery
+            .GroupBy(c => c.Currency)
+            .Select(g => new CurrencyTotalDto(g.Key, g.Sum(c => c.Amount)))
+            .ToListAsync(cancellationToken);
         
-        var totalCollected = funds.Sum(f => f.Collected);
-        var totalTarget = funds.Sum(f => f.Target);
-        
-        var contributionCount = await dbContext.Contributions
-            .CountAsync(c => c.RecipientFund.EventId == request.EventId && c.Status == ContributionStatus.Completed, cancellationToken);
+        var contributionCount = await contributionsQuery.CountAsync(cancellationToken);
+
+        var donorCount = await contributionsQuery
+            .Select(c => c.ContributorId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+
+        var recentContributions = await contributionsQuery
+            .OrderByDescending(c => c.CreatedAt)
+            .Take(5)
+            .Select(c => new RecentContributionDto(
+                c.ContributorName,
+                c.Amount,
+                c.Currency,
+                c.CreatedAt,
+                c.Status.ToString(),
+                @event.Title,
+                c.Method
+            ))
+            .ToListAsync(cancellationToken);
+
+        var funds = await dbContext.RecipientFunds
+            .Where(f => f.EventId == request.EventId)
+            .Select(f => new FundSummaryDto(f.Id, f.Name, f.CollectedAmount, f.TargetAmount))
+            .ToListAsync(cancellationToken);
 
         return new EventDashboardDto(
             @event.Id,
             @event.Title,
-            totalTarget,
-            totalCollected,
+            totals,
             contributionCount,
+            donorCount,
+            recentContributions,
             funds
         );
     }

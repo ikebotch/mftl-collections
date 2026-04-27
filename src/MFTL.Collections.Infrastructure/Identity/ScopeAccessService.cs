@@ -12,11 +12,25 @@ public sealed class ScopeAccessService(CollectionsDbContext dbContext, ICurrentU
         var userId = currentUserService.UserId;
         if (string.IsNullOrEmpty(userId)) return false;
 
-        // Check platform admin or direct tenant assignment
         return await dbContext.UserScopeAssignments
             .AnyAsync(s => s.User.Auth0Id == userId && 
                           (s.ScopeType == ScopeType.Platform || 
-                          (s.ScopeType == ScopeType.Tenant && s.TargetId == tenantId)));
+                          (s.ScopeType == ScopeType.Organisation && s.TargetId == tenantId)));
+    }
+
+    public async Task<bool> HasAccessToBranchAsync(Guid branchId)
+    {
+        var userId = currentUserService.UserId;
+        if (string.IsNullOrEmpty(userId)) return false;
+
+        var branch = await dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == branchId);
+        if (branch == null) return false;
+
+        return await dbContext.UserScopeAssignments
+            .AnyAsync(s => s.User.Auth0Id == userId && 
+                          (s.ScopeType == ScopeType.Platform || 
+                          (s.ScopeType == ScopeType.Organisation && s.TargetId == branch.TenantId) ||
+                          (s.ScopeType == ScopeType.Branch && s.TargetId == branchId)));
     }
 
     public async Task<bool> HasAccessToEventAsync(Guid eventId)
@@ -24,10 +38,14 @@ public sealed class ScopeAccessService(CollectionsDbContext dbContext, ICurrentU
         var userId = currentUserService.UserId;
         if (string.IsNullOrEmpty(userId)) return false;
 
+        var @event = await dbContext.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventId);
+        if (@event == null) return false;
+
         return await dbContext.UserScopeAssignments
             .AnyAsync(s => s.User.Auth0Id == userId && 
                           (s.ScopeType == ScopeType.Platform || 
-                           s.ScopeType == ScopeType.Tenant || // Tenant admin sees all
+                           s.ScopeType == ScopeType.Organisation || 
+                          (s.ScopeType == ScopeType.Branch && s.TargetId == @event.BranchId) ||
                           (s.ScopeType == ScopeType.Event && s.TargetId == eventId)));
     }
 
@@ -36,31 +54,56 @@ public sealed class ScopeAccessService(CollectionsDbContext dbContext, ICurrentU
         var userId = currentUserService.UserId;
         if (string.IsNullOrEmpty(userId)) return false;
 
+        var fund = await dbContext.RecipientFunds.AsNoTracking().FirstOrDefaultAsync(f => f.Id == fundId);
+        if (fund == null) return false;
+
         return await dbContext.UserScopeAssignments
             .AnyAsync(s => s.User.Auth0Id == userId && 
                           (s.ScopeType == ScopeType.Platform || 
-                           s.ScopeType == ScopeType.Tenant || 
-                           s.ScopeType == ScopeType.Event || 
+                           s.ScopeType == ScopeType.Organisation || 
+                          (s.ScopeType == ScopeType.Branch && s.TargetId == fund.BranchId) ||
+                          (s.ScopeType == ScopeType.Event && s.TargetId == fund.EventId) ||
                           (s.ScopeType == ScopeType.RecipientFund && s.TargetId == fundId)));
     }
 
-    public async Task<IEnumerable<Guid>> GetAccessibleEventIdsAsync(Guid tenantId)
+    public async Task<IEnumerable<Guid>> GetAccessibleEventIdsAsync(Guid tenantId, Guid? branchId = null)
     {
         var userId = currentUserService.UserId;
         if (string.IsNullOrEmpty(userId)) return Enumerable.Empty<Guid>();
 
-        // This is simplified; in a real app, you'd join with the Events table to get IDs if the user has Tenant/Platform scope
         var scopes = await dbContext.UserScopeAssignments
             .Where(s => s.User.Auth0Id == userId)
             .ToListAsync();
 
-        if (scopes.Any(s => s.ScopeType == ScopeType.Platform || (s.ScopeType == ScopeType.Tenant && s.TargetId == tenantId)))
+        if (scopes.Any(s => s.ScopeType == ScopeType.Platform || (s.ScopeType == ScopeType.Organisation && s.TargetId == tenantId)))
         {
-            return await dbContext.Events.Where(e => e.TenantId == tenantId).Select(e => e.Id).ToListAsync();
+            var query = dbContext.Events.Where(e => e.Branch != null && e.Branch.TenantId == tenantId);
+            if (branchId.HasValue) query = query.Where(e => e.BranchId == branchId.Value);
+            return await query.Select(e => e.Id).ToListAsync();
         }
 
-        return scopes.Where(s => s.ScopeType == ScopeType.Event && s.TargetId.HasValue)
-                     .Select(s => s.TargetId!.Value)
-                     .ToList();
+        var assignedBranchIds = scopes.Where(s => s.ScopeType == ScopeType.Branch).Select(s => s.TargetId).ToList();
+        var assignedEventIds = scopes.Where(s => s.ScopeType == ScopeType.Event).Select(s => s.TargetId).ToList();
+
+        var eventsQuery = dbContext.Events.Where(e => e.Branch != null && e.Branch.TenantId == tenantId);
+        
+        if (branchId.HasValue)
+        {
+            // If filtering by branch, user must have access to that branch or specific events in it
+            if (!assignedBranchIds.Contains(branchId.Value))
+            {
+                eventsQuery = eventsQuery.Where(e => assignedEventIds.Contains(e.Id) && e.BranchId == branchId.Value);
+            }
+            else
+            {
+                eventsQuery = eventsQuery.Where(e => e.BranchId == branchId.Value);
+            }
+        }
+        else
+        {
+            eventsQuery = eventsQuery.Where(e => assignedBranchIds.Contains(e.BranchId) || assignedEventIds.Contains(e.Id));
+        }
+
+        return await eventsQuery.Select(e => e.Id).ToListAsync();
     }
 }

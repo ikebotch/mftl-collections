@@ -34,7 +34,9 @@ public class PaymentIdempotencyTests
         providerMock.Setup(p => p.ParseWebhook(It.IsAny<string>()))
             .Returns((Guid.NewGuid(), "ref_123", PaymentStatus.Succeeded));
 
-        using (var context = new CollectionsDbContext(options, tenantContextMock.Object))
+        var branchContextMock = new Mock<IBranchContext>();
+
+        using (var context = new CollectionsDbContext(options, tenantContextMock.Object, branchContextMock.Object))
         {
             var payment = new Payment 
             { 

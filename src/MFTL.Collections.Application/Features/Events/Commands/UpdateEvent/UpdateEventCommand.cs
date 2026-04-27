@@ -5,11 +5,21 @@ using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Domain.Common;
 using MFTL.Collections.Contracts.Requests;
+using MFTL.Collections.Contracts.Common;
 using Mapster;
 
 namespace MFTL.Collections.Application.Features.Events.Commands.UpdateEvent;
 
-public record UpdateEventCommand(Guid Id, string Title, string Description, DateTimeOffset? EventDate, bool IsActive, string? Slug = null) : IRequest<EventDto>;
+public record UpdateEventCommand(
+    Guid Id, 
+    string Title, 
+    string Description, 
+    DateTimeOffset? EventDate, 
+    bool IsActive, 
+    Guid BranchId,
+    string? Slug = null,
+    string? DisplayImageUrl = null,
+    string? ReceiptLogoUrl = null) : IRequest<EventDto>;
 
 public class UpdateEventCommandValidator : AbstractValidator<UpdateEventCommand>
 {
@@ -18,6 +28,7 @@ public class UpdateEventCommandValidator : AbstractValidator<UpdateEventCommand>
         RuleFor(x => x.Id).NotEmpty();
         RuleFor(x => x.Title).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.BranchId).NotEmpty().WithMessage("An operational hub (branch) must be selected.");
         RuleFor(x => x.Slug)
             .MaximumLength(100)
             .Matches(@"^[a-z0-9-]*$")
@@ -31,6 +42,7 @@ public class UpdateEventCommandHandler(IApplicationDbContext dbContext) : IReque
     public async Task<EventDto> Handle(UpdateEventCommand request, CancellationToken cancellationToken)
     {
         var @event = await dbContext.Events
+            .Include(e => e.RecipientFunds)
             .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
         if (@event == null)
@@ -42,16 +54,24 @@ public class UpdateEventCommandHandler(IApplicationDbContext dbContext) : IReque
             ? SlugHelper.Generate(request.Title)
             : request.Slug!;
 
-        if (await dbContext.Events.AnyAsync(x => x.Slug == slug && x.Id != request.Id, cancellationToken))
+        var baseSlug = slug;
+        var counter = 1;
+        while (await dbContext.Events.AnyAsync(x => x.Slug == slug && x.Id != request.Id, cancellationToken))
         {
-            slug = $"{slug}-{Guid.NewGuid():N}"[..Math.Min(slug.Length + 9, 100)];
+            var suffix = $"-{counter++}";
+            slug = baseSlug.Length + suffix.Length > 100 
+                ? baseSlug[..(100 - suffix.Length)] + suffix 
+                : baseSlug + suffix;
         }
 
         @event.Title = request.Title;
         @event.Description = request.Description;
-        @event.EventDate = request.EventDate;
+        @event.EventDate = request.EventDate?.ToUniversalTime();
         @event.IsActive = request.IsActive;
         @event.Slug = slug;
+        @event.DisplayImageUrl = request.DisplayImageUrl;
+        @event.ReceiptLogoUrl = request.ReceiptLogoUrl;
+        @event.BranchId = request.BranchId;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -61,10 +81,12 @@ public class UpdateEventCommandHandler(IApplicationDbContext dbContext) : IReque
             @event.Description,
             @event.EventDate,
             @event.IsActive,
-            0, // These will be filled by a separate query or computed in a real scenario
+            new List<CurrencyTotalDto>(), // Filled by frontend refresh or separate load
+            @event.RecipientFunds.Sum(f => f.TargetAmount),
+            @event.RecipientFunds.Count,
             0,
-            0,
-            0,
-            @event.Slug);
+            @event.Slug,
+            @event.DisplayImageUrl,
+            @event.ReceiptLogoUrl);
     }
 }

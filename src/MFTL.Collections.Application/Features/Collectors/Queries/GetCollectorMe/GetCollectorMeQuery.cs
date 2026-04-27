@@ -16,7 +16,10 @@ public sealed record CollectorMeDto(
     int ReceiptsIssuedToday,
     DateTimeOffset? LastActiveAt,
     bool HasAssignments,
-    string? BlockedReason);
+    string? BlockedReason,
+    string? PhoneNumber = null,
+    IEnumerable<Guid>? EventIds = null,
+    IEnumerable<Guid>? FundIds = null);
 
 public record GetCollectorMeQuery(string? ExplicitUserId = null) : IRequest<CollectorMeDto>;
 
@@ -36,15 +39,6 @@ public class GetCollectorMeQueryHandler(
             .Include(u => u.ScopeAssignments)
             .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
 
-        if (user == null && !string.IsNullOrWhiteSpace(request.ExplicitUserId))
-        {
-            user = await dbContext.Users
-                .Include(u => u.ScopeAssignments)
-                .Where(u => u.IsActive && u.ScopeAssignments.Any(a => a.Role == "Collector"))
-                .OrderBy(u => u.CreatedAt)
-                .FirstOrDefaultAsync(cancellationToken);
-        }
-
         if (user == null)
         {
             throw new KeyNotFoundException("Collector profile not found.");
@@ -53,7 +47,7 @@ public class GetCollectorMeQueryHandler(
         var assignments = user.ScopeAssignments.Where(a => a.Role == "Collector").ToList();
         var eventCount = assignments.Count(a => a.ScopeType == ScopeType.Event);
         var fundCount = assignments.Count(a => a.ScopeType == ScopeType.RecipientFund);
-        var hasAssignments = eventCount > 0 && fundCount > 0;
+        var hasAssignments = eventCount > 0 || fundCount > 0;
         var today = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
 
         var receiptsToday = await dbContext.Receipts
@@ -74,12 +68,15 @@ public class GetCollectorMeQueryHandler(
             user.IsActive ? "Active" : "Inactive",
             eventCount,
             fundCount,
-            receiptsToday.Sum(r => r.Contribution.Amount),
+            receiptsToday.Sum(r => r.Contribution?.Amount ?? 0),
             receiptsToday.Count,
             lastActive,
             hasAssignments,
             user.IsActive
-                ? (hasAssignments ? null : "No event and fund assignments are active for this collector.")
-                : "Collector is inactive.");
+                ? (hasAssignments ? null : "No active campaign or fund assignments established for this collector.")
+                : "Collector is inactive.",
+            user.PhoneNumber,
+            assignments.Where(a => a.ScopeType == ScopeType.Event).Select(a => a.TargetId ?? Guid.Empty),
+            assignments.Where(a => a.ScopeType == ScopeType.RecipientFund).Select(a => a.TargetId ?? Guid.Empty));
     }
 }

@@ -1,3 +1,5 @@
+using MFTL.Collections.Contracts.Common;
+
 namespace MFTL.Collections.Contracts.Requests;
 
 public record CreateRecipientFundRequest(
@@ -12,4 +14,5 @@ public record RecipientFundDto(
     string Name,
     string Description,
     decimal TargetAmount,
-    decimal CollectedAmount);
+    bool IsActive,
+    IEnumerable<CurrencyTotalDto> Totals);

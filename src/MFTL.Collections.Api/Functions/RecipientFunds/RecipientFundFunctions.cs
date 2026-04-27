@@ -30,6 +30,7 @@ public class RecipientFundFunctions(IMediator mediator)
             request.Name, 
             request.Description, 
             request.TargetAmount, 
+            request.IsActive,
             request.Metadata));
             
         return new OkObjectResult(new ApiResponse<Guid>(true, "Recipient fund created.", result, CorrelationId: req.GetOrCreateCorrelationId()));
@@ -49,6 +50,7 @@ public class RecipientFundFunctions(IMediator mediator)
             request.Name, 
             request.Description, 
             request.TargetAmount, 
+            request.IsActive,
             request.Metadata));
             
         if (!result) return new NotFoundResult();
@@ -69,7 +71,21 @@ public class RecipientFundFunctions(IMediator mediator)
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.RecipientFunds.Base)] HttpRequest req)
     {
-        var result = await mediator.Send(new ListRecipientFundsQuery());
+        var branchIds = req.Query["branchId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToList();
+
+        var tenantIds = req.Query["tenantId"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToList();
+
+        var result = await mediator.Send(new ListRecipientFundsQuery(
+            branchIds.Count > 0 ? branchIds : null,
+            tenantIds.Count > 0 ? tenantIds : null));
         return new OkObjectResult(new ApiResponse<IEnumerable<RecipientFundDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
@@ -82,5 +98,5 @@ public class RecipientFundFunctions(IMediator mediator)
     }
 }
 
-public record CreateRecipientFundRequest(Guid EventId, string Name, string? Description, decimal TargetAmount, string? Metadata);
-public record UpdateRecipientFundRequest(string Name, string? Description, decimal TargetAmount, string? Metadata);
+public record CreateRecipientFundRequest(Guid EventId, string Name, string? Description, decimal TargetAmount, bool IsActive = true, string? Metadata = null);
+public record UpdateRecipientFundRequest(string Name, string? Description, decimal TargetAmount, bool IsActive, string? Metadata = null);
