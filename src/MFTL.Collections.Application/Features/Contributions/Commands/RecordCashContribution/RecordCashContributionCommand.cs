@@ -108,6 +108,7 @@ public class RecordCashContributionCommandHandler(
 
         var contributor = new Contributor
         {
+            TenantId = @event.TenantId,
             BranchId = @event.BranchId,
             Name = request.Anonymous ? "Anonymous" : request.ContributorName?.Trim() ?? string.Empty,
             Email = request.ContributorEmail?.Trim() ?? string.Empty,
@@ -119,6 +120,7 @@ public class RecordCashContributionCommandHandler(
 
         var contribution = new Contribution
         {
+            TenantId = @event.TenantId,
             BranchId = @event.BranchId,
             EventId = request.EventId,
             RecipientFundId = request.RecipientFundId,

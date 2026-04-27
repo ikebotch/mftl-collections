@@ -158,42 +158,6 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
 
             if (branchIds.Count > 0)
             {
-                // Verify branch access if not platform admin
-                if (userService.IsAuthenticated && !string.IsNullOrEmpty(userService.UserId) && !userService.IsPlatformAdmin)
-                {
-                    var dbContext = context.InstanceServices.GetRequiredService<IApplicationDbContext>();
-                    var user = await dbContext.Users
-                        .Include(u => u.ScopeAssignments)
-                        .FirstOrDefaultAsync(u => u.Auth0Id == userService.UserId);
-
-                    if (user != null)
-                    {
-                        // Filter out branches the user isn't assigned to (unless they are an Org Admin for this tenant)
-                        // Note: If multiple tenants are requested, we'd need more complex logic, but usually it's one tenant context
-                        var isOrgAdmin = user.ScopeAssignments.Any(a => a.ScopeType == Domain.Entities.ScopeType.Organisation && requestedTenantIds.Contains(a.TargetId ?? Guid.Empty));
-                        
-                        if (!isOrgAdmin)
-                        {
-                            var assignedBranchIds = user.ScopeAssignments
-                                .Where(a => a.ScopeType == Domain.Entities.ScopeType.Branch && a.TargetId.HasValue)
-                                .Select(a => a.TargetId!.Value)
-                                .ToHashSet();
-                            
-                            var authorizedBranchIds = branchIds.Where(id => assignedBranchIds.Contains(id)).ToList();
-                            
-                            if (authorizedBranchIds.Count == 0 && branchIds.Count > 0)
-                            {
-                                var response = request.CreateResponse(System.Net.HttpStatusCode.Forbidden);
-                                await response.WriteAsJsonAsync(new ApiResponse(false, "You do not have access to the requested branches.", CorrelationId: request.GetOrCreateCorrelationId()));
-                                context.GetInvocationResult().Value = response;
-                                return;
-                            }
-
-                            branchIds = authorizedBranchIds;
-                        }
-                    }
-                }
-
                 branchContext.UseBranches(branchIds);
             }
             else
@@ -204,6 +168,80 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
         else
         {
             branchContext.UseGlobalContext();
+        }
+
+        // For non-platform admins, if no headers are provided (or if they are restricted), 
+        // we automatically resolve their assigned scopes for platform routes.
+        if (!userService.IsPlatformAdmin && userService.IsAuthenticated && !string.IsNullOrEmpty(userService.UserId))
+        {
+            var dbContext = context.InstanceServices.GetRequiredService<IApplicationDbContext>();
+            var user = await dbContext.Users
+                .Include(u => u.ScopeAssignments)
+                .FirstOrDefaultAsync(u => u.Auth0Id == userService.UserId);
+
+            if (user != null)
+            {
+                // Resolve Tenants if empty
+                if (tenantContext.TenantIds.Count == 0)
+                {
+                    var assignedTenantIds = user.ScopeAssignments
+                        .Where(a => a.ScopeType == Domain.Entities.ScopeType.Organisation && a.TargetId.HasValue)
+                        .Select(a => a.TargetId!.Value)
+                        .ToList();
+                    
+                    if (assignedTenantIds.Count > 0)
+                    {
+                        tenantContext.UseTenants(assignedTenantIds);
+                    }
+                }
+
+                // Resolve Branches if empty or global
+                if (branchContext.BranchIds.Count == 0)
+                {
+                    var assignedBranchIds = user.ScopeAssignments
+                        .Where(a => a.ScopeType == Domain.Entities.ScopeType.Branch && a.TargetId.HasValue)
+                        .Select(a => a.TargetId!.Value)
+                        .ToList();
+
+                    if (assignedBranchIds.Count > 0)
+                    {
+                        branchContext.UseBranches(assignedBranchIds);
+                    }
+                }
+            }
+        }
+
+        // Final Security Check for explicit branch requests
+        if (branchContext.BranchIds.Count > 0 && !userService.IsPlatformAdmin && userService.IsAuthenticated && !string.IsNullOrEmpty(userService.UserId))
+        {
+             var dbContext = context.InstanceServices.GetRequiredService<IApplicationDbContext>();
+             var user = await dbContext.Users
+                .Include(u => u.ScopeAssignments)
+                .FirstOrDefaultAsync(u => u.Auth0Id == userService.UserId);
+
+             if (user != null)
+             {
+                var isOrgAdmin = user.ScopeAssignments.Any(a => a.ScopeType == Domain.Entities.ScopeType.Organisation && tenantContext.TenantIds.Contains(a.TargetId ?? Guid.Empty));
+                if (!isOrgAdmin)
+                {
+                    var assignedBranchIds = user.ScopeAssignments
+                        .Where(a => a.ScopeType == Domain.Entities.ScopeType.Branch && a.TargetId.HasValue)
+                        .Select(a => a.TargetId!.Value)
+                        .ToHashSet();
+                    
+                    var authorizedBranchIds = branchContext.BranchIds.Where(id => assignedBranchIds.Contains(id)).ToList();
+                    
+                    if (authorizedBranchIds.Count == 0 && branchContext.BranchIds.Count > 0)
+                    {
+                        var response = request.CreateResponse(System.Net.HttpStatusCode.Forbidden);
+                        await response.WriteAsJsonAsync(new ApiResponse(false, "You do not have access to the requested branches.", CorrelationId: request.GetOrCreateCorrelationId()));
+                        context.GetInvocationResult().Value = response;
+                        return;
+                    }
+
+                    branchContext.UseBranches(authorizedBranchIds);
+                }
+             }
         }
 
         SyncContextToStore(tenantContext, branchContext);

@@ -42,7 +42,27 @@ public static class TenantRequestPolicy
         "ListRecipientFunds",
         "GetAdminDashboard",
         "ListDonors",
-        "GetDonorById"
+        "GetDonorById",
+        "GetCollectorMe",
+        "GetCollectorAssignments",
+        "GetCollectorHistory",
+        "RecordCashContribution",
+        "GetContributionById",
+        "ListContributions",
+        "UpdateContribution",
+        "GetEventById",
+        "ListEvents",
+        "UpdateEvent",
+        "AssignStaffToEvent",
+        "GetRecipientFundById",
+        "ListRecipientFundsByEvent",
+        "ListRecipientFunds",
+        "UpdateRecipientFund",
+        "GetSettlementById",
+        "ListSettlements",
+        "UpdateSettlement",
+        "GetMe",
+        "GetMeUser"
     };
 
     public static bool RequiresTenant(string functionName) => !PlatformFunctionNames.Contains(functionName);
