@@ -64,6 +64,12 @@ public class GetCollectorAssignmentsQueryHandler(
             .Distinct()
             .ToList();
 
+        var fundIds = collectorAssignments
+            .Where(a => a.ScopeType == ScopeType.RecipientFund && a.TargetId.HasValue)
+            .Select(a => a.TargetId!.Value)
+            .Distinct()
+            .ToList();
+
         var orgIds = collectorAssignments
             .Where(a => a.ScopeType == ScopeType.Organisation && a.TargetId.HasValue)
             .Select(a => a.TargetId!.Value)
@@ -91,7 +97,7 @@ public class GetCollectorAssignmentsQueryHandler(
                 fundIds.Contains(fund.Id) || 
                 eventIds.Contains(fund.EventId) ||
                 orgIds.Contains(fund.Event.TenantId) ||
-                (fund.Event.BranchId.HasValue && branchIds.Contains(fund.Event.BranchId.Value)))
+                branchIds.Contains(fund.Event.BranchId))
             .ToListAsync(cancellationToken);
 
         var allowedEventIdsFromFunds = funds.Select(f => f.EventId).Distinct().ToList();

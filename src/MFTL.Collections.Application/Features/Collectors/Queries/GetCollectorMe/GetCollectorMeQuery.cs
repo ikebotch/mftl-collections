@@ -72,7 +72,7 @@ public class GetCollectorMeQueryHandler(
                 directFundIds.Contains(fund.Id) || 
                 directEventIds.Contains(fund.EventId) ||
                 orgIds.Contains(fund.Event.TenantId) ||
-                (fund.Event.BranchId.HasValue && branchIds.Contains(fund.Event.BranchId.Value)))
+                branchIds.Contains(fund.Event.BranchId))
             .ToListAsync(cancellationToken);
 
         var fundCount = funds.Count;
