@@ -35,9 +35,11 @@ public static class DependencyInjection
             options.ManagementClientSecret = configuration["Values:AUTH0_MANAGEMENT_CLIENT_SECRET"] ?? string.Empty;
             options.ManagementAudience = configuration["Values:AUTH0_MANAGEMENT_AUDIENCE"] ?? $"https://{options.Domain}/api/v2/";
             options.ApiAudience = configuration["Values:Auth0:Audience"] ?? string.Empty;
+            options.WebhookSecret = configuration["Values:AUTH0_WEBHOOK_SECRET"] ?? configuration["AUTH0_WEBHOOK_SECRET"] ?? string.Empty;
         });
         services.AddScoped<Auth0ProvisioningService>();
         services.AddScoped<IAuth0Service>(sp => sp.GetRequiredService<Auth0ProvisioningService>());
+        services.AddScoped<IUserProvisioningService, UserProvisioningService>();
         
         services.AddScoped<FunctionHttpRequestAccessor>();
         services.AddScoped<TenantContext>();

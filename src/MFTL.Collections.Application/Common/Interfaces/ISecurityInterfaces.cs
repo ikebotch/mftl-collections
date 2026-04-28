@@ -6,6 +6,7 @@ public interface ICurrentUserService
 {
     string? UserId { get; }
     string? Email { get; }
+    string? Name { get; }
     ClaimsPrincipal? User { get; }
     bool IsAuthenticated { get; }
     bool IsPlatformAdmin { get; }

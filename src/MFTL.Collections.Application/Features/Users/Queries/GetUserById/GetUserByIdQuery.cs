@@ -49,6 +49,16 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
                 targetName));
         }
 
+        var accessState = "active";
+        if (user.IsSuspended)
+        {
+            accessState = "suspended";
+        }
+        else if (!user.IsPlatformAdmin && !user.ScopeAssignments.Any())
+        {
+            accessState = "pending-access";
+        }
+
         return new UserDetailDto(
             user.Id,
             user.Auth0Id,
@@ -60,6 +70,7 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
             user.CreatedAt,
             user.LastLoginAt,
             user.IsPlatformAdmin,
+            accessState,
             scopeDtos,
             Enumerable.Empty<string>());
     }

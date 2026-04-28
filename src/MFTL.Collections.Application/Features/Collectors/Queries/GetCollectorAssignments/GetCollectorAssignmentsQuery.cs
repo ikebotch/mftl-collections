@@ -64,13 +64,19 @@ public class GetCollectorAssignmentsQueryHandler(
             .Distinct()
             .ToList();
 
-        var fundIds = collectorAssignments
-            .Where(a => a.ScopeType == ScopeType.RecipientFund && a.TargetId.HasValue)
+        var orgIds = collectorAssignments
+            .Where(a => a.ScopeType == ScopeType.Organisation && a.TargetId.HasValue)
             .Select(a => a.TargetId!.Value)
             .Distinct()
             .ToList();
 
-        if (eventIds.Count == 0 && fundIds.Count == 0)
+        var branchIds = collectorAssignments
+            .Where(a => a.ScopeType == ScopeType.Branch && a.TargetId.HasValue)
+            .Select(a => a.TargetId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (eventIds.Count == 0 && fundIds.Count == 0 && orgIds.Count == 0 && branchIds.Count == 0)
         {
             return new CollectorAssignmentsDto(
                 false,
@@ -80,13 +86,19 @@ public class GetCollectorAssignmentsQueryHandler(
         }
 
         var funds = await dbContext.RecipientFunds
-            .Where(fund => fundIds.Contains(fund.Id) || eventIds.Contains(fund.EventId))
+            .Include(f => f.Event)
+            .Where(fund => 
+                fundIds.Contains(fund.Id) || 
+                eventIds.Contains(fund.EventId) ||
+                orgIds.Contains(fund.Event.TenantId) ||
+                (fund.Event.BranchId.HasValue && branchIds.Contains(fund.Event.BranchId.Value)))
             .ToListAsync(cancellationToken);
 
         var allowedEventIdsFromFunds = funds.Select(f => f.EventId).Distinct().ToList();
         var allAllowedEventIds = eventIds.Concat(allowedEventIdsFromFunds).Distinct().ToList();
 
         var events = await dbContext.Events
+            .Include(e => e.Branch)
             .Where(e => allAllowedEventIds.Contains(e.Id))
             .ToListAsync(cancellationToken);
 
@@ -99,7 +111,7 @@ public class GetCollectorAssignmentsQueryHandler(
                 evt.Description,
                 evt.IsActive ? "Live" : "Draft",
                 evt.EventDate,
-                "Main Site",
+                evt.Branch?.Location ?? "Main Site",
                 funds.Count(fund => fund.EventId == evt.Id))),
             funds.Select(fund => new CollectorAssignedFundDto(
                 fund.Id,

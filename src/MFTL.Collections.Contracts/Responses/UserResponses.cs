@@ -22,6 +22,7 @@ public record UserDetailDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? LastLoginAt,
     bool IsPlatformAdmin,
+    string AccessState,
     IEnumerable<ScopeAssignmentDto> ScopeAssignments,
     IEnumerable<string> Auth0Roles);
 

@@ -20,68 +20,23 @@ public class UserSyncTests
     }
 
     [Fact]
-    public async Task Webhook_ShouldCreateNewUser_WhenUserDoesNotExist()
+    public async Task Webhook_ShouldCallProvisioningService()
     {
         // Arrange
+        var provisioningService = Substitute.For<IUserProvisioningService>();
         var command = new UserCreatedWebhookCommand("auth0|123", "test@mftl.com", "Test User", false);
-        var handler = new UserCreatedWebhookCommandHandler(_dbContext);
+        var handler = new UserCreatedWebhookCommandHandler(provisioningService);
 
         // Act
         await handler.Handle(command, CancellationToken.None);
 
         // Assert
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Auth0Id == "auth0|123");
-        user.Should().NotBeNull();
-        user!.Email.Should().Be("test@mftl.com");
-        user.InviteStatus.Should().Be(UserInviteStatus.Accepted);
-    }
-
-    [Fact]
-    public async Task Webhook_ShouldLinkToExistingInvitedUser_ByEmail()
-    {
-        // Arrange
-        var invitedUser = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = "invited@mftl.com",
-            Name = "Invited User",
-            InviteStatus = UserInviteStatus.Pending,
-            IsActive = false
-        };
-        _dbContext.Users.Add(invitedUser);
-        await _dbContext.SaveChangesAsync(CancellationToken.None);
-
-        var command = new UserCreatedWebhookCommand("auth0|invited", "invited@mftl.com", "Invited User Updated", false);
-        var handler = new UserCreatedWebhookCommandHandler(_dbContext);
-
-        // Act
-        await handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        var users = await _dbContext.Users.Where(u => u.Email == "invited@mftl.com").ToListAsync();
-        users.Should().HaveCount(1, "should link to existing user instead of creating duplicate");
-        
-        var user = users.First();
-        user.Auth0Id.Should().Be("auth0|invited");
-        user.InviteStatus.Should().Be(UserInviteStatus.Accepted);
-        user.IsActive.Should().BeTrue();
-        user.Name.Should().Be("Invited User Updated");
-    }
-
-    [Fact]
-    public async Task Webhook_ShouldBeIdempotent()
-    {
-        // Arrange
-        var command = new UserCreatedWebhookCommand("auth0|123", "test@mftl.com", "Test User", false);
-        var handler = new UserCreatedWebhookCommandHandler(_dbContext);
-
-        // Act
-        await handler.Handle(command, CancellationToken.None);
-        await handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        var users = await _dbContext.Users.Where(u => u.Email == "test@mftl.com").ToListAsync();
-        users.Should().HaveCount(1);
+        await provisioningService.Received(1).ProvisionUserAsync(
+            "auth0|123", 
+            "test@mftl.com", 
+            "Test User", 
+            Arg.Any<List<string>>(), 
+            Arg.Any<CancellationToken>());
     }
 }
 

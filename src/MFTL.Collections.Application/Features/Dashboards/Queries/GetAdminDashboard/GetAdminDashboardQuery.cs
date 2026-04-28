@@ -65,7 +65,8 @@ public class GetAdminDashboardHandler(IApplicationDbContext dbContext, IAuth0Ser
             TotalDonors: totalDonors,
             TotalReceipts: totalReceipts,
             RecentContributions: recentContributions,
-            IsAuth0Configured: isAuth0Configured
+            IsAuth0Configured: isAuth0Configured,
+            IsAuth0WebhookConfigured: await auth0Service.IsWebhookConfiguredAsync()
         );
     }
 }

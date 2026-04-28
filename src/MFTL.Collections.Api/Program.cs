@@ -11,6 +11,7 @@ var host = new HostBuilder()
     .ConfigureFunctionsWebApplication(worker =>
     {
         worker.UseMiddleware<ExceptionHandlingMiddleware>();
+        worker.UseMiddleware<AuthenticationMiddleware>();
         worker.UseMiddleware<TenantResolutionMiddleware>();
         worker.UseMiddleware<UserProvisioningMiddleware>();
     })
@@ -18,6 +19,7 @@ var host = new HostBuilder()
     {
         services.AddApplication();
         services.AddInfrastructure(context.Configuration);
+        services.AddHttpContextAccessor();
         
         services.ConfigureHttpJsonOptions(options =>
         {

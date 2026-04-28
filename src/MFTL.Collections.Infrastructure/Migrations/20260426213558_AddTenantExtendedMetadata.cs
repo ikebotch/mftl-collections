@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace MFTL.Collections.Infrastructure.Persistence.Migrations
+namespace MFTL.Collections.Infrastructure.Migrations
 {
     /// <inheritdoc />
     public partial class AddTenantExtendedMetadata : Migration

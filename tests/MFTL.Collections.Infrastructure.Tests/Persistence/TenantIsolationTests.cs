@@ -13,6 +13,7 @@ using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Domain.Enums;
 using MFTL.Collections.Infrastructure.Persistence;
 using MFTL.Collections.Infrastructure.Services;
+using Moq;
 
 namespace MFTL.Collections.Infrastructure.Tests.Persistence;
 
@@ -111,7 +112,9 @@ public class TenantIsolationTests
             new StaticReceiptNumberGenerator("RCT-TEST-0001"),
             NullLogger<ContributionSettlementService>.Instance);
 
-        var result = await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService).Handle(
+        var smsServiceMock = new Mock<ISmsService>();
+
+        var result = await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService, smsServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -123,7 +126,8 @@ public class TenantIsolationTests
                 false,
                 "cash",
                 "Live verification",
-                collectorAuth0Id),
+                collectorAuth0Id,
+                "1234"),
             CancellationToken.None);
 
         var contribution = await dbContext.Contributions
@@ -210,7 +214,9 @@ public class TenantIsolationTests
             new StaticReceiptNumberGenerator("RCT-TEST-0100"),
             NullLogger<ContributionSettlementService>.Instance);
 
-        var act = async () => await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService).Handle(
+        var smsServiceMock = new Mock<ISmsService>();
+
+        var act = async () => await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService, smsServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -222,7 +228,8 @@ public class TenantIsolationTests
                 false,
                 "cash",
                 "Blocked",
-                collectorAuth0Id),
+                collectorAuth0Id,
+                "1234"),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>()
@@ -254,7 +261,9 @@ public class TenantIsolationTests
             new StaticReceiptNumberGenerator("RCT-TEST-0101"),
             NullLogger<ContributionSettlementService>.Instance);
 
-        var act = async () => await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService).Handle(
+        var smsServiceMock = new Mock<ISmsService>();
+
+        var act = async () => await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService, smsServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -266,7 +275,8 @@ public class TenantIsolationTests
                 false,
                 "cash",
                 "Blocked",
-                collectorAuth0Id),
+                collectorAuth0Id,
+                "1234"),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>()
@@ -304,8 +314,10 @@ public class TenantIsolationTests
             new StaticReceiptNumberGenerator("RCT-TEST-0202"),
             NullLogger<ContributionSettlementService>.Instance);
 
-        var handlerOne = new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService("collector-one"), firstSettlementService);
-        var handlerTwo = new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService("collector-two"), secondSettlementService);
+        var smsServiceMock = new Mock<ISmsService>();
+
+        var handlerOne = new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService("collector-one"), firstSettlementService, smsServiceMock.Object);
+        var handlerTwo = new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService("collector-two"), secondSettlementService, smsServiceMock.Object);
 
         await handlerOne.Handle(new RecordCashContributionCommand(
             createdEvent.Id,
@@ -318,7 +330,8 @@ public class TenantIsolationTests
             false,
             "cash",
             null,
-            "collector-one"), CancellationToken.None);
+            "collector-one",
+            "1234"), CancellationToken.None);
 
         await handlerTwo.Handle(new RecordCashContributionCommand(
             createdEvent.Id,
@@ -331,7 +344,8 @@ public class TenantIsolationTests
             false,
             "cash",
             null,
-            "collector-two"), CancellationToken.None);
+            "collector-two",
+            "1234"), CancellationToken.None);
 
         var history = await new ListCollectorHistoryQueryHandler(dbContext, new TestCurrentUserService("collector-one"))
             .Handle(new ListCollectorHistoryQuery("collector-one"), CancellationToken.None);
@@ -412,7 +426,9 @@ public class TenantIsolationTests
             new StaticReceiptNumberGenerator(receiptNumber),
             NullLogger<ContributionSettlementService>.Instance);
 
-        var result = await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService).Handle(
+        var smsServiceMock = new Mock<ISmsService>();
+
+        var result = await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService, smsServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -424,7 +440,8 @@ public class TenantIsolationTests
                 false,
                 "cash",
                 "Receipt note",
-                collectorAuth0Id),
+                collectorAuth0Id,
+                "1234"),
             CancellationToken.None);
 
         result.ReceiptId.Should().NotBeNull();
@@ -444,6 +461,7 @@ public class TenantIsolationTests
             Email = $"{auth0Id}@mftl.local",
             Name = auth0Id,
             IsActive = isActive,
+            Pin = "1234",
         };
 
         dbContext.Users.Add(user);

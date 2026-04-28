@@ -33,7 +33,14 @@ public sealed class ExceptionHandlingMiddleware(ILogger<ExceptionHandlingMiddlew
                 exception = targetEx.InnerException;
             }
             
-            logger.LogError(exception, "An unhandled exception occurred during function execution.");
+            if (exception is UnauthorizedAccessException)
+            {
+                logger.LogWarning(exception, "UnauthorizedAccessException caught in middleware. Returning 401.");
+            }
+            else 
+            {
+                logger.LogError(exception, "An unhandled exception occurred during function execution.");
+            }
 
             if (context.IsHttpTrigger())
             {

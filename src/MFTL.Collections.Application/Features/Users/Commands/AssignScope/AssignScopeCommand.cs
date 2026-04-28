@@ -18,9 +18,17 @@ public class AssignScopeCommandHandler(IApplicationDbContext dbContext) : IReque
         var user = await dbContext.Users.FindAsync(new object[] { request.UserId }, cancellationToken);
         if (user == null) throw new KeyNotFoundException("User not found.");
 
-        var scopeType = Enum.Parse<ScopeType>(request.ScopeType);
+        var roles = request.Roles ?? Enumerable.Empty<string>();
+        
+        string scopeTypeString = request.ScopeType;
+        if (scopeTypeString == "Tenant") scopeTypeString = "Organisation";
 
-        foreach (var role in request.Roles)
+        if (!Enum.TryParse<ScopeType>(scopeTypeString, true, out var scopeType))
+        {
+            throw new ArgumentException($"Invalid ScopeType: {request.ScopeType}");
+        }
+
+        foreach (var role in roles)
         {
             var assignment = new UserScopeAssignment
             {
@@ -40,7 +48,7 @@ public class AssignScopeCommandHandler(IApplicationDbContext dbContext) : IReque
             Action = "ScopesAssigned",
             EntityName = "User",
             EntityId = user.Id.ToString(),
-            Details = $"Assigned roles [{string.Join(", ", request.Roles)}] on scope {request.ScopeType} (Target: {request.TargetId?.ToString() ?? "Global"})",
+            Details = $"Assigned roles [{string.Join(", ", roles)}] on scope {request.ScopeType} (Target: {request.TargetId?.ToString() ?? "Global"})",
             PerformedBy = "System Administrator"
         };
         dbContext.AuditLogs.Add(audit);

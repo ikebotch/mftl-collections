@@ -13,6 +13,7 @@ public class Auth0ProvisioningOptions
     public string ManagementClientSecret { get; set; } = string.Empty;
     public string ManagementAudience { get; set; } = string.Empty;
     public string ApiAudience { get; set; } = string.Empty;
+    public string WebhookSecret { get; set; } = string.Empty;
 }
 
 public sealed class Auth0ProvisioningService(
@@ -24,6 +25,11 @@ public sealed class Auth0ProvisioningService(
     public Task<bool> IsConfiguredAsync()
     {
         return Task.FromResult(!string.IsNullOrEmpty(_options.ManagementClientId) && !string.IsNullOrEmpty(_options.ManagementClientSecret));
+    }
+
+    public Task<bool> IsWebhookConfiguredAsync()
+    {
+        return Task.FromResult(!string.IsNullOrEmpty(_options.WebhookSecret));
     }
 
     public async Task<string?> CreateUserAsync(string email, string name, string role, CancellationToken cancellationToken = default)
@@ -61,6 +67,39 @@ public sealed class Auth0ProvisioningService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error creating Auth0 user for {Email}", email);
+            return null;
+        }
+    }
+
+    public async Task<(string Email, string Name)?> GetUserProfileAsync(string auth0Id, CancellationToken cancellationToken = default)
+    {
+        if (!await IsConfiguredAsync()) return null;
+
+        try
+        {
+            var token = await GetManagementTokenAsync();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var baseUrl = $"https://{_options.Domain}/api/v2";
+
+            var response = await client.GetAsync($"{baseUrl}/users/{auth0Id}", cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                logger.LogWarning("Failed to fetch Auth0 user profile for {Auth0Id}: {Error}", auth0Id, error);
+                return null;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var email = result.TryGetProperty("email", out var e) ? e.GetString() : "";
+            var name = result.TryGetProperty("name", out var n) ? n.GetString() : "";
+            
+            return (email ?? "", name ?? "");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error fetching Auth0 user profile for {Auth0Id}", auth0Id);
             return null;
         }
     }

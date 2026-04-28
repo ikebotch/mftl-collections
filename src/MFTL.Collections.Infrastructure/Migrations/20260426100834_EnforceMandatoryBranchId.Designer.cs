@@ -9,11 +9,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace MFTL.Collections.Infrastructure.Persistence.Migrations
+namespace MFTL.Collections.Infrastructure.Migrations
 {
     [DbContext(typeof(CollectionsDbContext))]
-    [Migration("20260426213558_AddTenantExtendedMetadata")]
-    partial class AddTenantExtendedMetadata
+    [Migration("20260426100834_EnforceMandatoryBranchId")]
+    partial class EnforceMandatoryBranchId
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -612,23 +612,12 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
-                    b.Property<string>("DefaultCurrency")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("DefaultLocale")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("Identifier")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("MissionStatement")
-                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
@@ -638,15 +627,6 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("PosLogoUrl")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PrimaryLogoUrl")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SupportEmail")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
