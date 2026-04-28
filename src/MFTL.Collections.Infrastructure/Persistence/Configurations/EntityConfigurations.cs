@@ -76,6 +76,18 @@ public class ReceiptConfiguration : IEntityTypeConfiguration<Receipt>
     }
 }
 
+public class UserConfiguration : IEntityTypeConfiguration<User>
+{
+    public void Configure(EntityTypeBuilder<User> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => x.Auth0Id).IsUnique();
+        builder.HasIndex(x => x.Email).IsUnique();
+        builder.Property(x => x.Email).IsRequired().HasMaxLength(256);
+        builder.Property(x => x.Name).IsRequired().HasMaxLength(200);
+    }
+}
+
 public class ProcessedWebhookEventConfiguration : IEntityTypeConfiguration<ProcessedWebhookEvent>
 {
     public void Configure(EntityTypeBuilder<ProcessedWebhookEvent> builder)
