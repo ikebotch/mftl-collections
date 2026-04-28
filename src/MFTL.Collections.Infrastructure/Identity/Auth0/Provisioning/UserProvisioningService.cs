@@ -94,6 +94,11 @@ public class UserProvisioningService(
                     user.IsPlatformAdmin = isPlatformAdmin;
                     changed = true;
                 }
+                if (string.IsNullOrEmpty(user.Pin))
+                {
+                    user.Pin = "1234";
+                    changed = true;
+                }
 
                 if (changed)
                 {
