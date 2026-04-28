@@ -13,6 +13,7 @@ public sealed class User : BaseEntity
     public bool IsSuspended { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
     public UserInviteStatus InviteStatus { get; set; } = UserInviteStatus.Accepted;
+    public string? Pin { get; set; }
 
     public ICollection<UserScopeAssignment> ScopeAssignments { get; set; } = new List<UserScopeAssignment>();
     public ICollection<Receipt> RecordedReceipts { get; set; } = new List<Receipt>();

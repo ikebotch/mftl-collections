@@ -19,7 +19,8 @@ public record RecordCashContributionCommand(
     bool Anonymous,
     string PaymentMethod,
     string? Note,
-    string? ExplicitUserId) : IRequest<CashContributionResult>;
+    string? ExplicitUserId,
+    string? Pin) : IRequest<CashContributionResult>;
 
 public class RecordCashContributionCommandValidator : AbstractValidator<RecordCashContributionCommand>
 {
@@ -31,6 +32,7 @@ public class RecordCashContributionCommandValidator : AbstractValidator<RecordCa
         RuleFor(v => v.Currency).NotEmpty();
         RuleFor(v => v.ContributorPhone).NotEmpty().MinimumLength(7);
         RuleFor(v => v.PaymentMethod).NotEmpty();
+        RuleFor(v => v.Pin).NotEmpty().Length(4);
         When(v => !v.Anonymous, () =>
         {
             RuleFor(v => v.ContributorName).NotEmpty().MinimumLength(2);
@@ -41,7 +43,8 @@ public class RecordCashContributionCommandValidator : AbstractValidator<RecordCa
 public class RecordCashContributionCommandHandler(
     IApplicationDbContext dbContext,
     ICurrentUserService currentUserService,
-    IContributionSettlementService settlementService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
+    IContributionSettlementService settlementService,
+    ISmsService smsService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
 {
     public async Task<CashContributionResult> Handle(RecordCashContributionCommand request, CancellationToken cancellationToken)
     {
@@ -63,6 +66,22 @@ public class RecordCashContributionCommandHandler(
         if (!collector.IsActive)
         {
             throw new UnauthorizedAccessException("Collector is inactive.");
+        }
+
+        // PIN Verification
+        if (string.IsNullOrEmpty(collector.Pin))
+        {
+             // If PIN is not set, we might want to allow it or force set? 
+             // The user said "collectors have a pin", implying it should be there.
+             // For now, I'll allow it if not set to prevent breaking existing collectors, 
+             // but if request has a PIN or it's required, we check it.
+             // Actually, let's be strict as requested.
+             throw new UnauthorizedAccessException("Collector PIN is not set. Please set a PIN in settings.");
+        }
+
+        if (collector.Pin != request.Pin)
+        {
+            throw new UnauthorizedAccessException("Invalid collector PIN.");
         }
 
         var collectorAssignments = collector.ScopeAssignments
@@ -144,6 +163,13 @@ public class RecordCashContributionCommandHandler(
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Send SMS Notification
+        if (!string.IsNullOrWhiteSpace(contributor.PhoneNumber))
+        {
+            var message = $"Thank you {contributor.Name} for your contribution of {contribution.Currency} {contribution.Amount} to {@event.Title}. Receipt: {settlement.ReceiptId}";
+            await smsService.SendSmsAsync(contributor.PhoneNumber, message);
+        }
 
         return new CashContributionResult(contribution.Id, settlement.ReceiptId, contribution.Status.ToString());
     }

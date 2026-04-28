@@ -36,7 +36,8 @@ public class ContributionFunctions(IMediator mediator)
             request.Anonymous,
             request.PaymentMethod,
             request.Note,
-            req.Headers[DevUserIdHeader].FirstOrDefault()));
+            req.Headers[DevUserIdHeader].FirstOrDefault(),
+            request.Pin));
             
         return new OkObjectResult(new ApiResponse<CashContributionResult>(true, "Cash contribution recorded.", result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
@@ -101,4 +102,5 @@ public record RecordCashContributionRequest(
     string? ContributorEmail,
     bool Anonymous,
     string PaymentMethod,
-    string? Note);
+    string? Note,
+    string Pin);

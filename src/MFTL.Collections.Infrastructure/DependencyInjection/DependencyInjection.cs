@@ -77,6 +77,8 @@ public static class DependencyInjection
         services.AddScoped<IPaymentStateService, PaymentStateService>();
         services.AddScoped<IDashboardProjectionUpdater, DashboardProjectionUpdater>();
         services.AddScoped<IEmailService, MockEmailService>();
+        
+        services.AddHttpClient<ISmsService, GiantSmsService>();
 
         return services;
     }

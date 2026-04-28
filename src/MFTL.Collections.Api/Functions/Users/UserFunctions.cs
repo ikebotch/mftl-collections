@@ -129,4 +129,17 @@ public class UserFunctions(IMediator mediator)
         
         return new OkObjectResult(new ApiResponse<bool>(true, "Scope revoked.", result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
+
+    [Function("SetCollectorPin")]
+    public async Task<IActionResult> SetPin(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Users.Base + "/pin")] HttpRequest req)
+    {
+        var body = await new StreamReader(req.Body).ReadToEndAsync();
+        var command = System.Text.Json.JsonSerializer.Deserialize<Application.Features.Users.Commands.SetCollectorPin.SetCollectorPinCommand>(body, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        
+        if (command == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body.", CorrelationId: req.GetOrCreateCorrelationId()));
+
+        var result = await mediator.Send(command);
+        return new OkObjectResult(new ApiResponse<bool>(true, "PIN set successfully.", result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
 }

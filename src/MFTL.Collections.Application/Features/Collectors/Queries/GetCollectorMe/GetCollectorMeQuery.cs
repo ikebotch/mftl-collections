@@ -19,7 +19,8 @@ public sealed record CollectorMeDto(
     string? BlockedReason,
     string? PhoneNumber = null,
     IEnumerable<Guid>? EventIds = null,
-    IEnumerable<Guid>? FundIds = null);
+    IEnumerable<Guid>? FundIds = null,
+    bool HasPin = false);
 
 public record GetCollectorMeQuery(string? ExplicitUserId = null) : IRequest<CollectorMeDto>;
 
@@ -77,6 +78,7 @@ public class GetCollectorMeQueryHandler(
                 : "Collector is inactive.",
             user.PhoneNumber,
             assignments.Where(a => a.ScopeType == ScopeType.Event).Select(a => a.TargetId ?? Guid.Empty),
-            assignments.Where(a => a.ScopeType == ScopeType.RecipientFund).Select(a => a.TargetId ?? Guid.Empty));
+            assignments.Where(a => a.ScopeType == ScopeType.RecipientFund).Select(a => a.TargetId ?? Guid.Empty),
+            !string.IsNullOrEmpty(user.Pin));
     }
 }

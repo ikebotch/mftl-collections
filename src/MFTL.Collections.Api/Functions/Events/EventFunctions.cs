@@ -14,6 +14,25 @@ namespace MFTL.Collections.Api.Functions.Events;
 
 public class EventFunctions(IMediator mediator)
 {
+    [Function("CreateEvent")]
+    public async Task<IActionResult> Create(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Events.Base)] HttpRequest req)
+    {
+        var request = await req.ReadFromJsonAsync<CreateEventRequest>();
+        if (request == null) return new BadRequestObjectResult("Invalid request body");
+
+        var result = await mediator.Send(new Application.Features.Events.Commands.CreateEvent.CreateEventCommand(
+            request.Title,
+            request.Description,
+            request.EventDate,
+            request.BranchId,
+            request.Slug,
+            request.DisplayImageUrl,
+            request.ReceiptLogoUrl));
+
+        return new OkObjectResult(new ApiResponse<EventDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
     [Function("GetEventById")]
     public async Task<IActionResult> GetById(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Events.GetById)] HttpRequest req, Guid id)
