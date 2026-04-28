@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
+using MFTL.Collections.Application.Common.Interfaces;
+using System.Text.Json;
 
 namespace MFTL.Collections.Infrastructure.Identity.Auth0.Provisioning;
 
@@ -15,9 +17,53 @@ public class Auth0ProvisioningOptions
 
 public sealed class Auth0ProvisioningService(
     IOptions<Auth0ProvisioningOptions> options,
-    ILogger<Auth0ProvisioningService> logger)
+    ILogger<Auth0ProvisioningService> logger) : IAuth0Service
 {
     private readonly Auth0ProvisioningOptions _options = options.Value;
+
+    public Task<bool> IsConfiguredAsync()
+    {
+        return Task.FromResult(!string.IsNullOrEmpty(_options.ManagementClientId) && !string.IsNullOrEmpty(_options.ManagementClientSecret));
+    }
+
+    public async Task<string?> CreateUserAsync(string email, string name, string role, CancellationToken cancellationToken = default)
+    {
+        if (!await IsConfiguredAsync()) return null;
+
+        try
+        {
+            var token = await GetManagementTokenAsync();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var baseUrl = $"https://{_options.Domain}/api/v2";
+
+            var response = await client.PostAsJsonAsync($"{baseUrl}/users", new
+            {
+                email = email,
+                name = name,
+                connection = "Username-Password-Authentication", // Default connection
+                password = Guid.NewGuid().ToString("N") + "!", // Random password, user will reset
+                email_verified = false,
+                verify_email = true,
+                user_metadata = new { role = role }
+            }, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                logger.LogWarning("Failed to create Auth0 user: {Error}", error);
+                return null;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            return result.GetProperty("user_id").GetString();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error creating Auth0 user for {Email}", email);
+            return null;
+        }
+    }
 
     public async Task ProvisionAsync(bool apply = false)
     {

@@ -13,7 +13,7 @@ public record InviteUserCommand(
     Guid? TargetId,
     Guid? TenantId) : IRequest<Guid>;
 
-public class InviteUserCommandHandler(IApplicationDbContext dbContext, IEmailService emailService) : IRequestHandler<InviteUserCommand, Guid>
+public class InviteUserCommandHandler(IApplicationDbContext dbContext, IEmailService emailService, IAuth0Service auth0Service) : IRequestHandler<InviteUserCommand, Guid>
 {
     public async Task<Guid> Handle(InviteUserCommand request, CancellationToken cancellationToken)
     {
@@ -25,8 +25,12 @@ public class InviteUserCommandHandler(IApplicationDbContext dbContext, IEmailSer
             throw new InvalidOperationException("User with this email already exists.");
         }
 
+        // Proactively try to create in Auth0 if configured
+        var auth0Id = await auth0Service.CreateUserAsync(request.Email, request.Name, request.Role, cancellationToken);
+
         var user = new User
         {
+            Auth0Id = auth0Id ?? string.Empty,
             Email = request.Email,
             Name = request.Name,
             InviteStatus = UserInviteStatus.Pending,

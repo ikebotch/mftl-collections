@@ -9,10 +9,11 @@ namespace MFTL.Collections.Application.Features.Dashboards.Queries.GetAdminDashb
 
 public record GetAdminDashboardQuery() : IRequest<AdminDashboardDto>;
 
-public class GetAdminDashboardHandler(IApplicationDbContext dbContext) : IRequestHandler<GetAdminDashboardQuery, AdminDashboardDto>
+public class GetAdminDashboardHandler(IApplicationDbContext dbContext, IAuth0Service auth0Service) : IRequestHandler<GetAdminDashboardQuery, AdminDashboardDto>
 {
     public async Task<AdminDashboardDto> Handle(GetAdminDashboardQuery request, CancellationToken cancellationToken)
     {
+        var isAuth0Configured = await auth0Service.IsConfiguredAsync();
         var totalEvents = await dbContext.Events.CountAsync(cancellationToken);
         
         var contributions = await dbContext.Contributions
@@ -63,7 +64,8 @@ public class GetAdminDashboardHandler(IApplicationDbContext dbContext) : IReques
             TotalCollectors: totalCollectors,
             TotalDonors: totalDonors,
             TotalReceipts: totalReceipts,
-            RecentContributions: recentContributions
+            RecentContributions: recentContributions,
+            IsAuth0Configured: isAuth0Configured
         );
     }
 }

@@ -31,6 +31,25 @@ public sealed class UserProvisioningMiddleware : IFunctionsWorkerMiddleware
         var user = await dbContext.Users
             .FirstOrDefaultAsync(u => u.Auth0Id == userService.UserId);
 
+        var email = userService.Email ?? userService.User?.FindFirstValue(ClaimTypes.Email) ?? "";
+
+        // If not found by Auth0Id, try matching by email (for invited users)
+        if (user == null && !string.IsNullOrEmpty(email))
+        {
+            user = await dbContext.Users
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+            
+            if (user != null)
+            {
+                // Link the Auth0Id to the existing record
+                user.Auth0Id = userService.UserId;
+                user.InviteStatus = UserInviteStatus.Accepted;
+                user.IsActive = true;
+                user.ModifiedAt = DateTimeOffset.UtcNow;
+                user.ModifiedBy = "System/AutoLink";
+            }
+        }
+
         var roles = userService.User?.Claims
             .Where(c => c.Type == RoleClaim || c.Type == ClaimTypes.Role || c.Type == "role")
             .Select(c => c.Value)
@@ -42,7 +61,6 @@ public sealed class UserProvisioningMiddleware : IFunctionsWorkerMiddleware
             string.Equals(r, "super_admin", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(r, "platform_admin", StringComparison.OrdinalIgnoreCase));
         var name = userService.User?.FindFirstValue("name") ?? userService.User?.FindFirstValue(ClaimTypes.Name) ?? "New User";
-        var email = userService.Email ?? userService.User?.FindFirstValue(ClaimTypes.Email) ?? "";
 
         if (user == null)
         {

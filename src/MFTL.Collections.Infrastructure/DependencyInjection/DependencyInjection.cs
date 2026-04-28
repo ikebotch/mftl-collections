@@ -37,6 +37,7 @@ public static class DependencyInjection
             options.ApiAudience = configuration["Values:Auth0:Audience"] ?? string.Empty;
         });
         services.AddScoped<Auth0ProvisioningService>();
+        services.AddScoped<IAuth0Service>(sp => sp.GetRequiredService<Auth0ProvisioningService>());
         
         services.AddScoped<FunctionHttpRequestAccessor>();
         services.AddScoped<TenantContext>();
