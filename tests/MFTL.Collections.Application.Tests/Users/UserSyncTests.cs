@@ -37,6 +37,9 @@ public class UserSyncTests
             "Test User", 
             Arg.Any<List<string>>(), 
             null,
+            null,
+            null,
+            null,
             Arg.Any<CancellationToken>());
     }
 }

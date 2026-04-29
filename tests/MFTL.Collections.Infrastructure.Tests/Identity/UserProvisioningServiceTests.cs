@@ -40,7 +40,7 @@ public class UserProvisioningServiceTests
         var accessToken = "test-token";
         
         _auth0ServiceMock.Setup(s => s.GetUserInfoAsync(accessToken, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(("real-email@gmail.com", "Real Name", "realname", "pic-url"));
+            .ReturnsAsync(("real-email@gmail.com", "Real Name", "realname", "pic-url", (string?)null));
 
         await using var dbContext = CreateDbContext(dbName);
         var service = new UserProvisioningService(dbContext, _auth0ServiceMock.Object, _logger);

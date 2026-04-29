@@ -8,6 +8,7 @@ namespace MFTL.Collections.Infrastructure.Identity;
 public sealed class CurrentUserService : ICurrentUserService
 {
     private const string RoleClaim = "https://mftl.com/roles";
+    private const string AltRoleClaim = "https://nia.example.com/roles";
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IConfiguration _configuration;
     private readonly bool _bypassAuth;
@@ -37,10 +38,12 @@ public sealed class CurrentUserService : ICurrentUserService
     public string? Email => (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue(ClaimTypes.Email)
                              ?? (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue("email")
                              ?? (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue("https://mftl.com/email")
+                             ?? (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue("https://nia.example.com/email")
                              ?? (_bypassAuth ? "dev-admin@mftl.local" : null);
 
     public string? Name => (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue(ClaimTypes.Name)
                              ?? (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue("name")
+                             ?? (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue("https://nia.example.com/name")
                              ?? (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue("nickname")
                              ?? (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue("preferred_username")
                              ?? (_bypassAuth ? "Development Admin" : null);
@@ -88,7 +91,7 @@ public sealed class CurrentUserService : ICurrentUserService
     public IEnumerable<string> Roles => _bypassAuth 
         ? new[] { "Platform Admin" } 
         : (User?.Claims
-            .Where(c => c.Type == RoleClaim || c.Type == System.Security.Claims.ClaimTypes.Role || c.Type == "role")
+            .Where(c => c.Type == RoleClaim || c.Type == AltRoleClaim || c.Type == System.Security.Claims.ClaimTypes.Role || c.Type == "role")
             .Select(c => c.Value)
             .Distinct() ?? Enumerable.Empty<string>());
 }

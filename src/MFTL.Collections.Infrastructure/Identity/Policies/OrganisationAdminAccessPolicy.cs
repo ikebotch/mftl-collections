@@ -11,16 +11,16 @@ public class OrganisationAdminAccessPolicy(AccessContext context) : AccessPolicy
         query.Where(t => Context.TenantIds.Contains(t.Id));
 
     public override IQueryable<Branch> FilterBranches(IQueryable<Branch> query) => 
-        query.Where(b => Context.TenantIds.Contains(b.TenantId));
+        query.Where(b => Context.TenantIds.Contains(b.TenantId) || Context.BranchIds.Contains(b.Id));
 
     public override IQueryable<Event> FilterEvents(IQueryable<Event> query) => 
-        query.Where(e => Context.TenantIds.Contains(e.TenantId) || !e.IsPrivate);
+        query.Where(e => Context.TenantIds.Contains(e.TenantId) || Context.EventIds.Contains(e.Id) || !e.IsPrivate);
 
     public override IQueryable<RecipientFund> FilterFunds(IQueryable<RecipientFund> query) => 
-        query.Where(f => Context.TenantIds.Contains(f.TenantId));
+        query.Where(f => Context.TenantIds.Contains(f.TenantId) || Context.FundIds.Contains(f.Id) || Context.BranchIds.Contains(f.BranchId));
 
     public override IQueryable<Contribution> FilterCollections(IQueryable<Contribution> query) => 
-        query.Where(c => Context.TenantIds.Contains(c.TenantId));
+        query.Where(c => Context.TenantIds.Contains(c.TenantId) || Context.BranchIds.Contains(c.BranchId) || (c.Receipt != null && c.Receipt.RecordedByUserId == Context.UserId));
 
     public override IQueryable<User> FilterUsers(IQueryable<User> query) => 
         query.Where(u => u.ScopeAssignments.Any(s => 

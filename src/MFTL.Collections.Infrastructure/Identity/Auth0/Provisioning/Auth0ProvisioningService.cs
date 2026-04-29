@@ -117,14 +117,20 @@ public sealed class Auth0ProvisioningService(
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync(cancellationToken);
-                logger.LogWarning("Failed to fetch Auth0 userinfo: {Error}", error);
+                logger.LogWarning("Failed to fetch Auth0 userinfo: {StatusCode} {Error}", response.StatusCode, error);
                 return null;
             }
 
-            var result = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-            var email = result.TryGetProperty("email", out var e) ? e.GetString() : "";
-            var name = result.TryGetProperty("name", out var n) ? n.GetString() : "";
-            var nickname = result.TryGetProperty("nickname", out var nk) ? nk.GetString() : null;
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            logger.LogInformation("Auth0 userinfo response: {Content}", content);
+            
+            var result = JsonSerializer.Deserialize<JsonElement>(content);
+            var email = (result.TryGetProperty("email", out var e) ? e.GetString() : null)
+                        ?? (result.TryGetProperty("https://nia.example.com/email", out var ne) ? ne.GetString() : "");
+            var name = (result.TryGetProperty("name", out var n) ? n.GetString() : null)
+                        ?? (result.TryGetProperty("https://nia.example.com/name", out var nn) ? nn.GetString() : "");
+            var nickname = (result.TryGetProperty("nickname", out var nk) ? nk.GetString() : null)
+                        ?? (result.TryGetProperty("https://nia.example.com/nickname", out var nnk) ? nnk.GetString() : null);
             var picture = result.TryGetProperty("picture", out var p) ? p.GetString() : null;
             var phone = result.TryGetProperty("phone_number", out var ph) ? ph.GetString() : null;
             

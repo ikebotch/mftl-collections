@@ -21,7 +21,7 @@ public class ViewerAccessPolicy(AccessContext context) : AccessPolicyBase(contex
         query.Where(f => Context.FundIds.Contains(f.Id));
 
     public override IQueryable<Contribution> FilterCollections(IQueryable<Contribution> query) => 
-        query.Where(c => Context.TenantIds.Contains(c.TenantId));
+        query.Where(c => Context.TenantIds.Contains(c.TenantId) || Context.BranchIds.Contains(c.BranchId) || Context.EventIds.Contains(c.EventId) || (c.Receipt != null && c.Receipt.RecordedByUserId == Context.UserId));
 
     public override IQueryable<User> FilterUsers(IQueryable<User> query) => 
         query.Where(u => u.Id == Context.UserId);

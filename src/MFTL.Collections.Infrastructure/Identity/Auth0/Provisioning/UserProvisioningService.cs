@@ -44,6 +44,9 @@ public class UserProvisioningService(
             // Only call Auth0 if incoming data is sparse AND we don't have a good local record
             bool needsEnrichment = isSparse && (user == null || user.Email.Contains("unprovisioned") || user.Name == "New User" || string.IsNullOrEmpty(user.Name));
 
+            logger.LogInformation("ProvisionUserAsync: auth0Id={Auth0Id}, isSparse={IsSparse}, needsEnrichment={NeedsEnrichment}, hasToken={HasToken}", 
+                auth0Id, isSparse, needsEnrichment, !string.IsNullOrEmpty(accessToken));
+
             if (needsEnrichment)
             {
                 if (!string.IsNullOrEmpty(accessToken))

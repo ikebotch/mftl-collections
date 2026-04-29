@@ -14,13 +14,13 @@ public class BranchAdminAccessPolicy(AccessContext context) : AccessPolicyBase(c
         query.Where(b => Context.BranchIds.Contains(b.Id));
 
     public override IQueryable<Event> FilterEvents(IQueryable<Event> query) => 
-        query.Where(e => Context.BranchIds.Contains(e.BranchId) || !e.IsPrivate);
+        query.Where(e => Context.BranchIds.Contains(e.BranchId) || Context.EventIds.Contains(e.Id) || !e.IsPrivate);
 
     public override IQueryable<RecipientFund> FilterFunds(IQueryable<RecipientFund> query) => 
-        query.Where(f => Context.BranchIds.Contains(f.BranchId));
+        query.Where(f => Context.BranchIds.Contains(f.BranchId) || Context.FundIds.Contains(f.Id) || Context.EventIds.Contains(f.EventId));
 
     public override IQueryable<Contribution> FilterCollections(IQueryable<Contribution> query) => 
-        query.Where(c => Context.BranchIds.Contains(c.BranchId));
+        query.Where(c => Context.BranchIds.Contains(c.BranchId) || Context.EventIds.Contains(c.EventId) || (c.Receipt != null && c.Receipt.RecordedByUserId == Context.UserId));
 
     public override IQueryable<User> FilterUsers(IQueryable<User> query) => 
         query.Where(u => u.ScopeAssignments.Any(s => 

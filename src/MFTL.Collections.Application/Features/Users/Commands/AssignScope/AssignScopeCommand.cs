@@ -13,12 +13,23 @@ public record AssignScopeCommand(
 
 public class AssignScopeCommandHandler(
     IApplicationDbContext dbContext,
-    ICurrentUserService currentUserService) : IRequestHandler<AssignScopeCommand, bool>
+    ICurrentUserService currentUserService,
+    IPermissionEvaluator permissionEvaluator) : IRequestHandler<AssignScopeCommand, bool>
 {
     public async Task<bool> Handle(AssignScopeCommand request, CancellationToken cancellationToken)
     {
+        // 1. Basic Existence Check
         var user = await dbContext.Users.FindAsync(new object[] { request.UserId }, cancellationToken);
         if (user == null) throw new KeyNotFoundException("User not found.");
+
+        // 2. Prevent Self-Escalation
+        var currentUserId = currentUserService.UserId;
+        var targetUserAuth0Id = user.Auth0Id;
+        
+        if (currentUserId == targetUserAuth0Id && !currentUserService.IsPlatformAdmin)
+        {
+            throw new UnauthorizedAccessException("Security Policy: Users are not permitted to modify their own role assignments.");
+        }
 
         var roles = request.Roles ?? Enumerable.Empty<string>();
         
@@ -30,7 +41,13 @@ public class AssignScopeCommandHandler(
             throw new ArgumentException($"Invalid ScopeType: {request.ScopeType}");
         }
 
-        // Security check: Only platform admins can assign platform scope or platform admin role
+        // 3. Permission Check for the Scope
+        if (!await permissionEvaluator.HasPermissionAsync("users.assign_role", request.TargetId))
+        {
+            throw new UnauthorizedAccessException($"You do not have permission to manage roles for the requested {scopeType}.");
+        }
+
+        // 4. Security check: Only platform admins can assign platform scope or platform admin role
         if (!currentUserService.IsPlatformAdmin)
         {
             if (scopeType == ScopeType.Platform)

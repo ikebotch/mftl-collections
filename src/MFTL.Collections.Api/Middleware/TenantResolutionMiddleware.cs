@@ -1,6 +1,7 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Middleware;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MFTL.Collections.Application.Common.Interfaces;
 using Microsoft.Azure.Functions.Worker.Http;
@@ -91,8 +92,9 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
         }
 
         // Security Check: Verify user has access to requested tenants
+        // Only enforce this for tenant-scoped endpoints. Platform endpoints (requiresTenant=false) handle their own filtering or allow global access.
         var userService = context.InstanceServices.GetRequiredService<ICurrentUserService>();
-        if (userService.IsAuthenticated && !string.IsNullOrEmpty(userService.UserId))
+        if (requiresTenant && userService.IsAuthenticated && !string.IsNullOrEmpty(userService.UserId))
         {
             var dbContext = context.InstanceServices.GetRequiredService<IApplicationDbContext>();
             var user = await dbContext.Users
@@ -108,17 +110,64 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
                 }
                 else
                 {
-                    var accessibleTenantIds = user.ScopeAssignments
-                        .Where(a => a.ScopeType == Domain.Entities.ScopeType.Organisation || a.ScopeType == Domain.Entities.ScopeType.Branch)
+                    var directTenantIds = user.ScopeAssignments
+                        .Where(a => a.ScopeType == Domain.Entities.ScopeType.Organisation)
                         .Select(a => a.TargetId)
                         .Where(id => id.HasValue)
                         .Select(id => id!.Value)
-                        .ToHashSet();
+                        .ToList();
+
+                    var branchIds = user.ScopeAssignments
+                        .Where(a => a.ScopeType == Domain.Entities.ScopeType.Branch)
+                        .Select(a => a.TargetId)
+                        .Where(id => id.HasValue)
+                        .Select(id => id!.Value)
+                        .ToList();
+
+                    var eventIds = user.ScopeAssignments
+                        .Where(a => a.ScopeType == Domain.Entities.ScopeType.Event)
+                        .Select(a => a.TargetId)
+                        .Where(id => id.HasValue)
+                        .Select(id => id!.Value)
+                        .ToList();
+
+                    var fundIds = user.ScopeAssignments
+                        .Where(a => a.ScopeType == Domain.Entities.ScopeType.RecipientFund)
+                        .Select(a => a.TargetId)
+                        .Where(id => id.HasValue)
+                        .Select(id => id!.Value)
+                        .ToList();
+
+                    var accessibleTenantIds = new HashSet<Guid>(directTenantIds);
+
+                    if (branchIds.Count > 0)
+                    {
+                        var tenantIds = await dbContext.Branches.Where(b => branchIds.Contains(b.Id)).Select(b => b.TenantId).ToListAsync();
+                        foreach (var id in tenantIds) accessibleTenantIds.Add(id);
+                    }
+
+                    if (eventIds.Count > 0)
+                    {
+                        var tenantIds = await dbContext.Events.Where(e => eventIds.Contains(e.Id)).Select(e => e.TenantId).ToListAsync();
+                        foreach (var id in tenantIds) accessibleTenantIds.Add(id);
+                    }
+
+                    if (fundIds.Count > 0)
+                    {
+                        var tenantIds = await dbContext.RecipientFunds.Where(f => fundIds.Contains(f.Id)).Select(f => f.TenantId).ToListAsync();
+                        foreach (var id in tenantIds) accessibleTenantIds.Add(id);
+                    }
 
                     var authorizedRequestedIds = requestedTenantIds.Where(id => accessibleTenantIds.Contains(id)).ToList();
                     
                     if (authorizedRequestedIds.Count == 0 && requestedTenantIds.Count > 0)
                     {
+                        var logger = context.InstanceServices.GetRequiredService<ILogger<TenantResolutionMiddleware>>();
+                        logger.LogWarning("Tenant Security Failure: User {Auth0Id} requested {RequestedIds}, but only has access to {AccessibleIds}.", 
+                            userService.UserId, 
+                            string.Join(",", requestedTenantIds), 
+                            string.Join(",", accessibleTenantIds));
+
                         var response = request.CreateResponse(System.Net.HttpStatusCode.Forbidden);
                         await response.WriteAsJsonAsync(new ApiResponse(false, "You do not have access to the requested organizations.", CorrelationId: request.GetOrCreateCorrelationId()));
                         context.GetInvocationResult().Value = response;

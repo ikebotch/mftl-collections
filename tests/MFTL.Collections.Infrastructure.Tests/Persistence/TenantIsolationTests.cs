@@ -415,6 +415,7 @@ public class TenantIsolationTests
         public System.Security.Claims.ClaimsPrincipal? User => null;
         public bool IsAuthenticated => !string.IsNullOrEmpty(userId);
         public bool IsPlatformAdmin => isPlatformAdmin;
+        public string? PhoneNumber => null;
         public IEnumerable<string> Roles => Enumerable.Empty<string>();
     }
 
