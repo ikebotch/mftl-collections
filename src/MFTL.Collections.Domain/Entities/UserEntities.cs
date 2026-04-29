@@ -23,6 +23,8 @@ public sealed class User : BaseEntity
 
 public sealed class UserScopeAssignment : BaseEntity
 {
+    public Guid? TenantId { get; set; }
+    public Guid? BranchId { get; set; }
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;
     

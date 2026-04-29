@@ -19,7 +19,8 @@ public record UpdateEventCommand(
     Guid BranchId,
     string? Slug = null,
     string? DisplayImageUrl = null,
-    string? ReceiptLogoUrl = null) : IRequest<EventDto>;
+    string? ReceiptLogoUrl = null,
+    string? Metadata = null) : IRequest<EventDto>;
 
 public class UpdateEventCommandValidator : AbstractValidator<UpdateEventCommand>
 {
@@ -72,6 +73,7 @@ public class UpdateEventCommandHandler(IApplicationDbContext dbContext) : IReque
         @event.DisplayImageUrl = request.DisplayImageUrl;
         @event.ReceiptLogoUrl = request.ReceiptLogoUrl;
         @event.BranchId = request.BranchId;
+        @event.Metadata = request.Metadata;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

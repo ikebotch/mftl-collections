@@ -36,3 +36,29 @@ public enum ReconciliationStatus
     Exception,
     Adjusted
 }
+
+public enum OutboxMessageStatus
+{
+    Pending,
+    Processing,
+    Sent,
+    Failed,
+    DeadLetter
+}
+
+public enum NotificationStatus
+{
+    Pending,
+    Sent,
+    Failed,
+    Skipped
+}
+
+public enum NotificationChannel
+{
+    Email,
+    Sms,
+    WhatsApp,
+    Push,
+    InApp
+}

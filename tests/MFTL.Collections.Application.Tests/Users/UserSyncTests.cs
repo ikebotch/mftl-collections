@@ -58,6 +58,13 @@ public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(
     public DbSet<User> Users => Set<User>();
     public DbSet<UserScopeAssignment> UserScopeAssignments => Set<UserScopeAssignment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<SmsTemplate> SmsTemplates => Set<SmsTemplate>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<CashDrop> CashDrops => Set<CashDrop>();
+    public DbSet<EodReport> EodReports => Set<EodReport>();
+    public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
 
     public Guid? CurrentTenantId => null;
     public IReadOnlyList<Guid> CurrentTenantIds => Array.Empty<Guid>();

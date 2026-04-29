@@ -114,6 +114,61 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.ToTable("Branches");
                 });
 
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.CashDrop", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CollectorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("CollectorId");
+
+                    b.ToTable("CashDrops");
+                });
+
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Contribution", b =>
                 {
                     b.Property<Guid>("Id")
@@ -146,6 +201,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
 
                     b.Property<Guid>("EventId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsAnonymous")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Method")
                         .IsRequired()
@@ -238,6 +296,57 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.ToTable("Contributors");
                 });
 
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.EodReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ClosedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Metadata")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("numeric");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClosedByUserId");
+
+                    b.ToTable("EodReports");
+                });
+
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Event", b =>
                 {
                     b.Property<Guid>("Id")
@@ -287,6 +396,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("SmsTemplateId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
@@ -299,7 +411,388 @@ namespace MFTL.Collections.Infrastructure.Migrations
 
                     b.HasIndex("BranchId");
 
+                    b.HasIndex("SmsTemplateId");
+
                     b.ToTable("Events");
+                });
+
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Channel")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CorrelationId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("OutboxMessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProviderMessageId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProviderResponse")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecipientEmail")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecipientPhone")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecipientType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecipientUserId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Subject")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TemplateKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OutboxMessageId");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Channel")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TemplateKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("NotificationPreferences");
+                });
+
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.NotificationTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSystemDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("TemplateKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "BranchId", "TemplateKey", "Channel")
+                        .IsUnique()
+                        .HasFilter("\"IsActive\" = true");
+
+                    b.ToTable("NotificationTemplates");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("10000000-0000-0000-0000-000000000001"),
+                            Body = "Thank you {{donorName}} for your contribution of {{currency}} {{amount}} to {{eventName}}. Receipt: {{receiptNumber}}",
+                            Channel = "Sms",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Receipt Issued (SMS)",
+                            TemplateKey = "receipt.issued",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000")
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-0000-0000-000000000002"),
+                            Body = "Hi {{donorName}}, here is a copy of receipt {{receiptNumber}} for {{currency}} {{amount}}. Thank you for supporting {{eventName}}.",
+                            Channel = "Sms",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Receipt Resend (SMS)",
+                            TemplateKey = "receipt.resend",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000")
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-0000-0000-000000000003"),
+                            Body = "Hi {{collectorName}}, your cash drop of {{currency}} {{amount}} has been approved.",
+                            Channel = "Sms",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Cash Drop Approved (SMS)",
+                            TemplateKey = "cashdrop.approved",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000")
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-0000-0000-000000000004"),
+                            Body = "Hi {{collectorName}}, you have been assigned to collect for {{eventName}}.",
+                            Channel = "Sms",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Collector Assigned (SMS)",
+                            TemplateKey = "collector.assigned",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000")
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-0000-0000-000000000005"),
+                            Body = "Hello {{name}},\n\nYou have been invited to MFTL Collections as a {{role}}.\n\nOpen {{inviteLink}} to continue.\n\nRegards,\nThe MFTL Collections Team",
+                            Channel = "Email",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "User Invited (Email)",
+                            Subject = "You have been invited to MFTL Collections",
+                            TemplateKey = "user.invited",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000")
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-0000-0000-000000000006"),
+                            Body = "Hello {{collectorName}},\n\nYou have been assigned as a collector for {{eventName}}.\n\nPlease log in to the MFTL Collections app to begin.\n\nRegards,\nThe MFTL Collections Team",
+                            Channel = "Email",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Collector Assigned (Email)",
+                            Subject = "You have been assigned to {{eventName}}",
+                            TemplateKey = "collector.assigned",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000")
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-0000-0000-000000000007"),
+                            Body = "Hello,\n\nA payment of {{currency}} {{amount}} from {{donorName}} has failed.\n\nReason: {{reason}}\n\nPlease follow up with the donor.\n\nRegards,\nMFTL Collections",
+                            Channel = "Email",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Payment Failed (Email)",
+                            Subject = "Payment Failed - Action Required",
+                            TemplateKey = "payment.failed",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000")
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-0000-0000-000000000008"),
+                            Body = "Hello,\n\nCollector {{collectorName}} has submitted a cash drop of {{currency}} {{amount}}.\n\nPlease review and approve in the MFTL Collections admin.\n\nRegards,\nMFTL Collections",
+                            Channel = "Email",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Cash Drop Submitted (Email)",
+                            Subject = "New Cash Drop Submitted",
+                            TemplateKey = "cashdrop.submitted",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000")
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-0000-0000-000000000009"),
+                            Body = "Hello,\n\nThe end-of-day report for {{branchName}} has been closed.\n\nTotal collected: {{currency}} {{totalAmount}}\n\nRegards,\nMFTL Collections",
+                            Channel = "Email",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "EOD Closed (Email)",
+                            Subject = "EOD Report Closed - {{branchName}}",
+                            TemplateKey = "eod.closed",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000")
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-0000-0000-000000000010"),
+                            Body = "Hello,\n\nA settlement of {{currency}} {{amount}} for collector {{collectorName}} is ready for your review.\n\nSettlement ID: {{settlementId}}\n\nRegards,\nMFTL Collections",
+                            Channel = "Email",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Settlement Ready (Email)",
+                            Subject = "Settlement Ready for Review",
+                            TemplateKey = "settlement.ready",
+                            TenantId = new Guid("00000000-0000-0000-0000-000000000000")
+                        });
+                });
+
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AggregateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CorrelationId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("OutboxMessages");
                 });
 
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Payment", b =>
@@ -594,6 +1087,43 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.ToTable("Settlements");
                 });
 
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.SmsTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SmsTemplates");
+                });
+
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -725,6 +1255,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("CollectorId")
                         .HasColumnType("uuid");
 
@@ -750,6 +1283,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.Property<Guid?>("TargetId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
@@ -767,6 +1303,23 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.CashDrop", b =>
+                {
+                    b.HasOne("MFTL.Collections.Domain.Entities.User", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId");
+
+                    b.HasOne("MFTL.Collections.Domain.Entities.User", "Collector")
+                        .WithMany()
+                        .HasForeignKey("CollectorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Collector");
                 });
 
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Contribution", b =>
@@ -820,6 +1373,17 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.Navigation("Branch");
                 });
 
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.EodReport", b =>
+                {
+                    b.HasOne("MFTL.Collections.Domain.Entities.User", "ClosedByUser")
+                        .WithMany()
+                        .HasForeignKey("ClosedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ClosedByUser");
+                });
+
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Event", b =>
                 {
                     b.HasOne("MFTL.Collections.Domain.Entities.Branch", "Branch")
@@ -828,7 +1392,33 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MFTL.Collections.Domain.Entities.SmsTemplate", "SmsTemplate")
+                        .WithMany()
+                        .HasForeignKey("SmsTemplateId");
+
                     b.Navigation("Branch");
+
+                    b.Navigation("SmsTemplate");
+                });
+
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("MFTL.Collections.Domain.Entities.OutboxMessage", "OutboxMessage")
+                        .WithMany()
+                        .HasForeignKey("OutboxMessageId");
+
+                    b.Navigation("OutboxMessage");
+                });
+
+            modelBuilder.Entity("MFTL.Collections.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.HasOne("MFTL.Collections.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Receipt", b =>

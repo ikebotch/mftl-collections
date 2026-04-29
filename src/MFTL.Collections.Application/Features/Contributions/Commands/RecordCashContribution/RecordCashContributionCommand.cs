@@ -22,7 +22,9 @@ public record RecordCashContributionCommand(
     string PaymentMethod,
     string? Note,
     string? ExplicitUserId,
-    string? Pin) : IRequest<CashContributionResult>, IHasScope
+    string? Pin,
+    string? IdempotencyKey,
+    DateTimeOffset? CollectedAt = null) : IRequest<CashContributionResult>, IHasScope
 {
     public Guid? GetScopeId() => EventId;
 }
@@ -48,8 +50,7 @@ public class RecordCashContributionCommandValidator : AbstractValidator<RecordCa
 public class RecordCashContributionCommandHandler(
     IApplicationDbContext dbContext,
     IAccessPolicyResolver policyResolver,
-    IContributionSettlementService settlementService,
-    ISmsService smsService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
+    IContributionSettlementService settlementService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
 {
     public async Task<CashContributionResult> Handle(RecordCashContributionCommand request, CancellationToken cancellationToken)
     {
@@ -103,7 +104,10 @@ public class RecordCashContributionCommandHandler(
         }
 
 
-        var @event = await dbContext.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == request.EventId, cancellationToken);
+        var @event = await dbContext.Events
+            .Include(e => e.SmsTemplate)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == request.EventId, cancellationToken);
         if (@event == null) throw new KeyNotFoundException("Event not found.");
 
 
@@ -120,13 +124,28 @@ public class RecordCashContributionCommandHandler(
         {
             TenantId = @event.TenantId,
             BranchId = @event.BranchId,
-            Name = request.Anonymous ? "Anonymous" : request.ContributorName?.Trim() ?? string.Empty,
+            Name = request.ContributorName?.Trim() ?? "Anonymous",
             Email = request.ContributorEmail?.Trim() ?? string.Empty,
             PhoneNumber = request.ContributorPhone.Trim(),
             IsAnonymous = request.Anonymous,
         };
 
         dbContext.Contributors.Add(contributor);
+
+        if (!string.IsNullOrEmpty(request.IdempotencyKey))
+        {
+            var existingContribution = await dbContext.Contributions
+                .Include(c => c.Receipt)
+                .FirstOrDefaultAsync(c => c.Reference == request.IdempotencyKey, cancellationToken);
+
+            if (existingContribution != null)
+            {
+                return new CashContributionResult(
+                    existingContribution.Id, 
+                    existingContribution.Receipt?.Id, 
+                    existingContribution.Status.ToString());
+            }
+        }
 
         var contribution = new Contribution
         {
@@ -138,14 +157,16 @@ public class RecordCashContributionCommandHandler(
             Contributor = contributor,
             Amount = request.Amount,
             Currency = request.Currency,
-            ContributorName = request.Anonymous ? "Anonymous" : request.ContributorName?.Trim() ?? string.Empty,
+            ContributorName = request.ContributorName?.Trim() ?? "Anonymous",
+            IsAnonymous = request.Anonymous,
             Method = request.PaymentMethod,
             Status = ContributionStatus.RecordedCash,
-            Note = request.Note
+            Note = request.Note,
+            Reference = request.IdempotencyKey
         };
 
         dbContext.Contributions.Add(contribution);
-        var settlement = await settlementService.SettleContributionAsync(contribution, null, collector.Id, cancellationToken);
+        var settlement = await settlementService.SettleContributionAsync(contribution, null, collector.Id, request.CollectedAt, cancellationToken);
         
         // Ensure the receipt also gets the BranchId if possible
         if (contribution.Receipt != null)
@@ -153,14 +174,36 @@ public class RecordCashContributionCommandHandler(
             contribution.Receipt.BranchId = @event.BranchId;
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        // Add Domain Events for asynchronous processing (Outbox Pattern)
+        contribution.AddDomainEvent(new Domain.Events.ContributionRecordedEvent(
+            contribution.Id,
+            contribution.TenantId,
+            contribution.BranchId,
+            contribution.EventId,
+            contribution.RecipientFundId,
+            contribution.Amount,
+            contribution.Currency,
+            contribution.ContributorName,
+            contributor.Email,
+            contributor.PhoneNumber));
 
-        // Send SMS Notification
-        if (!string.IsNullOrWhiteSpace(contributor.PhoneNumber))
+        if (contribution.Receipt != null)
         {
-            var message = $"Thank you {contributor.Name} for your contribution of {contribution.Currency} {contribution.Amount} to {@event.Title}. Receipt: {settlement.ReceiptId}";
-            await smsService.SendSmsAsync(contributor.PhoneNumber, message);
+            contribution.Receipt.AddDomainEvent(new Domain.Events.ReceiptIssuedEvent(
+                contribution.Receipt.Id,
+                contribution.Receipt.TenantId,
+                contribution.Receipt.BranchId,
+                contribution.Id,
+                contribution.Receipt.ReceiptNumber,
+                contribution.ContributorName,
+                contributor.Email,
+                contributor.PhoneNumber,
+                contribution.Amount,
+                contribution.Currency,
+                @event.Title));
         }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return new CashContributionResult(contribution.Id, settlement.ReceiptId, contribution.Status.ToString());
     }

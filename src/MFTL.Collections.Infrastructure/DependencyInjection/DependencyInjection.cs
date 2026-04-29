@@ -10,6 +10,7 @@ using MFTL.Collections.Infrastructure.Payments;
 using MFTL.Collections.Infrastructure.Services;
 using MFTL.Collections.Infrastructure.Identity;
 using MFTL.Collections.Infrastructure.Identity.Auth0.Provisioning;
+using MFTL.Collections.Infrastructure.Persistence.Interceptors;
 
 namespace MFTL.Collections.Infrastructure.DependencyInjection;
 
@@ -23,6 +24,7 @@ public static class DependencyInjection
         services.Configure<OpenApiOptions>(configuration.GetSection(OpenApiOptions.SectionName));
         services.Configure<ScalarOptions>(configuration.GetSection(ScalarOptions.SectionName));
         services.Configure<TenantResolutionOptions>(configuration.GetSection(TenantResolutionOptions.SectionName));
+        services.Configure<GiantSmsOptions>(configuration.GetSection(GiantSmsOptions.SectionName));
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -70,18 +72,24 @@ public static class DependencyInjection
         var dbOptions = configuration.GetSection(DatabaseOptions.SectionName).Get<DatabaseOptions>();
         if (dbOptions != null && !string.IsNullOrEmpty(dbOptions.ConnectionString))
         {
-            services.AddDbContext<CollectionsDbContext>(options =>
-                options.UseNpgsql(dbOptions.ConnectionString));
+            services.AddSingleton<OutboxInterceptor>();
+            services.AddDbContext<CollectionsDbContext>((sp, options) =>
+            {
+                options.UseNpgsql(dbOptions.ConnectionString)
+                       .AddInterceptors(sp.GetRequiredService<OutboxInterceptor>());
+            });
             
             services.AddScoped<IApplicationDbContext>(provider => 
                 provider.GetRequiredService<CollectionsDbContext>());
-            services.AddHostedService<ReceiptSchemaBootstrapper>();
         }
 
         // Additional services for payments and dashboards
         services.AddScoped<IPaymentStateService, PaymentStateService>();
         services.AddScoped<IDashboardProjectionUpdater, DashboardProjectionUpdater>();
         services.AddScoped<IEmailService, MockEmailService>();
+        services.AddScoped<ISmsTemplateService, SmsTemplateService>();
+        services.AddScoped<INotificationTemplateService, NotificationTemplateService>();
+        services.AddScoped<IOutboxProcessor, OutboxProcessor>();
         
         services.AddHttpClient<ISmsService, GiantSmsService>();
 

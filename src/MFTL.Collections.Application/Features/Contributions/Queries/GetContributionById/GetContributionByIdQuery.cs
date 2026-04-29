@@ -26,7 +26,7 @@ public class GetContributionByIdQueryHandler(IApplicationDbContext dbContext) : 
             contribution.RecipientFundId,
             contribution.Amount,
             contribution.Currency,
-            contribution.ContributorName,
+            contribution.IsAnonymous ? "Anonymous" : contribution.ContributorName,
             contribution.Method,
             contribution.Status.ToString(),
             contribution.PaymentId,

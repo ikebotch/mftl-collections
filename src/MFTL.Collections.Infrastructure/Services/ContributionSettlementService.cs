@@ -13,14 +13,16 @@ public sealed class ContributionSettlementService(
     IReceiptNumberGenerator receiptNumberGenerator,
     ILogger<ContributionSettlementService> logger) : IContributionSettlementService
 {
-    public async Task<ContributionSettlementResult> SettleContributionAsync(Guid contributionId, Guid? paymentId, CancellationToken cancellationToken = default)
+    public async Task<ContributionSettlementResult> SettleContributionAsync(Guid contributionId, Guid? paymentId, DateTimeOffset? issuedAt = null, CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Settling contribution {ContributionId} with payment {PaymentId}", contributionId, paymentId);
 
         var contribution = await dbContext.Contributions
             .Include(c => c.RecipientFund)
+            .Include(c => c.Event)
             .Include(c => c.Payment)
             .Include(c => c.Receipt)
+            .Include(c => c.Contributor)
             .FirstOrDefaultAsync(c => c.Id == contributionId, cancellationToken);
 
         if (contribution == null)
@@ -28,7 +30,7 @@ public sealed class ContributionSettlementService(
             throw new KeyNotFoundException($"Contribution {contributionId} not found.");
         }
 
-        var result = await SettleContributionAsync(contribution, paymentId, null, cancellationToken);
+        var result = await SettleContributionAsync(contribution, paymentId, null, issuedAt, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         
         logger.LogInformation("Contribution {ContributionId} settled successfully.", contributionId);
@@ -39,6 +41,7 @@ public sealed class ContributionSettlementService(
         Contribution contribution,
         Guid? paymentId,
         Guid? recordedByUserId = null,
+        DateTimeOffset? issuedAt = null,
         CancellationToken cancellationToken = default)
     {
         if (contribution.RecipientFund == null)
@@ -85,7 +88,7 @@ public sealed class ContributionSettlementService(
                 PaymentId = payment?.Id,
                 RecordedByUserId = recordedByUserId ?? await ResolveRecordedByUserIdAsync(cancellationToken),
                 ReceiptNumber = await GenerateUniqueReceiptNumberAsync(cancellationToken),
-                IssuedAt = DateTimeOffset.UtcNow,
+                IssuedAt = issuedAt ?? DateTimeOffset.UtcNow,
                 Status = ReceiptStatus.Issued,
                 Note = contribution.Note,
                 BranchId = contribution.BranchId,
@@ -94,6 +97,20 @@ public sealed class ContributionSettlementService(
 
             dbContext.Receipts.Add(receipt);
             contribution.Receipt = receipt;
+
+            // Raise Domain Event
+            contribution.AddDomainEvent(new Domain.Events.ReceiptIssuedEvent(
+                receipt.Id,
+                receipt.TenantId,
+                receipt.BranchId,
+                contribution.Id,
+                receipt.ReceiptNumber,
+                contribution.ContributorName,
+                contribution.Contributor?.Email,
+                contribution.Contributor?.PhoneNumber,
+                contribution.Amount,
+                contribution.Currency,
+                contribution.Event.Title));
         }
         else if (payment?.Id != null && receipt.PaymentId == null)
         {

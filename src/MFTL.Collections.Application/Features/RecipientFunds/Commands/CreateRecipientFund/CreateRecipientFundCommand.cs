@@ -32,6 +32,7 @@ public class CreateRecipientFundCommandHandler(IApplicationDbContext dbContext) 
             TargetAmount = request.TargetAmount,
             IsActive = request.IsActive,
             Metadata = request.Metadata,
+            TenantId = @event.TenantId,
             BranchId = @event.BranchId
         };
 

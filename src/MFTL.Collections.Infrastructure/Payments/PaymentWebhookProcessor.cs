@@ -53,7 +53,33 @@ public sealed class PaymentWebhookProcessor(
             await dbContext.SaveChangesAsync(cancellationToken);
 
             // Settle contribution (this updates the fund balance)
-            await settlementService.SettleContributionAsync(payment.ContributionId, payment.Id, cancellationToken);
+            await settlementService.SettleContributionAsync(payment.ContributionId, payment.Id, null, cancellationToken);
+        }
+        else if (status == PaymentStatus.Failed)
+        {
+            payment.Status = status;
+            payment.ProviderPayload = payload;
+            payment.ProcessedAt = DateTimeOffset.UtcNow;
+
+            // Raise Domain Event for Admin
+            var contribution = await dbContext.Contributions
+                .Include(c => c.Contributor)
+                .FirstOrDefaultAsync(c => c.Id == payment.ContributionId, cancellationToken);
+
+            if (contribution != null)
+            {
+                payment.AddDomainEvent(new Domain.Events.PaymentFailedEvent(
+                    payment.ContributionId,
+                    contribution.TenantId,
+                    contribution.BranchId,
+                    contribution.ContributorName,
+                    contribution.Contributor?.Email,
+                    contribution.Amount,
+                    contribution.Currency,
+                    "Provider reported failure"));
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
         // Mark as processed

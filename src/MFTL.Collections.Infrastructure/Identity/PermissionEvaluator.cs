@@ -24,7 +24,7 @@ public sealed class PermissionEvaluator(
         { "Branch Viewer", new() { "branches.view", "events.view", "funds.view", "contributions.view", "reports.view" } },
         { "Event Manager", new() { "events.*", "funds.*", "contributions.view", "collectors.view", "receipts.view" } },
         { "Fund Manager", new() { "funds.*", "donors.view", "events.view", "contributions.view" } },
-        { "Collector", new() { "dashboard.view", "contributions.create", "contributions.record_cash", "receipts.view", "events.view", "funds.view", "ledger.view", "collectors.view" } },
+        { "Collector", new() { "dashboard.view", "contributions.create", "contributions.record_cash", "receipts.view", "events.view", "funds.view", "ledger.view", "collectors.view", "self.*" } },
         { "Collector Supervisor", new() { "collectors.view", "cashdrop.manage", "contributions.view", "reports.branch" } },
         { "Read Only Viewer", new() { "organisations.view", "branches.view", "events.view", "funds.view", "contributions.view", "reports.view" } },
         { "Self Service User", new() { "self.*", "donations.create", "profile.manage" } }

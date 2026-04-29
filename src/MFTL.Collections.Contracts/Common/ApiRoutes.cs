@@ -60,6 +60,7 @@ public static class ApiRoutes
     {
         public const string Base = BasePath + "/receipts";
         public const string GetById = Base + "/{id:guid}";
+        public const string Resend = Base + "/{id:guid}/resend";
     }
 
     public static class Dashboards
@@ -79,6 +80,7 @@ public static class ApiRoutes
         public const string Invite = Base + "/invite";
         public const string UpdateStatus = Base + "/{id:guid}/status";
         public const string Audit = Base + "/{id:guid}/audit";
+        public const string VerifyPin = Base + "/verify-pin";
     }
 
     public static class Settlements
@@ -110,5 +112,21 @@ public static class ApiRoutes
     public static class Webhooks
     {
         public const string Auth0 = "v1/webhooks/auth0/user-created";
+    }
+
+    public static class SmsTemplates
+    {
+        public const string Base = BasePath + "/sms-templates";
+        public const string GetById = Base + "/{id:guid}";
+        public const string Update = Base + "/{id:guid}";
+    }
+
+    public static class NotificationTemplates
+    {
+        public const string Base = BasePath + "/notification-templates";
+        public const string GetById = Base + "/{id:guid}";
+        public const string Update = Base + "/{id:guid}";
+        public const string Preview = Base + "/{id:guid}/preview";
+        public const string SendTest = Base + "/{id:guid}/send-test";
     }
 }

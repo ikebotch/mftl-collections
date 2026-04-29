@@ -16,6 +16,7 @@ public static class EndpointAccessPolicies
         { "GetMe", new(EndpointAccessPolicyType.Authenticated) },
         { "GetCollectorMe", new(EndpointAccessPolicyType.Authenticated) },
         { "GetCollectorAssignments", new(EndpointAccessPolicyType.Authenticated) },
+        { "VerifyPin", new(EndpointAccessPolicyType.Authenticated) },
 
         // Permission-based Endpoints
         { "ListTenants", new(EndpointAccessPolicyType.Permission, "organisations.view") },
@@ -46,7 +47,7 @@ public static class EndpointAccessPolicies
         { "GetCollectorHistory", new(EndpointAccessPolicyType.Authenticated) },
         { "CreateCollector", new(EndpointAccessPolicyType.Permission, "collectors.create") },
         { "UpdateCollector", new(EndpointAccessPolicyType.Permission, "collectors.update") },
-        { "SetCollectorPin", new(EndpointAccessPolicyType.Permission, "collectors.manage") },
+        { "SetCollectorPin", new(EndpointAccessPolicyType.Authenticated) },
 
         { "RecordCashContribution", new(EndpointAccessPolicyType.Permission, "contributions.create") },
         { "ListContributions", new(EndpointAccessPolicyType.Permission, "contributions.view") },
@@ -55,12 +56,18 @@ public static class EndpointAccessPolicies
 
         { "ListReceipts", new(EndpointAccessPolicyType.Permission, "receipts.view") },
         { "GetReceiptById", new(EndpointAccessPolicyType.Permission, "receipts.view") },
+        { "ResendReceipt", new(EndpointAccessPolicyType.Authenticated) },
 
         { "InitiateContributionPayment", new(EndpointAccessPolicyType.Permission, "payments.create") },
         { "ListPayments", new(EndpointAccessPolicyType.Permission, "payments.view") },
         { "GetPaymentById", new(EndpointAccessPolicyType.Permission, "payments.view") },
 
         { "ListSettlements", new(EndpointAccessPolicyType.Permission, "settlements.view") },
+        
+        { "ListSmsTemplates", new(EndpointAccessPolicyType.Permission, "sms_templates.read") },
+        { "GetSmsTemplateById", new(EndpointAccessPolicyType.Permission, "sms_templates.read") },
+        { "CreateSmsTemplate", new(EndpointAccessPolicyType.Permission, "sms_templates.create") },
+        { "UpdateSmsTemplate", new(EndpointAccessPolicyType.Permission, "sms_templates.update") },
 
         { "ListDonors", new(EndpointAccessPolicyType.Permission, "donors.view") },
         { "GetDonorById", new(EndpointAccessPolicyType.Permission, "donors.view") },

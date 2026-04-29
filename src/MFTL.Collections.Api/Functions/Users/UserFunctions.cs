@@ -149,7 +149,20 @@ public class UserFunctions(IMediator mediator)
         
         if (command == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body.", CorrelationId: req.GetOrCreateCorrelationId()));
 
-        var result = await mediator.Send(command);
+        var result = await mediator.Send(command with { ExplicitUserId = req.Headers["X-Dev-User-Id"].FirstOrDefault() });
         return new OkObjectResult(new ApiResponse<bool>(true, "PIN set successfully.", result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
+    [Function("VerifyPin")]
+    public async Task<IActionResult> VerifyPin(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Users.VerifyPin)] HttpRequest req)
+    {
+        var body = await new StreamReader(req.Body).ReadToEndAsync();
+        var command = System.Text.Json.JsonSerializer.Deserialize<Application.Features.Users.Commands.VerifyPin.VerifyPinCommand>(body, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        
+        if (command == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body.", CorrelationId: req.GetOrCreateCorrelationId()));
+
+        var result = await mediator.Send(command with { ExplicitUserId = req.Headers["X-Dev-User-Id"].FirstOrDefault() });
+        return new OkObjectResult(new ApiResponse<bool>(true, "PIN verification result.", result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 }

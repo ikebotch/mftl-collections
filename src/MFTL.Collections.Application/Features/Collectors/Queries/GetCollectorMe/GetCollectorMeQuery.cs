@@ -22,7 +22,11 @@ public sealed record CollectorMeDto(
     string? PhoneNumber = null,
     IEnumerable<Guid>? EventIds = null,
     IEnumerable<Guid>? FundIds = null,
-    bool HasPin = false);
+    bool HasPin = false,
+    IEnumerable<CurrencyTotalDto>? TotalsPerCurrency = null,
+    bool IsAdmin = false);
+
+public sealed record CurrencyTotalDto(string Currency, decimal Amount);
 
 [HasPermission("self.view")]
 public record GetCollectorMeQuery(string? ExplicitUserId = null) : IRequest<CollectorMeDto>, IHasScope
@@ -32,11 +36,13 @@ public record GetCollectorMeQuery(string? ExplicitUserId = null) : IRequest<Coll
 
 public class GetCollectorMeQueryHandler(
     IApplicationDbContext dbContext,
+    IAccessPolicyResolver policyResolver,
     ICurrentUserService currentUserService) : IRequestHandler<GetCollectorMeQuery, CollectorMeDto>
 {
     public async Task<CollectorMeDto> Handle(GetCollectorMeQuery request, CancellationToken cancellationToken)
     {
-        var auth0Id = currentUserService.UserId;
+        var context = await policyResolver.GetAccessContextAsync();
+        var auth0Id = context.Auth0Id;
         
         if (!string.IsNullOrWhiteSpace(request.ExplicitUserId) && request.ExplicitUserId != auth0Id)
         {
@@ -112,6 +118,11 @@ public class GetCollectorMeQueryHandler(
             .Select(r => (DateTimeOffset?)r.IssuedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+        var totalsPerCurrency = receiptsToday
+            .GroupBy(r => r.Contribution?.Currency ?? "GHS")
+            .Select(g => new CurrencyTotalDto(g.Key, g.Sum(r => r.Contribution?.Amount ?? 0)))
+            .ToList();
+
         return new CollectorMeDto(
             user.Id,
             user.Name,
@@ -119,7 +130,7 @@ public class GetCollectorMeQueryHandler(
             user.IsActive ? "Active" : "Inactive",
             eventCount,
             fundCount,
-            receiptsToday.Sum(r => r.Contribution?.Amount ?? 0),
+            totalsPerCurrency.FirstOrDefault(t => t.Currency == "GHS")?.Amount ?? totalsPerCurrency.FirstOrDefault()?.Amount ?? 0,
             receiptsToday.Count,
             lastActive,
             hasAssignments,
@@ -129,6 +140,13 @@ public class GetCollectorMeQueryHandler(
             user.PhoneNumber,
             directEventIds,
             directFundIds,
-            !string.IsNullOrEmpty(user.Pin));
+            !string.IsNullOrEmpty(user.Pin),
+            totalsPerCurrency,
+            user.IsPlatformAdmin || user.ScopeAssignments.Any(a => 
+                a.Role == "TenantAdmin" || 
+                a.Role == "OrganisationAdmin" || 
+                a.Role == "Admin" ||
+                a.Role == "FinanceAdmin" ||
+                a.Role == "EventManager"));
     }
 }

@@ -17,6 +17,13 @@ public interface IApplicationDbContext
     DbSet<UserScopeAssignment> UserScopeAssignments { get; }
     DbSet<Settlement> Settlements { get; }
     DbSet<AuditLog> AuditLogs { get; }
+    DbSet<SmsTemplate> SmsTemplates { get; }
+    DbSet<OutboxMessage> OutboxMessages { get; }
+    DbSet<Notification> Notifications { get; }
+    DbSet<NotificationPreference> NotificationPreferences { get; }
+    DbSet<CashDrop> CashDrops { get; }
+    DbSet<EodReport> EodReports { get; }
+    DbSet<NotificationTemplate> NotificationTemplates { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }
