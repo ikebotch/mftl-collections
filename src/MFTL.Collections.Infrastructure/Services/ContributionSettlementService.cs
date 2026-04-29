@@ -13,7 +13,7 @@ public sealed class ContributionSettlementService(
     IReceiptNumberGenerator receiptNumberGenerator,
     ILogger<ContributionSettlementService> logger) : IContributionSettlementService
 {
-    public async Task<ContributionSettlementResult> SettleContributionAsync(Guid contributionId, Guid? paymentId, CancellationToken cancellationToken = default)
+    public async Task<ContributionSettlementResult> SettleContributionAsync(Guid contributionId, Guid? paymentId, DateTimeOffset? issuedAt = null, CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Settling contribution {ContributionId} with payment {PaymentId}", contributionId, paymentId);
 
@@ -28,7 +28,7 @@ public sealed class ContributionSettlementService(
             throw new KeyNotFoundException($"Contribution {contributionId} not found.");
         }
 
-        var result = await SettleContributionAsync(contribution, paymentId, null, cancellationToken);
+        var result = await SettleContributionAsync(contribution, paymentId, null, issuedAt, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         
         logger.LogInformation("Contribution {ContributionId} settled successfully.", contributionId);
@@ -39,6 +39,7 @@ public sealed class ContributionSettlementService(
         Contribution contribution,
         Guid? paymentId,
         Guid? recordedByUserId = null,
+        DateTimeOffset? issuedAt = null,
         CancellationToken cancellationToken = default)
     {
         if (contribution.RecipientFund == null)
@@ -85,7 +86,7 @@ public sealed class ContributionSettlementService(
                 PaymentId = payment?.Id,
                 RecordedByUserId = recordedByUserId ?? await ResolveRecordedByUserIdAsync(cancellationToken),
                 ReceiptNumber = await GenerateUniqueReceiptNumberAsync(cancellationToken),
-                IssuedAt = DateTimeOffset.UtcNow,
+                IssuedAt = issuedAt ?? DateTimeOffset.UtcNow,
                 Status = ReceiptStatus.Issued,
                 Note = contribution.Note,
                 BranchId = contribution.BranchId,

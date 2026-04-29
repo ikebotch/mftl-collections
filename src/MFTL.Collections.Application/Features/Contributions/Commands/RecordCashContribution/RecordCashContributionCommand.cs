@@ -23,7 +23,8 @@ public record RecordCashContributionCommand(
     string? Note,
     string? ExplicitUserId,
     string? Pin,
-    string? IdempotencyKey) : IRequest<CashContributionResult>, IHasScope
+    string? IdempotencyKey,
+    DateTimeOffset? CollectedAt = null) : IRequest<CashContributionResult>, IHasScope
 {
     public Guid? GetScopeId() => EventId;
 }
@@ -167,7 +168,7 @@ public class RecordCashContributionCommandHandler(
         };
 
         dbContext.Contributions.Add(contribution);
-        var settlement = await settlementService.SettleContributionAsync(contribution, null, collector.Id, cancellationToken);
+        var settlement = await settlementService.SettleContributionAsync(contribution, null, collector.Id, request.CollectedAt, cancellationToken);
         
         // Ensure the receipt also gets the BranchId if possible
         if (contribution.Receipt != null)

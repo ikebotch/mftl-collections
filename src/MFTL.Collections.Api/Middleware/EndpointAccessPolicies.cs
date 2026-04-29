@@ -16,6 +16,7 @@ public static class EndpointAccessPolicies
         { "GetMe", new(EndpointAccessPolicyType.Authenticated) },
         { "GetCollectorMe", new(EndpointAccessPolicyType.Authenticated) },
         { "GetCollectorAssignments", new(EndpointAccessPolicyType.Authenticated) },
+        { "VerifyPin", new(EndpointAccessPolicyType.Authenticated) },
 
         // Permission-based Endpoints
         { "ListTenants", new(EndpointAccessPolicyType.Permission, "organisations.view") },

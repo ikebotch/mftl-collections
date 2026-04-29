@@ -6,7 +6,7 @@ using MFTL.Collections.Application.Common.Security;
 namespace MFTL.Collections.Application.Features.Users.Commands.SetCollectorPin;
 
 [HasPermission("self.update")]
-public record SetCollectorPinCommand(string Pin, string? OldPin = null) : IRequest<bool>, IHasScope
+public record SetCollectorPinCommand(string Pin, string? OldPin = null, string? ExplicitUserId = null) : IRequest<bool>, IHasScope
 {
     public Guid? GetScopeId() => null;
 }
@@ -17,7 +17,7 @@ public class SetCollectorPinCommandHandler(
 {
     public async Task<bool> Handle(SetCollectorPinCommand request, CancellationToken cancellationToken)
     {
-        var userId = currentUserService.UserId;
+        var userId = request.ExplicitUserId ?? currentUserService.UserId;
         if (string.IsNullOrWhiteSpace(userId))
         {
             throw new UnauthorizedAccessException("Authentication required.");

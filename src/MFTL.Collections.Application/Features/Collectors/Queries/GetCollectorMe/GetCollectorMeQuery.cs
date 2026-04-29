@@ -23,7 +23,8 @@ public sealed record CollectorMeDto(
     IEnumerable<Guid>? EventIds = null,
     IEnumerable<Guid>? FundIds = null,
     bool HasPin = false,
-    IEnumerable<CurrencyTotalDto>? TotalsPerCurrency = null);
+    IEnumerable<CurrencyTotalDto>? TotalsPerCurrency = null,
+    bool IsAdmin = false);
 
 public sealed record CurrencyTotalDto(string Currency, decimal Amount);
 
@@ -140,6 +141,12 @@ public class GetCollectorMeQueryHandler(
             directEventIds,
             directFundIds,
             !string.IsNullOrEmpty(user.Pin),
-            totalsPerCurrency);
+            totalsPerCurrency,
+            user.IsPlatformAdmin || user.ScopeAssignments.Any(a => 
+                a.Role == "TenantAdmin" || 
+                a.Role == "OrganisationAdmin" || 
+                a.Role == "Admin" ||
+                a.Role == "FinanceAdmin" ||
+                a.Role == "EventManager"));
     }
 }

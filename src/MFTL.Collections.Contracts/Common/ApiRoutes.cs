@@ -80,6 +80,7 @@ public static class ApiRoutes
         public const string Invite = Base + "/invite";
         public const string UpdateStatus = Base + "/{id:guid}/status";
         public const string Audit = Base + "/{id:guid}/audit";
+        public const string VerifyPin = Base + "/verify-pin";
     }
 
     public static class Settlements

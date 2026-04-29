@@ -1,14 +1,16 @@
+using System.Text.Json.Serialization;
+
 namespace MFTL.Collections.Contracts.Common;
 
 public record ApiResponse<T>(
-    bool Success,
-    string? Message = null,
-    T? Data = default,
-    IEnumerable<string>? Errors = null,
-    string? CorrelationId = null);
+    [property: JsonPropertyName("success")] bool Success,
+    [property: JsonPropertyName("message")] string? Message = null,
+    [property: JsonPropertyName("data")] T? Data = default,
+    [property: JsonPropertyName("errors")] IEnumerable<string>? Errors = null,
+    [property: JsonPropertyName("correlationId")] string? CorrelationId = null);
 
 public record ApiResponse(
-    bool Success,
-    string? Message = null,
-    IEnumerable<string>? Errors = null,
-    string? CorrelationId = null);
+    [property: JsonPropertyName("success")] bool Success,
+    [property: JsonPropertyName("message")] string? Message = null,
+    [property: JsonPropertyName("errors")] IEnumerable<string>? Errors = null,
+    [property: JsonPropertyName("correlationId")] string? CorrelationId = null);
