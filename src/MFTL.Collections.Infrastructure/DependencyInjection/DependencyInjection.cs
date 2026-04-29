@@ -10,6 +10,7 @@ using MFTL.Collections.Infrastructure.Payments;
 using MFTL.Collections.Infrastructure.Services;
 using MFTL.Collections.Infrastructure.Identity;
 using MFTL.Collections.Infrastructure.Identity.Auth0.Provisioning;
+using MFTL.Collections.Infrastructure.Persistence.Interceptors;
 
 namespace MFTL.Collections.Infrastructure.DependencyInjection;
 
@@ -71,8 +72,12 @@ public static class DependencyInjection
         var dbOptions = configuration.GetSection(DatabaseOptions.SectionName).Get<DatabaseOptions>();
         if (dbOptions != null && !string.IsNullOrEmpty(dbOptions.ConnectionString))
         {
-            services.AddDbContext<CollectionsDbContext>(options =>
-                options.UseNpgsql(dbOptions.ConnectionString));
+            services.AddSingleton<OutboxInterceptor>();
+            services.AddDbContext<CollectionsDbContext>((sp, options) =>
+            {
+                options.UseNpgsql(dbOptions.ConnectionString)
+                       .AddInterceptors(sp.GetRequiredService<OutboxInterceptor>());
+            });
             
             services.AddScoped<IApplicationDbContext>(provider => 
                 provider.GetRequiredService<CollectionsDbContext>());
@@ -83,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<IDashboardProjectionUpdater, DashboardProjectionUpdater>();
         services.AddScoped<IEmailService, MockEmailService>();
         services.AddScoped<ISmsTemplateService, SmsTemplateService>();
+        services.AddScoped<IOutboxProcessor, OutboxProcessor>();
         
         services.AddHttpClient<ISmsService, GiantSmsService>();
 

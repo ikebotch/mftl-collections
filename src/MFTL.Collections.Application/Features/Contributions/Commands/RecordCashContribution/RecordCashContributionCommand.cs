@@ -52,6 +52,7 @@ public class RecordCashContributionCommandHandler(
     IAccessPolicyResolver policyResolver,
     IContributionSettlementService settlementService,
     ISmsService smsService,
+    IEmailService emailService,
     ISmsTemplateService templateService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
 {
     public async Task<CashContributionResult> Handle(RecordCashContributionCommand request, CancellationToken cancellationToken)
@@ -176,33 +177,32 @@ public class RecordCashContributionCommandHandler(
             contribution.Receipt.BranchId = @event.BranchId;
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        // Add Domain Events for asynchronous processing (Outbox Pattern)
+        contribution.AddDomainEvent(new Domain.Events.ContributionRecordedEvent(
+            contribution.Id,
+            contribution.EventId,
+            contribution.RecipientFundId,
+            contribution.Amount,
+            contribution.Currency,
+            contribution.ContributorName,
+            contributor.Email,
+            contributor.PhoneNumber));
 
-        // Send SMS Notification
-        if (!string.IsNullOrWhiteSpace(contributor.PhoneNumber))
+        if (contribution.Receipt != null)
         {
-            var template = @event.SmsTemplate?.Content;
-            if (string.IsNullOrEmpty(template))
-            {
-                // Fallback to a default template if not specified on the event
-                template = "Thank you {ContributorName} for your contribution of {Currency} {Amount} to {EventTitle}. Receipt: {ReceiptNumber}";
-            }
-
-            var receipt = await dbContext.Receipts.AsNoTracking()
-                .FirstOrDefaultAsync(r => r.Id == settlement.ReceiptId, cancellationToken);
-
-            var messageData = new
-            {
-                ContributorName = contribution.ContributorName,
-                Amount = contribution.Amount,
-                Currency = contribution.Currency,
-                EventTitle = @event.Title,
-                ReceiptNumber = receipt?.ReceiptNumber ?? "N/A"
-            };
-
-            var message = templateService.Render(template, messageData);
-            await smsService.SendSmsAsync(contributor.PhoneNumber, message);
+            contribution.Receipt.AddDomainEvent(new Domain.Events.ReceiptIssuedEvent(
+                contribution.Receipt.Id,
+                contribution.Id,
+                contribution.Receipt.ReceiptNumber,
+                contribution.ContributorName,
+                contributor.Email,
+                contributor.PhoneNumber,
+                contribution.Amount,
+                contribution.Currency,
+                @event.Title));
         }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return new CashContributionResult(contribution.Id, settlement.ReceiptId, contribution.Status.ToString());
     }

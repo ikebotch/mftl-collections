@@ -53,7 +53,7 @@ public sealed class PaymentWebhookProcessor(
             await dbContext.SaveChangesAsync(cancellationToken);
 
             // Settle contribution (this updates the fund balance)
-            await settlementService.SettleContributionAsync(payment.ContributionId, payment.Id, cancellationToken);
+            await settlementService.SettleContributionAsync(payment.ContributionId, payment.Id, null, cancellationToken);
         }
 
         // Mark as processed

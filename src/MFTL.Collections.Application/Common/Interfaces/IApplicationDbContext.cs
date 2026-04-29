@@ -18,6 +18,8 @@ public interface IApplicationDbContext
     DbSet<Settlement> Settlements { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<SmsTemplate> SmsTemplates { get; }
+    DbSet<OutboxMessage> OutboxMessages { get; }
+    DbSet<Notification> Notifications { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

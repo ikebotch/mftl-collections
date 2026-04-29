@@ -116,10 +116,11 @@ public class TenantIsolationTests
             NullLogger<ContributionSettlementService>.Instance);
 
         var smsServiceMock = new Mock<ISmsService>();
-
+        var emailServiceMock = new Mock<IEmailService>();
+        var templateServiceMock = new Mock<ISmsTemplateService>();
         var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
 
-        var result = await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object).Handle(
+        var result = await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -132,7 +133,8 @@ public class TenantIsolationTests
                 "cash",
                 "Live verification",
                 collectorAuth0Id,
-                "1234"),
+                "1234",
+                null),
             CancellationToken.None);
 
         var contribution = await dbContext.Contributions
@@ -220,10 +222,11 @@ public class TenantIsolationTests
             NullLogger<ContributionSettlementService>.Instance);
 
         var smsServiceMock = new Mock<ISmsService>();
-
+        var emailServiceMock = new Mock<IEmailService>();
+        var templateServiceMock = new Mock<ISmsTemplateService>();
         var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
 
-        var act = async () => await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object).Handle(
+        var act = async () => await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -236,7 +239,8 @@ public class TenantIsolationTests
                 "cash",
                 "Blocked",
                 collectorAuth0Id,
-                "1234"),
+                "1234",
+                null),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>()
@@ -269,10 +273,11 @@ public class TenantIsolationTests
             NullLogger<ContributionSettlementService>.Instance);
 
         var smsServiceMock = new Mock<ISmsService>();
-
+        var emailServiceMock = new Mock<IEmailService>();
+        var templateServiceMock = new Mock<ISmsTemplateService>();
         var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
 
-        var act = async () => await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object).Handle(
+        var act = async () => await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -285,7 +290,8 @@ public class TenantIsolationTests
                 "cash",
                 "Blocked",
                 collectorAuth0Id,
-                "1234"),
+                "1234",
+                null),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>()
@@ -323,13 +329,15 @@ public class TenantIsolationTests
             new StaticReceiptNumberGenerator("RCT-TEST-0202"),
             NullLogger<ContributionSettlementService>.Instance);
 
-        var smsServiceMock = new Mock<ISmsService>();
-
         var policyResolverOne = CreatePolicyResolverMock(dbContext, "collector-one");
         var policyResolverTwo = CreatePolicyResolverMock(dbContext, "collector-two");
 
-        var handlerOne = new RecordCashContributionCommandHandler(dbContext, policyResolverOne.Object, firstSettlementService, smsServiceMock.Object);
-        var handlerTwo = new RecordCashContributionCommandHandler(dbContext, policyResolverTwo.Object, secondSettlementService, smsServiceMock.Object);
+        var smsServiceMock = new Mock<ISmsService>();
+        var emailServiceMock = new Mock<IEmailService>();
+        var templateServiceMock = new Mock<ISmsTemplateService>();
+
+        var handlerOne = new RecordCashContributionCommandHandler(dbContext, policyResolverOne.Object, firstSettlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object);
+        var handlerTwo = new RecordCashContributionCommandHandler(dbContext, policyResolverTwo.Object, secondSettlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object);
 
         await handlerOne.Handle(new RecordCashContributionCommand(
             createdEvent.Id,
@@ -343,7 +351,8 @@ public class TenantIsolationTests
             "cash",
             null,
             "collector-one",
-            "1234"), CancellationToken.None);
+            "1234",
+            null), CancellationToken.None);
 
         await handlerTwo.Handle(new RecordCashContributionCommand(
             createdEvent.Id,
@@ -357,7 +366,8 @@ public class TenantIsolationTests
             "cash",
             null,
             "collector-two",
-            "1234"), CancellationToken.None);
+            "1234",
+            null), CancellationToken.None);
 
         var history = await new ListCollectorHistoryQueryHandler(dbContext, policyResolverOne.Object)
             .Handle(new ListCollectorHistoryQuery("collector-one"), CancellationToken.None);
@@ -480,10 +490,11 @@ public class TenantIsolationTests
             NullLogger<ContributionSettlementService>.Instance);
 
         var smsServiceMock = new Mock<ISmsService>();
-
+        var emailServiceMock = new Mock<IEmailService>();
+        var templateServiceMock = new Mock<ISmsTemplateService>();
         var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
 
-        var result = await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object).Handle(
+        var result = await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -496,7 +507,8 @@ public class TenantIsolationTests
                 "cash",
                 "Receipt note",
                 collectorAuth0Id,
-                "1234"),
+                "1234",
+                null),
             CancellationToken.None);
 
         result.ReceiptId.Should().NotBeNull();

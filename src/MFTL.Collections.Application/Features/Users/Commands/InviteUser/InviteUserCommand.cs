@@ -95,9 +95,14 @@ public class InviteUserCommandHandler(
         };
         dbContext.AuditLogs.Add(audit);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        // Add Domain Event for Outbox
+        user.AddDomainEvent(new Domain.Events.UserInvitedEvent(
+            user.Id,
+            user.Email,
+            user.Name,
+            request.Role));
 
-        await emailService.SendInvitationAsync(request.Email, request.Name, request.Role);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return user.Id;
     }
