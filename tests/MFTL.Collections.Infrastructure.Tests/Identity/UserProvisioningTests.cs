@@ -36,7 +36,7 @@ public class UserProvisioningTests
         var service = CreateService(context);
 
         // Act
-        await service.ProvisionUserAsync("auth0|123", "new@test.com", "New User", new List<string> { "Platform Admin" });
+        await service.ProvisionUserAsync("auth0|123", "new@test.com", "New User", new List<string> { "Platform Admin" }, null);
 
         // Assert
         var user = await context.Users.FirstOrDefaultAsync(u => u.Auth0Id == "auth0|123");
@@ -64,7 +64,7 @@ public class UserProvisioningTests
         var service = CreateService(context);
 
         // Act
-        await service.ProvisionUserAsync("auth0|invited", "invited@test.com", "Invited User", new List<string>());
+        await service.ProvisionUserAsync("auth0|invited", "invited@test.com", "Invited User", new List<string>(), null);
 
         // Assert
         var user = await context.Users.FirstOrDefaultAsync(u => u.Email == "invited@test.com");
@@ -82,8 +82,8 @@ public class UserProvisioningTests
         var service = CreateService(context);
 
         // Act
-        await service.ProvisionUserAsync("auth0|123", "test@test.com", "Test User", new List<string>());
-        await service.ProvisionUserAsync("auth0|123", "test@test.com", "Test User", new List<string>()); // Second call
+        await service.ProvisionUserAsync("auth0|123", "test@test.com", "Test User", new List<string>(), null);
+        await service.ProvisionUserAsync("auth0|123", "test@test.com", "Test User", new List<string>(), null); // Second call
 
         // Assert
         context.Users.Count().Should().Be(1);

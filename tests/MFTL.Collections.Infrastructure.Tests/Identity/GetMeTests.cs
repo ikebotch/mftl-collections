@@ -52,8 +52,10 @@ public class GetMeTests
         currentUserServiceMock.Setup(x => x.Roles).Returns(new List<string> { "Collector" });
 
         var provisioningMock = new Mock<IUserProvisioningService>();
+        var permissionEvaluatorMock = new Mock<IPermissionEvaluator>();
+        permissionEvaluatorMock.Setup(x => x.GetEffectivePermissionsAsync()).ReturnsAsync(new List<string>());
 
-        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, NullLogger<GetMeQueryHandler>.Instance);
+        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, permissionEvaluatorMock.Object, NullLogger<GetMeQueryHandler>.Instance);
 
         // Act
         var result = await handler.Handle(new GetMeQuery(), CancellationToken.None);
@@ -87,8 +89,10 @@ public class GetMeTests
         currentUserServiceMock.Setup(x => x.Roles).Returns(new List<string>());
 
         var provisioningMock = new Mock<IUserProvisioningService>();
+        var permissionEvaluatorMock = new Mock<IPermissionEvaluator>();
+        permissionEvaluatorMock.Setup(x => x.GetEffectivePermissionsAsync()).ReturnsAsync(new List<string>());
 
-        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, NullLogger<GetMeQueryHandler>.Instance);
+        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, permissionEvaluatorMock.Object, NullLogger<GetMeQueryHandler>.Instance);
 
         // Act
         var result = await handler.Handle(new GetMeQuery(), CancellationToken.None);
@@ -122,8 +126,10 @@ public class GetMeTests
         currentUserServiceMock.Setup(x => x.Roles).Returns(new List<string> { "Platform Admin" });
 
         var provisioningMock = new Mock<IUserProvisioningService>();
+        var permissionEvaluatorMock = new Mock<IPermissionEvaluator>();
+        permissionEvaluatorMock.Setup(x => x.GetEffectivePermissionsAsync()).ReturnsAsync(new List<string>());
 
-        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, NullLogger<GetMeQueryHandler>.Instance);
+        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, permissionEvaluatorMock.Object, NullLogger<GetMeQueryHandler>.Instance);
 
         // Act
         var result = await handler.Handle(new GetMeQuery(), CancellationToken.None);
@@ -156,8 +162,10 @@ public class GetMeTests
         currentUserServiceMock.Setup(x => x.UserId).Returns(auth0Id);
 
         var provisioningMock = new Mock<IUserProvisioningService>();
+        var permissionEvaluatorMock = new Mock<IPermissionEvaluator>();
+        permissionEvaluatorMock.Setup(x => x.GetEffectivePermissionsAsync()).ReturnsAsync(new List<string>());
 
-        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, NullLogger<GetMeQueryHandler>.Instance);
+        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, permissionEvaluatorMock.Object, NullLogger<GetMeQueryHandler>.Instance);
 
         // Act
         var result = await handler.Handle(new GetMeQuery(), CancellationToken.None);

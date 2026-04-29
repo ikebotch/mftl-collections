@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MFTL.Collections.Api.Middleware;
 using MFTL.Collections.Application.Common.Interfaces;
+using System.Collections.Immutable;
 using Moq;
 using Xunit;
 
@@ -70,10 +71,10 @@ public class EndpointAccessPolicyMiddlewareTests
         functionDefinitionMock.Setup(d => d.Name).Returns(functionName);
         
         // Setup input bindings to look like HttpTrigger
-        var inputBindings = new Dictionary<string, BindingDefinition>
+        var inputBindings = new Dictionary<string, BindingMetadata>
         {
-            { "req", new MockBindingDefinition("httpTrigger") }
-        };
+            { "req", new MockBindingMetadata("httpTrigger") }
+        }.ToImmutableDictionary();
         functionDefinitionMock.Setup(d => d.InputBindings).Returns(inputBindings);
         
         contextMock.Setup(c => c.FunctionDefinition).Returns(functionDefinitionMock.Object);
@@ -87,7 +88,7 @@ public class EndpointAccessPolicyMiddlewareTests
         return contextMock.Object;
     }
 
-    private class MockBindingDefinition(string type) : BindingDefinition
+    private class MockBindingMetadata(string type) : BindingMetadata
     {
         public override string Name => "req";
         public override string Type => type;
