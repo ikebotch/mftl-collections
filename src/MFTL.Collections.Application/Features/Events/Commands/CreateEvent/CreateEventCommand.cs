@@ -19,7 +19,8 @@ public record CreateEventCommand(
     Guid BranchId,
     string? Slug = null,
     string? DisplayImageUrl = null,
-    string? ReceiptLogoUrl = null) : IRequest<EventDto>, IHasScope
+    string? ReceiptLogoUrl = null,
+    string? Metadata = null) : IRequest<EventDto>, IHasScope
 {
     public Guid? GetScopeId() => BranchId;
 }
@@ -66,6 +67,9 @@ public class CreateEventCommandHandler(
             }
         }
 
+        var branch = await dbContext.Branches.FindAsync(new object[] { request.BranchId }, cancellationToken);
+        if (branch == null) throw new KeyNotFoundException("Branch not found.");
+
         var @event = new Event
         {
             Title = request.Title,
@@ -74,6 +78,8 @@ public class CreateEventCommandHandler(
             Slug = slug,
             DisplayImageUrl = request.DisplayImageUrl,
             ReceiptLogoUrl = request.ReceiptLogoUrl,
+            Metadata = request.Metadata,
+            TenantId = branch.TenantId,
             BranchId = request.BranchId
         };
 

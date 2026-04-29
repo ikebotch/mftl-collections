@@ -60,6 +60,7 @@ public static class ApiRoutes
     {
         public const string Base = BasePath + "/receipts";
         public const string GetById = Base + "/{id:guid}";
+        public const string Resend = Base + "/{id:guid}/resend";
     }
 
     public static class Dashboards

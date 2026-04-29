@@ -28,4 +28,15 @@ public class ReceiptFunctions(IMediator mediator)
         var result = await mediator.Send(new ListReceiptsQuery());
         return new OkObjectResult(new ApiResponse<IEnumerable<ReceiptListItemDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
+
+    [Function("ResendReceipt")]
+    public async Task<IActionResult> Resend(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Receipts.Resend)] HttpRequest req,
+        Guid id)
+    {
+        var result = await mediator.Send(new Application.Features.Receipts.Commands.ResendReceipt.ResendReceiptCommand(id));
+        if (!result) return new NotFoundResult();
+        
+        return new OkObjectResult(new ApiResponse<bool>(true, "Receipt resent successfully.", result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
 }

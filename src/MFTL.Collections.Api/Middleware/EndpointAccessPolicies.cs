@@ -46,7 +46,7 @@ public static class EndpointAccessPolicies
         { "GetCollectorHistory", new(EndpointAccessPolicyType.Authenticated) },
         { "CreateCollector", new(EndpointAccessPolicyType.Permission, "collectors.create") },
         { "UpdateCollector", new(EndpointAccessPolicyType.Permission, "collectors.update") },
-        { "SetCollectorPin", new(EndpointAccessPolicyType.Permission, "collectors.manage") },
+        { "SetCollectorPin", new(EndpointAccessPolicyType.Authenticated) },
 
         { "RecordCashContribution", new(EndpointAccessPolicyType.Permission, "contributions.create") },
         { "ListContributions", new(EndpointAccessPolicyType.Permission, "contributions.view") },
@@ -55,6 +55,7 @@ public static class EndpointAccessPolicies
 
         { "ListReceipts", new(EndpointAccessPolicyType.Permission, "receipts.view") },
         { "GetReceiptById", new(EndpointAccessPolicyType.Permission, "receipts.view") },
+        { "ResendReceipt", new(EndpointAccessPolicyType.Authenticated) },
 
         { "InitiateContributionPayment", new(EndpointAccessPolicyType.Permission, "payments.create") },
         { "ListPayments", new(EndpointAccessPolicyType.Permission, "payments.view") },
