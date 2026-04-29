@@ -76,7 +76,7 @@ public class ListCollectorHistoryQueryHandler(
                 receipt.RecipientFund.Name,
                 receipt.Contribution.Amount,
                 receipt.Contribution.Currency,
-                receipt.Contribution.ContributorName,
+                receipt.Contribution.IsAnonymous ? "Anonymous" : receipt.Contribution.ContributorName,
                 receipt.Contribution.Status.ToString(),
                 receipt.Payment != null ? receipt.Payment.Status.ToString() : "Cash",
                 receipt.Payment != null ? receipt.Payment.Method : receipt.Contribution.Method))

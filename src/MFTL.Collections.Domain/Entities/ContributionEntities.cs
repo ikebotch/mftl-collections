@@ -84,6 +84,7 @@ public sealed class Contribution : BaseBranchEntity
     public Payment? Payment { get; set; }
     public string? Note { get; set; }
     public string? Reference { get; set; }
+    public bool IsAnonymous { get; set; }
     public Branch? Branch { get; set; }
     public Receipt? Receipt { get; set; }
 }

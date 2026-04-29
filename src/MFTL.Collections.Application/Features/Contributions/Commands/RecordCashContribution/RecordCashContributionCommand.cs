@@ -121,7 +121,7 @@ public class RecordCashContributionCommandHandler(
         {
             TenantId = @event.TenantId,
             BranchId = @event.BranchId,
-            Name = request.Anonymous ? "Anonymous" : request.ContributorName?.Trim() ?? string.Empty,
+            Name = request.ContributorName?.Trim() ?? "Anonymous",
             Email = request.ContributorEmail?.Trim() ?? string.Empty,
             PhoneNumber = request.ContributorPhone.Trim(),
             IsAnonymous = request.Anonymous,
@@ -154,7 +154,8 @@ public class RecordCashContributionCommandHandler(
             Contributor = contributor,
             Amount = request.Amount,
             Currency = request.Currency,
-            ContributorName = request.Anonymous ? "Anonymous" : request.ContributorName?.Trim() ?? string.Empty,
+            ContributorName = request.ContributorName?.Trim() ?? "Anonymous",
+            IsAnonymous = request.Anonymous,
             Method = request.PaymentMethod,
             Status = ContributionStatus.RecordedCash,
             Note = request.Note,

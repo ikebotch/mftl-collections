@@ -76,9 +76,9 @@ public class ListContributionsQueryHandler(
                 contribution.Status.ToString(),
                 contribution.Amount,
                 contribution.Currency,
-                contribution.ContributorName,
-                contribution.Contributor != null ? contribution.Contributor.PhoneNumber ?? "" : "",
-                contribution.Contributor != null ? contribution.Contributor.Email : null,
+                contribution.IsAnonymous ? "Anonymous" : contribution.ContributorName,
+                contribution.Contributor != null ? (contribution.IsAnonymous ? "*******" : contribution.Contributor.PhoneNumber ?? "") : "",
+                contribution.Contributor != null ? (contribution.IsAnonymous ? null : contribution.Contributor.Email) : null,
                 contribution.Receipt != null && contribution.Receipt.RecordedByUser != null ? contribution.Receipt.RecordedByUser.Name : null,
                 contribution.Note,
                 contribution.Receipt != null ? contribution.Receipt.Id : (Guid?)null))

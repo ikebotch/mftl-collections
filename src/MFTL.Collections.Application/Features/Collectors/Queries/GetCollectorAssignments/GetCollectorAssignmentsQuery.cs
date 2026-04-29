@@ -23,8 +23,8 @@ public sealed record CollectorAssignedFundDto(
     string Name,
     string Description,
     decimal TargetAmount,
-    IEnumerable<CurrencyTotalDto> TotalsPerCollector,
-    string DefaultCurrency);
+    decimal CollectedAmount,
+    string Currency);
 
 public sealed record CurrencyTotalDto(string Currency, decimal Amount);
 
@@ -32,6 +32,7 @@ public sealed record CollectorAssignmentsDto(
     bool HasAssignments,
     string? BlockedReason,
     IEnumerable<CollectorAssignedEventDto> Events,
+    IEnumerable<CollectorAssignedFundDto> Funds,
     Guid? TenantId = null,
     Guid? BranchId = null);
 
@@ -66,7 +67,7 @@ public class GetCollectorAssignmentsQueryHandler(
 
         if (!user.IsActive)
         {
-            return new CollectorAssignmentsDto(false, "Collector is inactive.", [], null, null);
+            return new CollectorAssignmentsDto(false, "Collector is inactive.", [], [], null, null);
         }
 
         var collectorAssignments = user.ScopeAssignments.Where(a => a.Role == "Collector").ToList();
@@ -99,6 +100,7 @@ public class GetCollectorAssignmentsQueryHandler(
             return new CollectorAssignmentsDto(
                 false,
                 "No active campaign or fund assignments established for this collector.",
+                [],
                 [],
                 null,
                 null);
@@ -141,13 +143,28 @@ public class GetCollectorAssignmentsQueryHandler(
             .Where(t => eventTenantIds.Contains(t.Id))
             .ToDictionaryAsync(t => t.Id, t => t.DefaultCurrency, cancellationToken);
 
+        var mappedFunds = funds.Select(fund => {
+            var currency = tenantCurrencies.TryGetValue(fund.Event?.TenantId ?? Guid.Empty, out var cur) ? cur : "GHS";
+            var collectedToday = receiptsToday
+                .Where(r => r.RecipientFundId == fund.Id && r.Contribution != null && r.Contribution.Currency == currency)
+                .Sum(r => r.Contribution!.Amount);
+
+            return new CollectorAssignedFundDto(
+                fund.Id,
+                fund.EventId,
+                fund.Name,
+                fund.Description,
+                fund.TargetAmount,
+                collectedToday,
+                currency);
+        }).ToList();
+
         return new CollectorAssignmentsDto(
             true,
             null,
             events.Select(evt => 
             {
-                var eventFunds = funds.Where(f => f.EventId == evt.Id).ToList();
-                var eventFundIds = eventFunds.Select(f => f.Id).ToList();
+                var eventFunds = mappedFunds.Where(f => f.EventId == evt.Id).ToList();
                 
                 var eventTotals = receiptsToday
                     .Where(r => r.EventId == evt.Id && r.Contribution != null)
@@ -164,23 +181,9 @@ public class GetCollectorAssignmentsQueryHandler(
                     evt.Branch?.Location ?? "Main Site",
                     eventFunds.Count,
                     eventTotals,
-                    eventFunds.Select(fund => {
-                        var fundTotals = receiptsToday
-                            .Where(r => r.RecipientFundId == fund.Id && r.Contribution != null)
-                            .GroupBy(r => r.Contribution!.Currency)
-                            .Select(g => new CurrencyTotalDto(g.Key, g.Sum(r => r.Contribution!.Amount)))
-                            .ToList();
-
-                        return new CollectorAssignedFundDto(
-                            fund.Id,
-                            fund.EventId,
-                            fund.Name,
-                            fund.Description,
-                            fund.TargetAmount,
-                            fundTotals,
-                            tenantCurrencies.TryGetValue(evt.TenantId, out var cur) ? cur : "GHS");
-                    }));
+                    eventFunds);
             }),
+            mappedFunds,
             tenantId == Guid.Empty ? null : tenantId,
             branchId == Guid.Empty ? null : branchId);
     }
