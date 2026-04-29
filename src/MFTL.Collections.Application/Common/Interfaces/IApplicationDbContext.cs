@@ -20,6 +20,10 @@ public interface IApplicationDbContext
     DbSet<SmsTemplate> SmsTemplates { get; }
     DbSet<OutboxMessage> OutboxMessages { get; }
     DbSet<Notification> Notifications { get; }
+    DbSet<NotificationPreference> NotificationPreferences { get; }
+    DbSet<CashDrop> CashDrops { get; }
+    DbSet<EodReport> EodReports { get; }
+    DbSet<NotificationTemplate> NotificationTemplates { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

@@ -50,10 +50,7 @@ public class RecordCashContributionCommandValidator : AbstractValidator<RecordCa
 public class RecordCashContributionCommandHandler(
     IApplicationDbContext dbContext,
     IAccessPolicyResolver policyResolver,
-    IContributionSettlementService settlementService,
-    ISmsService smsService,
-    IEmailService emailService,
-    ISmsTemplateService templateService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
+    IContributionSettlementService settlementService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
 {
     public async Task<CashContributionResult> Handle(RecordCashContributionCommand request, CancellationToken cancellationToken)
     {
@@ -180,6 +177,8 @@ public class RecordCashContributionCommandHandler(
         // Add Domain Events for asynchronous processing (Outbox Pattern)
         contribution.AddDomainEvent(new Domain.Events.ContributionRecordedEvent(
             contribution.Id,
+            contribution.TenantId,
+            contribution.BranchId,
             contribution.EventId,
             contribution.RecipientFundId,
             contribution.Amount,
@@ -192,6 +191,8 @@ public class RecordCashContributionCommandHandler(
         {
             contribution.Receipt.AddDomainEvent(new Domain.Events.ReceiptIssuedEvent(
                 contribution.Receipt.Id,
+                contribution.Receipt.TenantId,
+                contribution.Receipt.BranchId,
                 contribution.Id,
                 contribution.Receipt.ReceiptNumber,
                 contribution.ContributorName,

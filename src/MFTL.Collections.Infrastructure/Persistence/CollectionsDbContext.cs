@@ -30,10 +30,15 @@ public sealed class CollectionsDbContext(
     public DbSet<SmsTemplate> SmsTemplates => Set<SmsTemplate>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<CashDrop> CashDrops => Set<CashDrop>();
+    public DbSet<EodReport> EodReports => Set<EodReport>();
+    public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Ignore<BaseDomainEvent>();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CollectionsDbContext).Assembly);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
@@ -119,14 +124,16 @@ public sealed class CollectionsDbContext(
                 var hasValue = Expression.Property(branchProperty, hasValueProperty);
                 
                 var inList = Expression.Call(null, containsMethod, branchIds, value);
-                branchMatch = Expression.AndAlso(hasValue, inList);
+                // Allow if null (org-level) OR if in the list
+                branchMatch = Expression.OrElse(Expression.Not(hasValue), inList);
             }
             else
             {
                 branchMatch = Expression.Call(null, containsMethod, branchIds, branchProperty);
             }
             
-            var branchFilter = Expression.OrElse(branchMatch, Expression.AndAlso(isGlobalBranch, branchIdsIsEmpty));
+            // Final filter: (IsGlobalBranch OR ListIsEmpty) ? True : branchMatch
+            var branchFilter = Expression.OrElse(isGlobalBranch, Expression.OrElse(branchIdsIsEmpty, branchMatch));
             combinedFilter = Expression.AndAlso(combinedFilter, branchFilter);
         }
 
@@ -146,20 +153,32 @@ public sealed class CollectionsDbContext(
 
                     if (entry.Entity is BaseTenantEntity tenantEntity)
                     {
-                        if (!_tenantContext.TenantId.HasValue && !IsPlatformContext)
-                        {
-                             throw new InvalidOperationException("Select an organisation context before creating or updating operational data.");
-                        }
-
                         if (entry.State == EntityState.Added)
                         {
-                            if (tenantEntity.TenantId == Guid.Empty && _tenantContext.TenantId.HasValue)
+                            if (tenantEntity.TenantId == Guid.Empty)
                             {
-                                tenantEntity.TenantId = _tenantContext.TenantId.Value;
+                                // Try to fill TenantId from context
+                                if (_tenantContext.TenantId.HasValue)
+                                {
+                                    tenantEntity.TenantId = _tenantContext.TenantId.Value;
+                                }
+                                else if (!IsPlatformContext)
+                                {
+                                    // Entity was not given an explicit TenantId and there is no context to derive one
+                                    throw new InvalidOperationException(
+                                        "Select an organisation context before creating operational data, or set TenantId explicitly.");
+                                }
                             }
-                            else if (tenantEntity.TenantId == Guid.Empty)
+                            // If TenantId is already set (e.g. by a background worker copying from OutboxMessage), allow it.
+                        }
+                        else if (entry.State == EntityState.Modified)
+                        {
+                            // For updates, only enforce tenant context if the entity has no TenantId set
+                            // (shouldn't happen in practice, but guards against accidental zero-guid updates)
+                            if (tenantEntity.TenantId == Guid.Empty && !_tenantContext.TenantId.HasValue && !IsPlatformContext)
                             {
-                                throw new InvalidOperationException("Select an organisation context before creating operational data.");
+                                throw new InvalidOperationException(
+                                    "Cannot update an entity with no organisation context.");
                             }
                         }
 

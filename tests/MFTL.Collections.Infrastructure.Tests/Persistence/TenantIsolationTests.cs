@@ -120,7 +120,7 @@ public class TenantIsolationTests
         var templateServiceMock = new Mock<ISmsTemplateService>();
         var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
 
-        var result = await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object).Handle(
+        var result = await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -226,7 +226,7 @@ public class TenantIsolationTests
         var templateServiceMock = new Mock<ISmsTemplateService>();
         var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
 
-        var act = async () => await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object).Handle(
+        var act = async () => await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -277,7 +277,7 @@ public class TenantIsolationTests
         var templateServiceMock = new Mock<ISmsTemplateService>();
         var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
 
-        var act = async () => await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object).Handle(
+        var act = async () => await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -336,8 +336,8 @@ public class TenantIsolationTests
         var emailServiceMock = new Mock<IEmailService>();
         var templateServiceMock = new Mock<ISmsTemplateService>();
 
-        var handlerOne = new RecordCashContributionCommandHandler(dbContext, policyResolverOne.Object, firstSettlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object);
-        var handlerTwo = new RecordCashContributionCommandHandler(dbContext, policyResolverTwo.Object, secondSettlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object);
+        var handlerOne = new RecordCashContributionCommandHandler(dbContext, policyResolverOne.Object, firstSettlementService);
+        var handlerTwo = new RecordCashContributionCommandHandler(dbContext, policyResolverTwo.Object, secondSettlementService);
 
         await handlerOne.Handle(new RecordCashContributionCommand(
             createdEvent.Id,
@@ -494,7 +494,7 @@ public class TenantIsolationTests
         var templateServiceMock = new Mock<ISmsTemplateService>();
         var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
 
-        var result = await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object, emailServiceMock.Object, templateServiceMock.Object).Handle(
+        var result = await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,

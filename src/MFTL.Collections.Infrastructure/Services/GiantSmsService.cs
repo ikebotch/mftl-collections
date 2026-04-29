@@ -32,9 +32,9 @@ public class GiantSmsService : ISmsService
         }
     }
 
-    public async Task SendSmsAsync(string phoneNumber, string message)
+    public async Task<string> SendSmsAsync(string phoneNumber, string message)
     {
-        if (string.IsNullOrEmpty(_options.Username)) return;
+        if (string.IsNullOrEmpty(_options.Username)) return string.Empty;
 
         try
         {
@@ -52,12 +52,35 @@ public class GiantSmsService : ISmsService
             request.Content = JsonContent.Create(payload);
 
             var response = await _httpClient.SendAsync(request);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(content);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("status", out var status) && status.GetBoolean())
+                {
+                    if (root.TryGetProperty("data", out var data) && data.TryGetProperty("msgid", out var msgid))
+                    {
+                        return msgid.ToString();
+                    }
+                    if (root.TryGetProperty("message", out var msg))
+                    {
+                        return msg.ToString();
+                    }
+                }
+            }
+
             await HandleResponseAsync(response, "SendSms");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send SMS to {PhoneNumber}", phoneNumber);
+            throw;
         }
+
+        return string.Empty;
     }
 
     public async Task<decimal> GetBalanceAsync()

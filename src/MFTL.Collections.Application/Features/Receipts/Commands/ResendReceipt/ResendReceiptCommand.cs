@@ -14,8 +14,6 @@ public record ResendReceiptCommand(Guid ReceiptId) : IRequest<bool>, IHasScope
 
 public class ResendReceiptCommandHandler(
     IApplicationDbContext dbContext,
-    ISmsService smsService,
-    ISmsTemplateService templateService,
     ILogger<ResendReceiptCommandHandler> logger) : IRequestHandler<ResendReceiptCommand, bool>
 {
     public async Task<bool> Handle(ResendReceiptCommand request, CancellationToken cancellationToken)
@@ -25,12 +23,11 @@ public class ResendReceiptCommandHandler(
                 .ThenInclude(c => c.Contributor)
             .Include(r => r.Contribution)
                 .ThenInclude(c => c.Event)
-                    .ThenInclude(e => e.SmsTemplate)
             .FirstOrDefaultAsync(r => r.Id == request.ReceiptId, cancellationToken);
 
-        if (receipt?.Contribution == null || receipt.Contribution.Contributor == null) 
+        if (receipt?.Contribution == null) 
         {
-            logger.LogWarning("Receipt {ReceiptId} has missing contribution or contributor details.", request.ReceiptId);
+            logger.LogWarning("Receipt {ReceiptId} has missing contribution details.", request.ReceiptId);
             return false;
         }
 
@@ -44,28 +41,21 @@ public class ResendReceiptCommandHandler(
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(contributor.PhoneNumber))
-        {
-            throw new InvalidOperationException("Contributor does not have a phone number.");
-        }
+        // Raise Domain Event for asynchronous processing
+        receipt.AddDomainEvent(new Domain.Events.ReceiptResendRequestedEvent(
+            receipt.Id,
+            receipt.TenantId,
+            receipt.BranchId,
+            contribution.Id,
+            receipt.ReceiptNumber,
+            contribution.ContributorName,
+            contributor?.Email,
+            contributor?.PhoneNumber,
+            contribution.Amount,
+            contribution.Currency,
+            @event.Title));
 
-        var template = @event.SmsTemplate?.Content;
-        if (string.IsNullOrEmpty(template))
-        {
-            template = "Thank you {ContributorName} for your contribution of {Currency} {Amount} to {EventTitle}. Receipt: {ReceiptNumber}";
-        }
-
-        var messageData = new
-        {
-            ContributorName = contribution.ContributorName,
-            Amount = contribution.Amount,
-            Currency = contribution.Currency,
-            EventTitle = @event.Title,
-            ReceiptNumber = receipt.ReceiptNumber
-        };
-
-        var message = templateService.Render(template, messageData);
-        await smsService.SendSmsAsync(contributor.PhoneNumber, message);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return true;
     }

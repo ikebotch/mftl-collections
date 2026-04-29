@@ -88,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<IDashboardProjectionUpdater, DashboardProjectionUpdater>();
         services.AddScoped<IEmailService, MockEmailService>();
         services.AddScoped<ISmsTemplateService, SmsTemplateService>();
+        services.AddScoped<INotificationTemplateService, NotificationTemplateService>();
         services.AddScoped<IOutboxProcessor, OutboxProcessor>();
         
         services.AddHttpClient<ISmsService, GiantSmsService>();

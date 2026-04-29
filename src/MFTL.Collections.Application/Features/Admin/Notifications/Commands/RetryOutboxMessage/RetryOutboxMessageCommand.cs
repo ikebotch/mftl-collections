@@ -3,8 +3,11 @@ using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
+using MFTL.Collections.Application.Common.Security;
+
 namespace MFTL.Collections.Application.Features.Admin.Notifications.Commands.RetryOutboxMessage;
 
+[HasPermission("notifications.retry")]
 public record RetryOutboxMessageCommand(Guid Id) : IRequest<bool>;
 
 public class RetryOutboxMessageCommandHandler(IApplicationDbContext dbContext) : IRequestHandler<RetryOutboxMessageCommand, bool>

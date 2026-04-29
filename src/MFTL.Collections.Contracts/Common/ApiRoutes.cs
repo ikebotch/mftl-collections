@@ -120,4 +120,13 @@ public static class ApiRoutes
         public const string GetById = Base + "/{id:guid}";
         public const string Update = Base + "/{id:guid}";
     }
+
+    public static class NotificationTemplates
+    {
+        public const string Base = BasePath + "/notification-templates";
+        public const string GetById = Base + "/{id:guid}";
+        public const string Update = Base + "/{id:guid}";
+        public const string Preview = Base + "/{id:guid}/preview";
+        public const string SendTest = Base + "/{id:guid}/send-test";
+    }
 }

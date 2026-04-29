@@ -21,7 +21,6 @@ public record InviteUserCommand(
 
 public class InviteUserCommandHandler(
     IApplicationDbContext dbContext, 
-    IEmailService emailService, 
     IAuth0Service auth0Service,
     ICurrentUserService currentUserService) : IRequestHandler<InviteUserCommand, Guid>
 {
@@ -98,6 +97,7 @@ public class InviteUserCommandHandler(
         // Add Domain Event for Outbox
         user.AddDomainEvent(new Domain.Events.UserInvitedEvent(
             user.Id,
+            request.TenantId ?? Guid.Empty,
             user.Email,
             user.Name,
             request.Role));

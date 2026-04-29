@@ -16,10 +16,15 @@ public class MockEmailService(ILogger<MockEmailService> logger) : IEmailService
         // In a real scenario, we'd use SendGrid, Mailtrap, etc.
     }
 
-    public async Task SendReceiptAsync(string email, string name, string amount, string currency, string receiptNumber, string eventTitle)
+    public Task SendReceiptAsync(string email, string name, string amount, string currency, string receiptNumber, string eventTitle)
     {
-        await Task.Delay(500);
-        logger.LogInformation("SIMULATED EMAIL: To {Email}, Name {Name}. Content: Thank you for your contribution of {Currency} {Amount} to {EventTitle}. Receipt: {ReceiptNumber}", 
-            email, name, currency, amount, eventTitle, receiptNumber);
+        logger.LogInformation("Sending receipt to {Email}. Amount: {Currency} {Amount}. Receipt: {ReceiptNumber}", email, currency, amount, receiptNumber);
+        return Task.CompletedTask;
+    }
+
+    public Task SendEmailAsync(string email, string subject, string body)
+    {
+        logger.LogInformation("Sending email to {Email}. Subject: {Subject}. Body: {Body}", email, subject, body);
+        return Task.CompletedTask;
     }
 }

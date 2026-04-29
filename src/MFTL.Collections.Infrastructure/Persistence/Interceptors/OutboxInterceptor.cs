@@ -31,24 +31,22 @@ public sealed class OutboxInterceptor : SaveChangesInterceptor
 
         var outboxMessages = domainEvents.Select(domainEvent =>
         {
-            // We try to find TenantId and BranchId from the DBContext if possible
-            // Or from the event if it was passed. 
-            // For now, we'll rely on the DBContext context if available.
+            var outboxEvent = domainEvent as IOutboxEvent;
             
             return new OutboxMessage
             {
                 Id = Guid.NewGuid(),
+                CorrelationId = Guid.NewGuid().ToString(),
                 EventType = domainEvent.GetType().Name,
-                AggregateId = Guid.Empty, // This could be extracted from event if needed
+                AggregateId = outboxEvent?.AggregateId ?? Guid.Empty,
+                TenantId = outboxEvent?.TenantId ?? Guid.Empty,
+                BranchId = outboxEvent?.BranchId ?? Guid.Empty,
                 PayloadJson = JsonSerializer.Serialize(domainEvent, domainEvent.GetType()),
                 CreatedAt = domainEvent.OccurredOn,
                 Status = Domain.Enums.OutboxMessageStatus.Pending
             };
         }).ToList();
 
-        // Note: We need to handle TenantId/BranchId carefully here because OutboxMessage is a BaseBranchEntity.
-        // The CollectionsDbContext.SaveChangesAsync will automatically set these if the context is available.
-        
         dbContext.Set<OutboxMessage>().AddRange(outboxMessages);
 
         return base.SavingChangesAsync(eventData, result, cancellationToken);

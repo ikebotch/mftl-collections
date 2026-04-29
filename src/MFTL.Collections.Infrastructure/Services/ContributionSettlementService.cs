@@ -19,8 +19,10 @@ public sealed class ContributionSettlementService(
 
         var contribution = await dbContext.Contributions
             .Include(c => c.RecipientFund)
+            .Include(c => c.Event)
             .Include(c => c.Payment)
             .Include(c => c.Receipt)
+            .Include(c => c.Contributor)
             .FirstOrDefaultAsync(c => c.Id == contributionId, cancellationToken);
 
         if (contribution == null)
@@ -95,6 +97,20 @@ public sealed class ContributionSettlementService(
 
             dbContext.Receipts.Add(receipt);
             contribution.Receipt = receipt;
+
+            // Raise Domain Event
+            contribution.AddDomainEvent(new Domain.Events.ReceiptIssuedEvent(
+                receipt.Id,
+                receipt.TenantId,
+                receipt.BranchId,
+                contribution.Id,
+                receipt.ReceiptNumber,
+                contribution.ContributorName,
+                contribution.Contributor?.Email,
+                contribution.Contributor?.PhoneNumber,
+                contribution.Amount,
+                contribution.Currency,
+                contribution.Event.Title));
         }
         else if (payment?.Id != null && receipt.PaymentId == null)
         {
