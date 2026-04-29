@@ -33,9 +33,14 @@ public class UserFunctions(IMediator mediator)
 
     [Function("GetUserById")]
     public async Task<IActionResult> GetById(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.GetById)] HttpRequest req, Guid id)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.GetById)] HttpRequest req, string id)
     {
-        var result = await mediator.Send(new Application.Features.Users.Queries.GetUserById.GetUserByIdQuery(id));
+        if (!Guid.TryParse(id, out var guidId))
+        {
+            return new BadRequestObjectResult(new ApiResponse(false, $"Invalid user ID format: {id}", CorrelationId: req.GetOrCreateCorrelationId()));
+        }
+
+        var result = await mediator.Send(new Application.Features.Users.Queries.GetUserById.GetUserByIdQuery(guidId));
         return new OkObjectResult(new ApiResponse<UserDetailDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
@@ -86,9 +91,14 @@ public class UserFunctions(IMediator mediator)
 
     [Function("GetUserAuditLogs")]
     public async Task<IActionResult> GetAudit(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.Audit)] HttpRequest req, Guid id)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.Audit)] HttpRequest req, string id)
     {
-        var result = await mediator.Send(new Application.Features.Users.Queries.GetUserAuditLogs.GetUserAuditLogsQuery(id));
+        if (!Guid.TryParse(id, out var guidId))
+        {
+            return new BadRequestObjectResult(new ApiResponse(false, $"Invalid user ID format: {id}", CorrelationId: req.GetOrCreateCorrelationId()));
+        }
+
+        var result = await mediator.Send(new Application.Features.Users.Queries.GetUserAuditLogs.GetUserAuditLogsQuery(guidId));
         return new OkObjectResult(new ApiResponse<IEnumerable<Application.Features.Users.Queries.GetUserAuditLogs.AuditLogDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 

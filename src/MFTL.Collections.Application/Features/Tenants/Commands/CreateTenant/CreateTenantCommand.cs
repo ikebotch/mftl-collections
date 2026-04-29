@@ -2,8 +2,11 @@ using MediatR;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Domain.Entities;
 
+using MFTL.Collections.Application.Common.Security;
+
 namespace MFTL.Collections.Application.Features.Tenants.Commands.CreateTenant;
 
+[HasPermission("organisations.create")]
 public sealed record CreateTenantCommand(
     string Name, 
     string Identifier, 
@@ -12,7 +15,10 @@ public sealed record CreateTenantCommand(
     string? SupportEmail = null,
     string? MissionStatement = null,
     string? DefaultCurrency = "GHS",
-    string? DefaultLocale = "en-GH") : IRequest<Guid>;
+    string? DefaultLocale = "en-GH") : IRequest<Guid>, IHasScope
+{
+    public Guid? GetScopeId() => null;
+}
 
 public class CreateTenantCommandHandler(IApplicationDbContext dbContext) : IRequestHandler<CreateTenantCommand, Guid>
 {

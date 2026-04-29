@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
+using MFTL.Collections.Contracts.Responses;
 
 namespace MFTL.Collections.Application.Features.Collectors.Queries.ListCollectorHistory;
 
@@ -18,21 +20,37 @@ public sealed record CollectorHistoryReceiptDto(
     string PaymentStatus,
     string PaymentMethod);
 
-public record ListCollectorHistoryQuery(string? ExplicitUserId = null) : IRequest<IEnumerable<CollectorHistoryReceiptDto>>;
+[HasPermission("ledger.view")]
+public record ListCollectorHistoryQuery(string? ExplicitUserId = null) : IRequest<IEnumerable<CollectorHistoryReceiptDto>>, IHasScope
+{
+    public Guid? GetScopeId() => null;
+}
 
 public class ListCollectorHistoryQueryHandler(
     IApplicationDbContext dbContext,
-    ICurrentUserService currentUserService) : IRequestHandler<ListCollectorHistoryQuery, IEnumerable<CollectorHistoryReceiptDto>>
+    IAccessPolicyResolver policyResolver) : IRequestHandler<ListCollectorHistoryQuery, IEnumerable<CollectorHistoryReceiptDto>>
 {
     public async Task<IEnumerable<CollectorHistoryReceiptDto>> Handle(
         ListCollectorHistoryQuery request,
         CancellationToken cancellationToken)
     {
-        var auth0Id = request.ExplicitUserId ?? currentUserService.UserId;
+        var accessContext = await policyResolver.GetAccessContextAsync();
+        var auth0Id = accessContext.Auth0Id;
+
+        if (!string.IsNullOrWhiteSpace(request.ExplicitUserId) && request.ExplicitUserId != auth0Id)
+        {
+            if (!accessContext.IsPlatformAdmin)
+            {
+                throw new UnauthorizedAccessException("You are not authorized to view this collector history.");
+            }
+            auth0Id = request.ExplicitUserId;
+        }
+
         if (string.IsNullOrWhiteSpace(auth0Id))
         {
             throw new UnauthorizedAccessException("Collector authentication is required.");
         }
+
 
         var user = await dbContext.Users
             .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);

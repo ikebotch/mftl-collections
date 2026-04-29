@@ -7,6 +7,7 @@ using FluentAssertions;
 using Moq;
 using Xunit;
 using System.Security.Claims;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MFTL.Collections.Infrastructure.Tests.Identity;
 
@@ -52,7 +53,7 @@ public class GetMeTests
 
         var provisioningMock = new Mock<IUserProvisioningService>();
 
-        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object);
+        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, NullLogger<GetMeQueryHandler>.Instance);
 
         // Act
         var result = await handler.Handle(new GetMeQuery(), CancellationToken.None);
@@ -87,7 +88,7 @@ public class GetMeTests
 
         var provisioningMock = new Mock<IUserProvisioningService>();
 
-        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object);
+        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, NullLogger<GetMeQueryHandler>.Instance);
 
         // Act
         var result = await handler.Handle(new GetMeQuery(), CancellationToken.None);
@@ -122,7 +123,7 @@ public class GetMeTests
 
         var provisioningMock = new Mock<IUserProvisioningService>();
 
-        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object);
+        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, NullLogger<GetMeQueryHandler>.Instance);
 
         // Act
         var result = await handler.Handle(new GetMeQuery(), CancellationToken.None);
@@ -156,7 +157,7 @@ public class GetMeTests
 
         var provisioningMock = new Mock<IUserProvisioningService>();
 
-        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object);
+        var handler = new GetMeQueryHandler(context, currentUserServiceMock.Object, provisioningMock.Object, NullLogger<GetMeQueryHandler>.Instance);
 
         // Act
         var result = await handler.Handle(new GetMeQuery(), CancellationToken.None);

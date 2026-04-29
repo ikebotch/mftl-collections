@@ -39,7 +39,7 @@ public enum ScopeType
     Branch,
     Event,
     RecipientFund,
-    CollectorSelf
+    Self
 }
 
 public enum UserInviteStatus

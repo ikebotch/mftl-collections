@@ -244,20 +244,26 @@ public sealed class Auth0ProvisioningService(
         return new List<string>
         {
             "organisations.view", "organisations.create", "organisations.update", "organisations.delete",
-            "branches.view", "branches.create", "branches.update", "branches.delete",
+            "branches.view", "branches.create", "branches.update", "branches.delete", "branches.manage",
             "events.view", "events.create", "events.update", "events.delete",
             "funds.view", "funds.create", "funds.update",
             "contributions.view", "contributions.record_cash",
             "collectors.view", "collectors.create", "collectors.assign",
             "donors.view", "donors.create",
             "receipts.view", "receipts.export",
-            "payments.view",
+            "payments.view", "payments.manage",
             "settlements.view", "settlements.update",
-            "reports.view", "reports.export",
-            "users.view", "users.invite", "users.update",
+            "reports.view", "reports.export", "reports.finance", "reports.branch",
+            "users.view", "users.invite", "users.update", "users.delete",
             "roles.assign",
             "settings.update",
-            "audit.view"
+            "audit.view",
+            "support.manage",
+            "logs.view",
+            "ledger.view", "ledger.manage",
+            "cashdrop.view", "cashdrop.manage",
+            "eod.view", "eod.manage",
+            "self.view", "self.manage"
         };
     }
 
@@ -266,24 +272,34 @@ public sealed class Auth0ProvisioningService(
         return new List<RoleDefinition>
         {
             new("Platform Admin", "Full system access across all organisations.", GetDefaultPermissions()),
-            new("Organisation Admin", "Manage all branches and campaigns within their organisation.", 
-                new List<string> { "organisations.view", "organisations.update", "branches.view", "branches.create", "branches.update", "events.view", "events.create", "events.update", "funds.view", "funds.create", "contributions.view", "reports.view", "users.view", "users.invite" }),
-            new("Finance Officer", "Audit contributions and manage settlements.",
-                new List<string> { "contributions.view", "receipts.view", "receipts.export", "payments.view", "settlements.view", "reports.view" }),
-            new("Branch Manager", "Manage events and field operations for a specific hub.",
-                new List<string> { "branches.view", "events.view", "events.create", "events.update", "funds.view", "collectors.view", "collectors.assign" }),
-            new("Event Manager", "Plan and execute specific campaigns.",
-                new List<string> { "events.view", "events.update", "funds.view", "funds.create", "collectors.view" }),
-            new("Collector", "Record cash contributions in the field.",
-                new List<string> { "contributions.record_cash", "events.view", "funds.view" }),
-            new("Recipient Manager", "Manage beneficiary funds and donor relationships.",
-                new List<string> { "funds.view", "funds.update", "donors.view" }),
-            new("Reporting Officer", "Generate and export system-wide reports.",
+            new("Platform Support", "Internal support access for troubleshooting.", 
+                new List<string> { "support.manage", "users.view", "organisations.view", "branches.view", "audit.view" }),
+            new("Platform Auditor", "Regulatory and compliance auditing.", 
+                new List<string> { "audit.view", "reports.view", "logs.view" }),
+            new("Organisation Admin", "Full control over their organisation.", 
+                new List<string> { "organisations.view", "organisations.update", "branches.view", "branches.create", "branches.update", "events.view", "events.create", "events.update", "funds.view", "funds.create", "contributions.view", "reports.view", "users.view", "users.invite", "audit.view" }),
+            new("Organisation Finance", "Financial management for the organisation.", 
+                new List<string> { "contributions.view", "receipts.view", "payments.manage", "settlements.view", "settlements.update", "reports.finance", "ledger.view", "cashdrop.view", "eod.view" }),
+            new("Organisation Reporting", "Analytical access for the organisation.", 
                 new List<string> { "reports.view", "reports.export" }),
-            new("Audit/Security Officer", "Monitor audit logs and security settings.",
-                new List<string> { "audit.view", "users.view", "settings.update" }),
-            new("General Staff/Viewer", "Basic read-only access to assigned context.",
-                new List<string> { "events.view", "funds.view", "reports.view" })
+            new("Branch Admin", "Local management for a specific branch.", 
+                new List<string> { "branches.view", "branches.manage", "events.view", "events.create", "events.update", "funds.view", "collectors.view", "collectors.assign", "reports.branch", "users.view", "ledger.manage", "cashdrop.view" }),
+            new("Branch Finance", "Financial operations for a branch.", 
+                new List<string> { "contributions.view", "receipts.view", "ledger.view", "ledger.manage", "cashdrop.view", "cashdrop.manage", "eod.view" }),
+            new("Branch Viewer", "Read-only access to branch data.", 
+                new List<string> { "branches.view", "events.view", "funds.view", "contributions.view", "reports.view" }),
+            new("Event Manager", "Planning and execution for events.", 
+                new List<string> { "events.view", "events.create", "events.update", "funds.view", "funds.create", "collectors.view", "receipts.view", "contributions.view" }),
+            new("Fund Manager", "Beneficiary fund management.", 
+                new List<string> { "funds.view", "funds.update", "donors.view", "events.view", "contributions.view" }),
+            new("Collector", "Field collection recording.", 
+                new List<string> { "contributions.record_cash", "receipts.view", "events.view", "funds.view", "ledger.view" }),
+            new("Collector Supervisor", "Field supervisor overseeing collectors.", 
+                new List<string> { "collectors.view", "cashdrop.manage", "contributions.view", "reports.branch" }),
+            new("Read Only Viewer", "Global read-only access.", 
+                new List<string> { "organisations.view", "branches.view", "events.view", "funds.view", "contributions.view", "reports.view" }),
+            new("Self Service User", "Personal contribution and profile management.", 
+                new List<string> { "self.view", "self.manage" })
         };
     }
 

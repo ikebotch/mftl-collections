@@ -3,19 +3,30 @@ using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Requests;
 using MFTL.Collections.Contracts.Common;
 using Microsoft.EntityFrameworkCore;
+using MFTL.Collections.Contracts.Responses;
+using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Domain.Enums;
+
+using MFTL.Collections.Application.Common.Security;
 
 namespace MFTL.Collections.Application.Features.Events.Queries.ListEvents;
 
+[HasPermission("events.view")]
 public record ListEventsQuery(
     IEnumerable<Guid>? BranchIds = null,
-    IEnumerable<Guid>? TenantIds = null) : IRequest<IEnumerable<EventDto>>;
+    IEnumerable<Guid>? TenantIds = null) : IRequest<IEnumerable<EventDto>>, IHasScope
+{
+    public Guid? GetScopeId() => null; // Global list, but handler filters
+}
 
-public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<ListEventsQuery, IEnumerable<EventDto>>
+public class ListEventsQueryHandler(
+    IApplicationDbContext dbContext,
+    IAccessPolicyResolver policyResolver) : IRequestHandler<ListEventsQuery, IEnumerable<EventDto>>
 {
     public async Task<IEnumerable<EventDto>> Handle(ListEventsQuery request, CancellationToken cancellationToken)
     {
-        var query = dbContext.Events.AsQueryable();
+        var policy = await policyResolver.ResolvePolicyAsync();
+        var query = policy.FilterEvents(dbContext.Events.AsQueryable());
 
         if (request.BranchIds != null && request.BranchIds.Any())
         {
@@ -31,6 +42,7 @@ public class ListEventsQueryHandler(IApplicationDbContext dbContext) : IRequestH
             .Include(e => e.RecipientFunds)
             .OrderByDescending(e => e.CreatedAt)
             .ToListAsync(cancellationToken);
+
 
         var eventIds = events.Select(e => e.Id).ToList();
         

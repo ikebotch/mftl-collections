@@ -4,36 +4,40 @@ using MFTL.Collections.Contracts.Responses;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Domain.Entities;
 
+using MFTL.Collections.Application.Common.Security;
+
 namespace MFTL.Collections.Application.Features.Users.Queries.ListUsers;
 
+[HasPermission("users.view")]
 public record ListUsersQuery(
     IEnumerable<Guid>? BranchIds = null,
-    IEnumerable<Guid>? TenantIds = null) : IRequest<IEnumerable<UserDto>>;
+    IEnumerable<Guid>? TenantIds = null) : IRequest<IEnumerable<UserDto>>, IHasScope
+{
+    public Guid? GetScopeId() => null; // Handled by effective IDs in handler
+}
 
-public class ListUsersHandler(IApplicationDbContext dbContext, IBranchContext branchContext, ITenantContext tenantContext) : IRequestHandler<ListUsersQuery, IEnumerable<UserDto>>
+public class ListUsersHandler(
+    IApplicationDbContext dbContext,
+    IAccessPolicyResolver policyResolver) : IRequestHandler<ListUsersQuery, IEnumerable<UserDto>>
 {
     public async Task<IEnumerable<UserDto>> Handle(ListUsersQuery request, CancellationToken cancellationToken)
     {
-        var query = dbContext.Users
+        var policy = await policyResolver.ResolvePolicyAsync();
+        var query = policy.FilterUsers(dbContext.Users.AsQueryable())
             .Include(u => u.ScopeAssignments)
             .AsQueryable();
 
-        var effectiveBranchIds = request.BranchIds ?? branchContext.BranchIds;
-        var effectiveTenantIds = request.TenantIds ?? tenantContext.TenantIds;
-
-        if (effectiveBranchIds.Any())
+        if (request.BranchIds != null && request.BranchIds.Any())
         {
             query = query.Where(u => u.ScopeAssignments.Any(a => 
-                (a.ScopeType == ScopeType.Branch && a.TargetId.HasValue && effectiveBranchIds.Contains(a.TargetId.Value)) ||
-                (a.ScopeType == ScopeType.Organisation && effectiveTenantIds.Contains(a.TargetId ?? Guid.Empty)) ||
+                (a.ScopeType == ScopeType.Branch && request.BranchIds.Contains(a.TargetId ?? Guid.Empty)) ||
                 (a.ScopeType == ScopeType.Platform) ||
                 u.IsPlatformAdmin));
         }
-        else if (effectiveTenantIds.Any())
+        else if (request.TenantIds != null && request.TenantIds.Any())
         {
             query = query.Where(u => u.ScopeAssignments.Any(a => 
-                (a.ScopeType == ScopeType.Organisation && effectiveTenantIds.Contains(a.TargetId ?? Guid.Empty)) ||
-                (a.ScopeType == ScopeType.Branch && dbContext.Branches.Any(b => b.Id == a.TargetId && effectiveTenantIds.Contains(b.TenantId))) ||
+                (a.ScopeType == ScopeType.Organisation && request.TenantIds.Contains(a.TargetId ?? Guid.Empty)) ||
                 (a.ScopeType == ScopeType.Platform) ||
                 u.IsPlatformAdmin));
         }

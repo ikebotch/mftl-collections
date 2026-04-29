@@ -1,10 +1,15 @@
 using MediatR;
-using MFTL.Collections.Application.Common.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 
 namespace MFTL.Collections.Application.Features.Users.Commands.SetCollectorPin;
 
-public record SetCollectorPinCommand(string Pin) : IRequest<bool>;
+[HasPermission("self.update")]
+public record SetCollectorPinCommand(string Pin) : IRequest<bool>, IHasScope
+{
+    public Guid? GetScopeId() => null;
+}
 
 public class SetCollectorPinCommandHandler(
     IApplicationDbContext dbContext,

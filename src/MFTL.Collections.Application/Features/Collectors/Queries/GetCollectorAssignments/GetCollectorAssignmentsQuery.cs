@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Domain.Entities;
 
 namespace MFTL.Collections.Application.Features.Collectors.Queries.GetCollectorAssignments;
@@ -27,17 +28,25 @@ public sealed record CollectorAssignmentsDto(
     bool HasAssignments,
     string? BlockedReason,
     IEnumerable<CollectorAssignedEventDto> Events,
-    IEnumerable<CollectorAssignedFundDto> Funds);
+    IEnumerable<CollectorAssignedFundDto> Funds,
+    Guid? TenantId = null,
+    Guid? BranchId = null);
 
-public record GetCollectorAssignmentsQuery(string? ExplicitUserId = null) : IRequest<CollectorAssignmentsDto>;
+[HasPermission("events.view")]
+public record GetCollectorAssignmentsQuery(string? ExplicitUserId = null) : IRequest<CollectorAssignmentsDto>, IHasScope
+{
+    public Guid? GetScopeId() => null;
+}
 
 public class GetCollectorAssignmentsQueryHandler(
     IApplicationDbContext dbContext,
-    ICurrentUserService currentUserService) : IRequestHandler<GetCollectorAssignmentsQuery, CollectorAssignmentsDto>
+    IAccessPolicyResolver policyResolver) : IRequestHandler<GetCollectorAssignmentsQuery, CollectorAssignmentsDto>
 {
     public async Task<CollectorAssignmentsDto> Handle(GetCollectorAssignmentsQuery request, CancellationToken cancellationToken)
     {
-        var auth0Id = request.ExplicitUserId ?? currentUserService.UserId;
+        var context = await policyResolver.GetAccessContextAsync();
+        var auth0Id = request.ExplicitUserId ?? context.Auth0Id;
+        
         if (string.IsNullOrWhiteSpace(auth0Id))
         {
             throw new UnauthorizedAccessException("Collector authentication is required.");
@@ -108,6 +117,10 @@ public class GetCollectorAssignmentsQueryHandler(
             .Where(e => allAllowedEventIds.Contains(e.Id))
             .ToListAsync(cancellationToken);
 
+        var firstEvent = events.FirstOrDefault();
+        var tenantId = firstEvent?.TenantId ?? orgIds.FirstOrDefault();
+        var branchId = firstEvent?.BranchId ?? branchIds.FirstOrDefault();
+
         return new CollectorAssignmentsDto(
             true,
             null,
@@ -126,6 +139,8 @@ public class GetCollectorAssignmentsQueryHandler(
                 fund.Description,
                 fund.TargetAmount,
                 fund.CollectedAmount,
-                "GHS")));
+                "GHS")),
+            tenantId == Guid.Empty ? null : tenantId,
+            branchId == Guid.Empty ? null : branchId);
     }
 }

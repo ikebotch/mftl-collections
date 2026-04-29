@@ -6,6 +6,7 @@ using MFTL.Collections.Infrastructure.Identity.Auth0.Provisioning;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using FluentAssertions;
+using Moq;
 using Xunit;
 
 namespace MFTL.Collections.Infrastructure.Tests.Identity;
@@ -23,7 +24,8 @@ public class UserProvisioningTests
 
     private IUserProvisioningService CreateService(CollectionsDbContext context)
     {
-        return new UserProvisioningService(context, NullLogger<UserProvisioningService>.Instance);
+        var auth0ServiceMock = new Mock<IAuth0Service>();
+        return new UserProvisioningService(context, auth0ServiceMock.Object, NullLogger<UserProvisioningService>.Instance);
     }
 
     [Fact]

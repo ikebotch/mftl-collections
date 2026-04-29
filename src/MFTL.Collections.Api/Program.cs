@@ -12,11 +12,13 @@ var host = new HostBuilder()
     {
         worker.UseMiddleware<ExceptionHandlingMiddleware>();
         worker.UseMiddleware<AuthenticationMiddleware>();
+        worker.UseMiddleware<EndpointAccessPolicyMiddleware>();
         worker.UseMiddleware<TenantResolutionMiddleware>();
         worker.UseMiddleware<UserProvisioningMiddleware>();
     })
     .ConfigureServices((context, services) =>
     {
+        services.AddScoped<EndpointAccessPolicyMiddleware>();
         services.AddApplication();
         services.AddInfrastructure(context.Configuration);
         services.AddHttpContextAccessor();

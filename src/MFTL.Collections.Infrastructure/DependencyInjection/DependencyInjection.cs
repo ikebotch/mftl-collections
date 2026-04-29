@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Infrastructure.Configuration;
 using MFTL.Collections.Infrastructure.Tenancy;
 using MFTL.Collections.Infrastructure.Persistence;
@@ -27,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IScopeAccessService, ScopeAccessService>();
         services.AddScoped<IPermissionEvaluator, PermissionEvaluator>();
+        services.AddScoped<IAccessPolicyResolver, AccessPolicyResolver>();
         
         services.Configure<Auth0ProvisioningOptions>(options =>
         {

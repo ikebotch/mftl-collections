@@ -21,3 +21,8 @@ public interface IScopeAccessService
     Task<bool> HasAccessToRecipientFundAsync(Guid fundId);
     Task<IEnumerable<Guid>> GetAccessibleEventIdsAsync(Guid tenantId, Guid? branchId = null);
 }
+
+public interface IHasScope
+{
+    Guid? GetScopeId();
+}

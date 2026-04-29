@@ -33,6 +33,7 @@ public sealed class Event : BaseBranchEntity
     public string Description { get; set; } = string.Empty;
     public DateTimeOffset? EventDate { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsPrivate { get; set; }
     public string? DisplayImageUrl { get; set; }
     public string? ReceiptLogoUrl { get; set; }
     public string? Metadata { get; set; }

@@ -3,15 +3,21 @@ using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
+using MFTL.Collections.Application.Common.Security;
+
 namespace MFTL.Collections.Application.Features.Users.Commands.InviteUser;
 
+[HasPermission("users.invite")]
 public record InviteUserCommand(
     string Email,
     string Name,
     string Role,
     string ScopeType,
     Guid? TargetId,
-    Guid? TenantId) : IRequest<Guid>;
+    Guid? TenantId) : IRequest<Guid>, IHasScope
+{
+    public Guid? GetScopeId() => TargetId ?? TenantId;
+}
 
 public class InviteUserCommandHandler(IApplicationDbContext dbContext, IEmailService emailService, IAuth0Service auth0Service) : IRequestHandler<InviteUserCommand, Guid>
 {
