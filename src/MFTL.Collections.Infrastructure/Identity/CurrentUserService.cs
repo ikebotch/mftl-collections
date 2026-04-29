@@ -13,6 +13,8 @@ public sealed class CurrentUserService : ICurrentUserService
     private readonly bool _bypassAuth;
     private ClaimsPrincipal? _user;
 
+    private string? _accessToken;
+
     public CurrentUserService(IHttpContextAccessor httpContextAccessor, IConfiguration configuration)
     {
         _httpContextAccessor = httpContextAccessor;
@@ -26,6 +28,7 @@ public sealed class CurrentUserService : ICurrentUserService
     }
 
     public void SetUser(ClaimsPrincipal user) => _user = user;
+    public void SetToken(string token) => _accessToken = token;
 
     public string? UserId => (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue(ClaimTypes.NameIdentifier) 
                              ?? (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue("sub")
@@ -51,11 +54,17 @@ public sealed class CurrentUserService : ICurrentUserService
     public string? Nickname => (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue("nickname");
 
     public string? Picture => (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue("picture");
+    
+    public string? PhoneNumber => (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue("phone_number")
+                                  ?? (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue(ClaimTypes.MobilePhone)
+                                  ?? (_user ?? _httpContextAccessor.HttpContext?.User)?.FindFirstValue(ClaimTypes.HomePhone);
 
     public string? AccessToken 
     {
         get
         {
+            if (!string.IsNullOrEmpty(_accessToken)) return _accessToken;
+
             var authHeader = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
             if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             {

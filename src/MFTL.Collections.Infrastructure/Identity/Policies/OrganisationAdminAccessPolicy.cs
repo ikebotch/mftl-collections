@@ -23,5 +23,9 @@ public class OrganisationAdminAccessPolicy(AccessContext context) : AccessPolicy
         query.Where(c => Context.TenantIds.Contains(c.TenantId));
 
     public override IQueryable<User> FilterUsers(IQueryable<User> query) => 
-        query.Where(u => u.ScopeAssignments.Any(s => Context.TenantIds.Contains(s.TargetId ?? Guid.Empty)));
+        query.Where(u => u.ScopeAssignments.Any(s => 
+            Context.TenantIds.Contains(s.TargetId ?? Guid.Empty) ||
+            Context.BranchIds.Contains(s.TargetId ?? Guid.Empty) ||
+            Context.EventIds.Contains(s.TargetId ?? Guid.Empty) ||
+            Context.FundIds.Contains(s.TargetId ?? Guid.Empty)));
 }

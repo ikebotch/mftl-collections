@@ -72,11 +72,18 @@ public class AuthenticationMiddleware(IConfiguration configuration) : IFunctions
                 {
                     httpContext.User = result.Principal;
                     
-                    // Explicitly set the user in CurrentUserService if possible
+                    // Explicitly set the user and token in CurrentUserService if possible
                     var currentUserService = context.InstanceServices.GetService<ICurrentUserService>();
                     if (currentUserService is MFTL.Collections.Infrastructure.Identity.CurrentUserService cus)
                     {
                         cus.SetUser(result.Principal);
+                        
+                        var authHeader = httpContext.Request.Headers["Authorization"].ToString();
+                        if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var token = authHeader.Substring("Bearer ".Length).Trim();
+                            cus.SetToken(token);
+                        }
                     }
                     
                     logger.LogWarning("AuthenticationMiddleware: Authentication succeeded for user {UserId}.", 

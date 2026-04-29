@@ -12,20 +12,39 @@ public class UserProvisioningService(
 {
     private static readonly SemaphoreSlim _semaphore = new(1, 1);
 
-    public async Task<Guid> ProvisionUserAsync(string auth0Id, string email, string name, List<string> roles, string? accessToken = null, CancellationToken cancellationToken = default)
+    public async Task<Guid> ProvisionUserAsync(
+        string auth0Id, 
+        string email, 
+        string name, 
+        List<string> roles, 
+        string? accessToken = null,
+        string? nickname = null,
+        string? picture = null,
+        string? phoneNumber = null,
+        CancellationToken cancellationToken = default)
     {
         await _semaphore.WaitAsync(cancellationToken);
         try
         {
-            // 1. Try to enrich sparse identity details
+            // Check local DB first to see if we already have a complete profile
+            var user = await dbContext.Users
+                .Include(u => u.ScopeAssignments)
+                .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
+
+            // 1. Try to enrich sparse identity details only if we don't have them locally
             bool isSparse = string.IsNullOrEmpty(email) || 
                             string.IsNullOrEmpty(name) || 
                             name == "New User" || 
                             name == auth0Id ||
                             email.Contains("unprovisioned") ||
+                            email.EndsWith(".local") ||
+                            email.EndsWith(".mftl") ||
                             email == auth0Id;
 
-            if (isSparse)
+            // Only call Auth0 if incoming data is sparse AND we don't have a good local record
+            bool needsEnrichment = isSparse && (user == null || user.Email.Contains("unprovisioned") || user.Name == "New User" || string.IsNullOrEmpty(user.Name));
+
+            if (needsEnrichment)
             {
                 if (!string.IsNullOrEmpty(accessToken))
                 {
@@ -35,6 +54,9 @@ public class UserProvisioningService(
                     {
                         email = userInfo.Value.Email;
                         name = userInfo.Value.Name;
+                        nickname ??= userInfo.Value.Nickname;
+                        picture ??= userInfo.Value.Picture;
+                        phoneNumber ??= userInfo.Value.PhoneNumber;
                         logger.LogInformation("Successfully fetched profile from /userinfo: {Email}, {Name}", email, name);
                     }
                 }
@@ -51,14 +73,16 @@ public class UserProvisioningService(
                         logger.LogInformation("Successfully fetched profile from Management API: {Email}, {Name}", email, name);
                     }
                 }
+
+                // If name is still sparse but we have nickname, use it
+                if ((string.IsNullOrEmpty(name) || name == "New User" || name == auth0Id) && !string.IsNullOrEmpty(nickname))
+                {
+                    name = nickname;
+                }
             }
 
             // Normalise email
             email = email?.Trim().ToLower();
-
-            var user = await dbContext.Users
-                .Include(u => u.ScopeAssignments)
-                .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
 
             var isPlatformAdmin = roles.Any(r => 
                 string.Equals(r, "Platform Admin", StringComparison.OrdinalIgnoreCase) || 
@@ -123,6 +147,9 @@ public class UserProvisioningService(
                     CreatedAt = DateTimeOffset.UtcNow,
                     CreatedBy = "System/AutoProvision",
                     LastLoginAt = DateTimeOffset.UtcNow,
+                    Nickname = nickname,
+                    Picture = picture,
+                    PhoneNumber = phoneNumber ?? string.Empty,
                     Pin = "1234"
                 };
 
@@ -133,13 +160,20 @@ public class UserProvisioningService(
                 // Update profile on every call
                 bool changed = false;
                 
+                // If we have a real name and it's different, update it
                 if (!string.IsNullOrEmpty(name) && name != "New User" && name != auth0Id && user.Name != name)
                 {
                     user.Name = name;
                     changed = true;
                 }
                 
-                if (!string.IsNullOrEmpty(email) && !email.Contains("unprovisioned") && user.Email != email)
+                // If we have a real email and it's different, update it
+                bool isNewEmailReal = !string.IsNullOrEmpty(email) && 
+                                    !email.Contains("unprovisioned") && 
+                                    !email.EndsWith(".local") && 
+                                    !email.EndsWith(".mftl");
+
+                if (isNewEmailReal && user.Email != email)
                 {
                     user.Email = email;
                     changed = true;
@@ -148,6 +182,24 @@ public class UserProvisioningService(
                 if (user.IsPlatformAdmin != isPlatformAdmin)
                 {
                     user.IsPlatformAdmin = isPlatformAdmin;
+                    changed = true;
+                }
+
+                if (nickname != null && user.Nickname != nickname)
+                {
+                    user.Nickname = nickname;
+                    changed = true;
+                }
+
+                if (picture != null && user.Picture != picture)
+                {
+                    user.Picture = picture;
+                    changed = true;
+                }
+
+                if (phoneNumber != null && user.PhoneNumber != phoneNumber)
+                {
+                    user.PhoneNumber = phoneNumber;
                     changed = true;
                 }
 

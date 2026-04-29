@@ -10,20 +10,21 @@ public sealed class PermissionEvaluator(
     CollectionsDbContext dbContext,
     ICurrentUserService currentUserService) : IPermissionEvaluator
 {
-    private static readonly Dictionary<string, List<string>> RolePermissions = new()
+    private static readonly Dictionary<string, List<string>> RolePermissions = new(StringComparer.OrdinalIgnoreCase)
     {
         { "Platform Admin", new() { "*" } },
         { "Platform Support", new() { "support.*", "users.view", "organisations.view", "branches.view", "audit.view" } },
         { "Platform Auditor", new() { "audit.view", "reports.view", "logs.view" } },
-        { "Organisation Admin", new() { "organisations.*", "branches.*", "events.*", "funds.*", "contributions.*", "collectors.*", "donors.*", "receipts.*", "payments.*", "settlements.*", "reports.*", "users.*", "settings.update", "audit.view" } },
+        { "Organisation Admin", new() { "dashboard.view", "organisations.view", "organisations.update", "branches.*", "events.*", "funds.*", "contributions.*", "collectors.*", "donors.*", "receipts.*", "payments.*", "settlements.*", "reports.*", "users.*", "settings.update", "audit.view" } },
+        { "TenantAdmin", new() { "dashboard.view", "organisations.view", "organisations.update", "branches.*", "events.*", "funds.*", "contributions.*", "collectors.*", "donors.*", "receipts.*", "payments.*", "settlements.*", "reports.*", "users.*", "settings.update", "audit.view" } },
         { "Organisation Finance", new() { "contributions.view", "receipts.view", "payments.*", "settlements.*", "reports.finance", "ledger.*", "cashdrop.*", "eod.*" } },
         { "Organisation Reporting", new() { "reports.*", "analytics.*" } },
-        { "Branch Admin", new() { "branches.view", "branches.manage", "events.*", "funds.*", "contributions.view", "collectors.view", "collectors.assign", "reports.branch", "users.view", "ledger.*", "cashdrop.view" } },
+        { "Branch Admin", new() { "dashboard.view", "branches.view", "branches.manage", "events.*", "funds.*", "contributions.view", "collectors.view", "collectors.assign", "reports.branch", "users.view", "ledger.*", "cashdrop.view" } },
         { "Branch Finance", new() { "contributions.view", "receipts.view", "ledger.*", "cashdrop.*", "eod.view", "reports.finance" } },
         { "Branch Viewer", new() { "branches.view", "events.view", "funds.view", "contributions.view", "reports.view" } },
         { "Event Manager", new() { "events.*", "funds.*", "contributions.view", "collectors.view", "receipts.view" } },
         { "Fund Manager", new() { "funds.*", "donors.view", "events.view", "contributions.view" } },
-        { "Collector", new() { "contributions.record_cash", "receipts.view", "events.view", "funds.view", "ledger.view" } },
+        { "Collector", new() { "dashboard.view", "contributions.create", "contributions.record_cash", "receipts.view", "events.view", "funds.view", "ledger.view", "collectors.view" } },
         { "Collector Supervisor", new() { "collectors.view", "cashdrop.manage", "contributions.view", "reports.branch" } },
         { "Read Only Viewer", new() { "organisations.view", "branches.view", "events.view", "funds.view", "contributions.view", "reports.view" } },
         { "Self Service User", new() { "self.*", "donations.create", "profile.manage" } }
@@ -67,22 +68,16 @@ public sealed class PermissionEvaluator(
         var userId = currentUserService.UserId;
         if (string.IsNullOrEmpty(userId)) return false;
 
-        // 1. Check Auth0 permissions claim (Source of truth for what the user CAN do in the system)
-        var userPermissions = currentUserService.User?.FindAll("permissions").Select(c => c.Value).ToHashSet() ?? new HashSet<string>();
-        
-        // If the token doesn't have the permission, deny immediately (RBAC layer)
-        if (!userPermissions.Contains(permission) && !userPermissions.Contains("*"))
-        {
-            // Special case: if we are in development or using a mock, we might want to skip this or check roles
-            // But for production-grade, the token MUST have the permission.
-        }
+        // 1. Check Scope Assignments and User record
+        var user = await dbContext.Users
+            .Include(u => u.ScopeAssignments)
+            .FirstOrDefaultAsync(u => u.Auth0Id == userId);
 
-        // 2. Check Scope Assignments (Source of truth for WHERE the user can do it)
-        var assignments = await dbContext.UserScopeAssignments
-            .Where(a => a.User.Auth0Id == userId)
-            .ToListAsync();
+        if (user == null) return false;
 
-        foreach (var assignment in assignments)
+        if (user.IsPlatformAdmin) return true;
+
+        foreach (var assignment in user.ScopeAssignments)
         {
             if (await IsAssignmentApplicableAsync(assignment, scopeId) && RoleHasPermission(assignment.Role, permission))
             {
@@ -90,7 +85,7 @@ public sealed class PermissionEvaluator(
             }
         }
 
-        // 3. Fallback: Global Platform Admin check
+        // 3. Fallback: Global Platform Admin check from token
         if (currentUserService.IsPlatformAdmin)
         {
             return true;

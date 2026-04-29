@@ -65,13 +65,16 @@ public sealed class AccessPolicyResolver(
             fundIds = fundIds.Union(branchFunds).Distinct().ToList();
         }
 
+        var dbRoles = assignments.Select(a => a.Role).Distinct().ToList();
+        var allRoles = currentUserService.Roles.Union(dbRoles).Distinct().ToList();
+
         var collectorId = assignments.FirstOrDefault(a => a.CollectorId.HasValue)?.CollectorId?.ToString();
 
         _cachedContext = new AccessContext(
             user.Id,
             user.Auth0Id,
             user.Email,
-            currentUserService.Roles,
+            allRoles,
             permissions,
             tenantIds,
             branchIds,

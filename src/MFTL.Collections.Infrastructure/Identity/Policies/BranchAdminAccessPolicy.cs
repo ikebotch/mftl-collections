@@ -23,5 +23,8 @@ public class BranchAdminAccessPolicy(AccessContext context) : AccessPolicyBase(c
         query.Where(c => Context.BranchIds.Contains(c.BranchId));
 
     public override IQueryable<User> FilterUsers(IQueryable<User> query) => 
-        query.Where(u => u.ScopeAssignments.Any(s => Context.BranchIds.Contains(s.TargetId ?? Guid.Empty)));
+        query.Where(u => u.ScopeAssignments.Any(s => 
+            Context.BranchIds.Contains(s.TargetId ?? Guid.Empty) ||
+            Context.EventIds.Contains(s.TargetId ?? Guid.Empty) ||
+            Context.FundIds.Contains(s.TargetId ?? Guid.Empty)));
 }

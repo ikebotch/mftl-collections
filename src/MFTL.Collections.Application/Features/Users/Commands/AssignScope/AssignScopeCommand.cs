@@ -11,7 +11,9 @@ public record AssignScopeCommand(
     string ScopeType,
     Guid? TargetId) : IRequest<bool>;
 
-public class AssignScopeCommandHandler(IApplicationDbContext dbContext) : IRequestHandler<AssignScopeCommand, bool>
+public class AssignScopeCommandHandler(
+    IApplicationDbContext dbContext,
+    ICurrentUserService currentUserService) : IRequestHandler<AssignScopeCommand, bool>
 {
     public async Task<bool> Handle(AssignScopeCommand request, CancellationToken cancellationToken)
     {
@@ -26,6 +28,20 @@ public class AssignScopeCommandHandler(IApplicationDbContext dbContext) : IReque
         if (!Enum.TryParse<ScopeType>(scopeTypeString, true, out var scopeType))
         {
             throw new ArgumentException($"Invalid ScopeType: {request.ScopeType}");
+        }
+
+        // Security check: Only platform admins can assign platform scope or platform admin role
+        if (!currentUserService.IsPlatformAdmin)
+        {
+            if (scopeType == ScopeType.Platform)
+            {
+                throw new UnauthorizedAccessException("Only Platform Administrators can assign system-wide access.");
+            }
+
+            if (roles.Any(r => string.Equals(r, "Platform Admin", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new UnauthorizedAccessException("Only Platform Administrators can assign the Platform Admin role.");
+            }
         }
 
         foreach (var role in roles)

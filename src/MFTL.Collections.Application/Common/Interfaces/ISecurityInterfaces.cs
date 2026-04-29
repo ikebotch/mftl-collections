@@ -11,6 +11,7 @@ public interface ICurrentUserService
     string? FamilyName { get; }
     string? Nickname { get; }
     string? Picture { get; }
+    string? PhoneNumber { get; }
     string? AccessToken { get; }
     ClaimsPrincipal? User { get; }
     bool IsAuthenticated { get; }

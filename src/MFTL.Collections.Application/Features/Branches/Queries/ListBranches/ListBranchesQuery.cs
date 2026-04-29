@@ -3,8 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Application.Common.Interfaces;
 
-using MFTL.Collections.Application.Common.Security;
-
 namespace MFTL.Collections.Application.Features.Branches.Queries.ListBranches;
 
 [HasPermission("branches.view")]

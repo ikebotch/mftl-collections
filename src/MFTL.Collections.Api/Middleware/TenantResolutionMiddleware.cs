@@ -57,23 +57,14 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
             return;
         }
 
-        // Default to Platform/Global if not required and no resolution
-        if (!requiresTenant && (!resolution.Success || !resolution.TenantId.HasValue))
-        {
-            tenantContext.UsePlatformContext();
-            branchContext.UseGlobalContext();
-            SyncContextToStore(tenantContext, branchContext);
-            await next(context);
-            return;
-        }
-
-        // Multi-tenant resolution
+        // Default resolution result
         var requestedTenantIds = new List<Guid>();
         if (resolution.TenantId.HasValue)
         {
             requestedTenantIds.Add(resolution.TenantId.Value);
         }
 
+        // 2. Override with headers if present (X-Tenant-Id)
         if (request.Headers.TryGetValues(options.HeaderName, out var tenantIdValues))
         {
             var headerIds = tenantIdValues
@@ -87,17 +78,9 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
             {
                 requestedTenantIds = headerIds;
             }
-            else if (!requiresTenant)
-            {
-                // If platform route and header is empty/invalid, force platform context
-                tenantContext.UsePlatformContext();
-                branchContext.UseGlobalContext();
-                SyncContextToStore(tenantContext, branchContext);
-                await next(context);
-                return;
-            }
         }
 
+        // If no tenant is resolved and it's a platform route, use platform context
         if (requestedTenantIds.Count == 0 && !requiresTenant)
         {
             tenantContext.UsePlatformContext();
@@ -109,7 +92,7 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
 
         // Security Check: Verify user has access to requested tenants
         var userService = context.InstanceServices.GetRequiredService<ICurrentUserService>();
-        if (userService.IsAuthenticated && !string.IsNullOrEmpty(userService.UserId) && !userService.IsPlatformAdmin)
+        if (userService.IsAuthenticated && !string.IsNullOrEmpty(userService.UserId))
         {
             var dbContext = context.InstanceServices.GetRequiredService<IApplicationDbContext>();
             var user = await dbContext.Users
@@ -118,24 +101,32 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
 
             if (user != null)
             {
-                var accessibleTenantIds = user.ScopeAssignments
-                    .Where(a => a.ScopeType == Domain.Entities.ScopeType.Organisation || a.ScopeType == Domain.Entities.ScopeType.Branch)
-                    .Select(a => a.TargetId)
-                    .Where(id => id.HasValue)
-                    .Select(id => id!.Value)
-                    .ToHashSet();
-
-                var authorizedRequestedIds = requestedTenantIds.Where(id => accessibleTenantIds.Contains(id)).ToList();
-                
-                if (authorizedRequestedIds.Count == 0 && requestedTenantIds.Count > 0)
+                // Platform Admins bypass the organization restriction check
+                if (user.IsPlatformAdmin || userService.IsPlatformAdmin)
                 {
-                    var response = request.CreateResponse(System.Net.HttpStatusCode.Forbidden);
-                    await response.WriteAsJsonAsync(new ApiResponse(false, "You do not have access to the requested organizations.", CorrelationId: request.GetOrCreateCorrelationId()));
-                    context.GetInvocationResult().Value = response;
-                    return;
+                    // Full access
                 }
+                else
+                {
+                    var accessibleTenantIds = user.ScopeAssignments
+                        .Where(a => a.ScopeType == Domain.Entities.ScopeType.Organisation || a.ScopeType == Domain.Entities.ScopeType.Branch)
+                        .Select(a => a.TargetId)
+                        .Where(id => id.HasValue)
+                        .Select(id => id!.Value)
+                        .ToHashSet();
 
-                requestedTenantIds = authorizedRequestedIds;
+                    var authorizedRequestedIds = requestedTenantIds.Where(id => accessibleTenantIds.Contains(id)).ToList();
+                    
+                    if (authorizedRequestedIds.Count == 0 && requestedTenantIds.Count > 0)
+                    {
+                        var response = request.CreateResponse(System.Net.HttpStatusCode.Forbidden);
+                        await response.WriteAsJsonAsync(new ApiResponse(false, "You do not have access to the requested organizations.", CorrelationId: request.GetOrCreateCorrelationId()));
+                        context.GetInvocationResult().Value = response;
+                        return;
+                    }
+
+                    requestedTenantIds = authorizedRequestedIds;
+                }
             }
         }
 

@@ -43,15 +43,15 @@ public static class EndpointAccessPolicies
 
         { "ListCollectors", new(EndpointAccessPolicyType.Permission, "collectors.view") },
         { "GetCollectorById", new(EndpointAccessPolicyType.Permission, "collectors.view") },
-        { "GetCollectorHistory", new(EndpointAccessPolicyType.Permission, "collectors.view") },
+        { "GetCollectorHistory", new(EndpointAccessPolicyType.Authenticated) },
         { "CreateCollector", new(EndpointAccessPolicyType.Permission, "collectors.create") },
         { "UpdateCollector", new(EndpointAccessPolicyType.Permission, "collectors.update") },
         { "SetCollectorPin", new(EndpointAccessPolicyType.Permission, "collectors.manage") },
 
-        { "RecordCashContribution", new(EndpointAccessPolicyType.Permission, "collections.create") },
-        { "ListContributions", new(EndpointAccessPolicyType.Permission, "collections.view") },
-        { "GetContributionById", new(EndpointAccessPolicyType.Permission, "collections.view") },
-        { "UpdateContribution", new(EndpointAccessPolicyType.Permission, "collections.update") },
+        { "RecordCashContribution", new(EndpointAccessPolicyType.Permission, "contributions.create") },
+        { "ListContributions", new(EndpointAccessPolicyType.Permission, "contributions.view") },
+        { "GetContributionById", new(EndpointAccessPolicyType.Permission, "contributions.view") },
+        { "UpdateContribution", new(EndpointAccessPolicyType.Permission, "contributions.update") },
 
         { "ListReceipts", new(EndpointAccessPolicyType.Permission, "receipts.view") },
         { "GetReceiptById", new(EndpointAccessPolicyType.Permission, "receipts.view") },

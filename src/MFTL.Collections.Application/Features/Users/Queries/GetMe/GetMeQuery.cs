@@ -40,7 +40,16 @@ public class GetMeQueryHandler(
         }
 
         // Ensure user exists locally
-        await provisioningService.ProvisionUserAsync(auth0Id, email, name, roles, accessToken, cancellationToken);
+        await provisioningService.ProvisionUserAsync(
+            auth0Id, 
+            email, 
+            name, 
+            roles, 
+            accessToken, 
+            currentUserService.Nickname, 
+            currentUserService.Picture, 
+            currentUserService.PhoneNumber,
+            cancellationToken);
 
         var user = await dbContext.Users
             .Include(u => u.ScopeAssignments)

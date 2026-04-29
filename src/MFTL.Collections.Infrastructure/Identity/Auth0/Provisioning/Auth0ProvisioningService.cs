@@ -104,7 +104,7 @@ public sealed class Auth0ProvisioningService(
         }
     }
 
-    public async Task<(string Email, string Name, string? Nickname, string? Picture)?> GetUserInfoAsync(string accessToken, CancellationToken cancellationToken = default)
+    public async Task<(string Email, string Name, string? Nickname, string? Picture, string? PhoneNumber)?> GetUserInfoAsync(string accessToken, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -126,8 +126,9 @@ public sealed class Auth0ProvisioningService(
             var name = result.TryGetProperty("name", out var n) ? n.GetString() : "";
             var nickname = result.TryGetProperty("nickname", out var nk) ? nk.GetString() : null;
             var picture = result.TryGetProperty("picture", out var p) ? p.GetString() : null;
+            var phone = result.TryGetProperty("phone_number", out var ph) ? ph.GetString() : null;
             
-            return (email ?? "", name ?? "", nickname, picture);
+            return (email ?? "", name ?? "", nickname, picture, phone);
         }
         catch (Exception ex)
         {

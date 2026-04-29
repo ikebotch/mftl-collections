@@ -22,11 +22,15 @@ public sealed record ContributionListItemDto(
     string? Note,
     Guid? ReceiptId);
 
+[HasPermission("contributions.view")]
 public record ListContributionsQuery(
     int Page = 1,
     int PageSize = 10,
     IEnumerable<Guid>? BranchIds = null,
-    IEnumerable<Guid>? TenantIds = null) : IRequest<PagedResponse<ContributionListItemDto>>;
+    IEnumerable<Guid>? TenantIds = null) : IRequest<PagedResponse<ContributionListItemDto>>, IHasScope
+{
+    public Guid? GetScopeId() => null; // Evaluated via policy filters
+}
 
 public class ListContributionsQueryHandler(
     IApplicationDbContext dbContext,

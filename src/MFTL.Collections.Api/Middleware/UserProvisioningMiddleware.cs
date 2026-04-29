@@ -34,10 +34,21 @@ public sealed class UserProvisioningMiddleware : IFunctionsWorkerMiddleware
         var email = userService.Email ?? "";
         var roles = userService.Roles.ToList();
         var name = userService.Name ?? "New User";
+        var nickname = userService.Nickname;
+        var picture = userService.Picture;
 
         try
         {
-            await provisioningService.ProvisionUserAsync(userService.UserId, email, name, roles, userService.AccessToken, CancellationToken.None);
+            await provisioningService.ProvisionUserAsync(
+                userService.UserId, 
+                email, 
+                name, 
+                roles, 
+                userService.AccessToken, 
+                nickname,
+                picture,
+                userService.PhoneNumber,
+                CancellationToken.None);
         }
         catch (Exception ex)
         {

@@ -29,15 +29,29 @@ public class ListUsersHandler(
 
         if (request.BranchIds != null && request.BranchIds.Any())
         {
+            var branchIds = request.BranchIds.ToList();
+            var eventIds = await dbContext.Events.Where(e => branchIds.Contains(e.BranchId)).Select(e => e.Id).ToListAsync();
+            var fundIds = await dbContext.RecipientFunds.Where(f => branchIds.Contains(f.BranchId)).Select(f => f.Id).ToListAsync();
+
             query = query.Where(u => u.ScopeAssignments.Any(a => 
-                (a.ScopeType == ScopeType.Branch && request.BranchIds.Contains(a.TargetId ?? Guid.Empty)) ||
+                (a.ScopeType == ScopeType.Branch && branchIds.Contains(a.TargetId ?? Guid.Empty)) ||
+                (a.ScopeType == ScopeType.Event && eventIds.Contains(a.TargetId ?? Guid.Empty)) ||
+                (a.ScopeType == ScopeType.RecipientFund && fundIds.Contains(a.TargetId ?? Guid.Empty)) ||
                 (a.ScopeType == ScopeType.Platform) ||
                 u.IsPlatformAdmin));
         }
         else if (request.TenantIds != null && request.TenantIds.Any())
         {
+            var tenantIds = request.TenantIds.ToList();
+            var branchIds = await dbContext.Branches.Where(b => tenantIds.Contains(b.TenantId)).Select(b => b.Id).ToListAsync();
+            var eventIds = await dbContext.Events.Where(e => tenantIds.Contains(e.TenantId)).Select(e => e.Id).ToListAsync();
+            var fundIds = await dbContext.RecipientFunds.Where(f => tenantIds.Contains(f.TenantId)).Select(f => f.Id).ToListAsync();
+
             query = query.Where(u => u.ScopeAssignments.Any(a => 
-                (a.ScopeType == ScopeType.Organisation && request.TenantIds.Contains(a.TargetId ?? Guid.Empty)) ||
+                (a.ScopeType == ScopeType.Organisation && tenantIds.Contains(a.TargetId ?? Guid.Empty)) ||
+                (a.ScopeType == ScopeType.Branch && branchIds.Contains(a.TargetId ?? Guid.Empty)) ||
+                (a.ScopeType == ScopeType.Event && eventIds.Contains(a.TargetId ?? Guid.Empty)) ||
+                (a.ScopeType == ScopeType.RecipientFund && fundIds.Contains(a.TargetId ?? Guid.Empty)) ||
                 (a.ScopeType == ScopeType.Platform) ||
                 u.IsPlatformAdmin));
         }

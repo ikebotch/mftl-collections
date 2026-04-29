@@ -7,6 +7,8 @@ public sealed class User : BaseEntity
     public string Auth0Id { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string? Nickname { get; set; }
+    public string? Picture { get; set; }
     public string PhoneNumber { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     public bool IsPlatformAdmin { get; set; }

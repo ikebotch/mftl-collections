@@ -62,7 +62,14 @@ public static class TenantRequestPolicy
         "ListSettlements",
         "UpdateSettlement",
         "GetMe",
-        "GetMeUser"
+        "GetMeUser",
+        "GetUserById",
+        "GetUserAuditLogs",
+        "UpdateUser",
+        "UpdateUserStatus",
+        "InviteUser",
+        "AssignUserScope",
+        "RevokeUserScope"
     };
 
     public static bool RequiresTenant(string functionName) => !PlatformFunctionNames.Contains(functionName);
