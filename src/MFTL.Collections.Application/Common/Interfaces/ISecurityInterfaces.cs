@@ -7,6 +7,11 @@ public interface ICurrentUserService
     string? UserId { get; }
     string? Email { get; }
     string? Name { get; }
+    string? GivenName { get; }
+    string? FamilyName { get; }
+    string? Nickname { get; }
+    string? Picture { get; }
+    string? AccessToken { get; }
     ClaimsPrincipal? User { get; }
     bool IsAuthenticated { get; }
     bool IsPlatformAdmin { get; }

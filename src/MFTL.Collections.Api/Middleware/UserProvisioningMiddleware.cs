@@ -37,7 +37,7 @@ public sealed class UserProvisioningMiddleware : IFunctionsWorkerMiddleware
 
         try
         {
-            await provisioningService.ProvisionUserAsync(userService.UserId, email, name, roles, CancellationToken.None);
+            await provisioningService.ProvisionUserAsync(userService.UserId, email, name, roles, userService.AccessToken, CancellationToken.None);
         }
         catch (Exception ex)
         {

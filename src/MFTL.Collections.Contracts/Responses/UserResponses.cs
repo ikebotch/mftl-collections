@@ -24,7 +24,9 @@ public record UserDetailDto(
     bool IsPlatformAdmin,
     string AccessState,
     IEnumerable<ScopeAssignmentDto> ScopeAssignments,
-    IEnumerable<string> Auth0Roles);
+    IEnumerable<string> Auth0Roles,
+    IEnumerable<string> EffectiveRoles,
+    IEnumerable<string> Permissions);
 
 public record ScopeAssignmentDto(
     Guid Id,

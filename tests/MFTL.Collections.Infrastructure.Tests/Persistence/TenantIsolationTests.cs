@@ -407,6 +407,11 @@ public class TenantIsolationTests
         public string? UserId => userId;
         public string? Email => email;
         public string? Name => userId;
+        public string? GivenName => null;
+        public string? FamilyName => null;
+        public string? Nickname => null;
+        public string? Picture => null;
+        public string? AccessToken => null;
         public System.Security.Claims.ClaimsPrincipal? User => null;
         public bool IsAuthenticated => !string.IsNullOrEmpty(userId);
         public bool IsPlatformAdmin => isPlatformAdmin;

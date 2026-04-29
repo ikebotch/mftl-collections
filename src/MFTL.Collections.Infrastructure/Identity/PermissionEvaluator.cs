@@ -29,6 +29,39 @@ public sealed class PermissionEvaluator(
         { "Self Service User", new() { "self.*", "donations.create", "profile.manage" } }
     };
 
+    public async Task<IEnumerable<string>> GetEffectivePermissionsAsync()
+    {
+        var userId = currentUserService.UserId;
+        if (string.IsNullOrEmpty(userId)) return Enumerable.Empty<string>();
+
+        var permissions = new HashSet<string>();
+
+        // 1. Auth0 permissions
+        var userPermissions = currentUserService.User?.FindAll("permissions").Select(c => c.Value) ?? [];
+        foreach (var p in userPermissions) permissions.Add(p);
+
+        // 2. Roles and Scopes
+        var assignments = await dbContext.UserScopeAssignments
+            .Where(a => a.User.Auth0Id == userId)
+            .ToListAsync();
+
+        foreach (var assignment in assignments)
+        {
+            if (RolePermissions.TryGetValue(assignment.Role, out var rolePerms))
+            {
+                foreach (var p in rolePerms) permissions.Add(p);
+            }
+        }
+
+        // 3. Platform Admin fallback
+        if (currentUserService.IsPlatformAdmin)
+        {
+            permissions.Add("*");
+        }
+
+        return permissions;
+    }
+
     public async Task<bool> HasPermissionAsync(string permission, Guid? scopeId = null)
     {
         var userId = currentUserService.UserId;

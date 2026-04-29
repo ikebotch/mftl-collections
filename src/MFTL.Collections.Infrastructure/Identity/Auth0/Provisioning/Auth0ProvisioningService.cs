@@ -104,6 +104,38 @@ public sealed class Auth0ProvisioningService(
         }
     }
 
+    public async Task<(string Email, string Name, string? Nickname, string? Picture)?> GetUserInfoAsync(string accessToken, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            var url = $"https://{_options.Domain}/userinfo";
+
+            var response = await client.GetAsync(url, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                logger.LogWarning("Failed to fetch Auth0 userinfo: {Error}", error);
+                return null;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var email = result.TryGetProperty("email", out var e) ? e.GetString() : "";
+            var name = result.TryGetProperty("name", out var n) ? n.GetString() : "";
+            var nickname = result.TryGetProperty("nickname", out var nk) ? nk.GetString() : null;
+            var picture = result.TryGetProperty("picture", out var p) ? p.GetString() : null;
+            
+            return (email ?? "", name ?? "", nickname, picture);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error fetching Auth0 userinfo");
+            return null;
+        }
+    }
+
     public async Task ProvisionAsync(bool apply = false)
     {
         if (string.IsNullOrEmpty(_options.ManagementClientId) || string.IsNullOrEmpty(_options.ManagementClientSecret))

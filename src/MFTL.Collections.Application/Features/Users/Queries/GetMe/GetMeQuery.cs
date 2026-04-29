@@ -13,6 +13,7 @@ public class GetMeQueryHandler(
     IApplicationDbContext dbContext, 
     ICurrentUserService currentUserService,
     IUserProvisioningService provisioningService,
+    IPermissionEvaluator permissionEvaluator,
     Microsoft.Extensions.Logging.ILogger<GetMeQueryHandler> logger) : IRequestHandler<GetMeQuery, UserDetailDto>
 {
     public async Task<UserDetailDto> Handle(GetMeQuery request, CancellationToken cancellationToken)
@@ -26,10 +27,12 @@ public class GetMeQueryHandler(
         var email = currentUserService.Email ?? "";
         var name = currentUserService.Name ?? "New User";
         var roles = currentUserService.Roles.ToList();
+        var accessToken = currentUserService.AccessToken;
 
-        if (string.IsNullOrEmpty(email) || name == "New User")
+        if (string.IsNullOrEmpty(email) || name == "New User" || email.Contains("unprovisioned"))
         {
-            logger.LogWarning("GetMe: Identity details are sparse. Email: {Email}, Name: {Name}. Dumping all claims:", email, name);
+            logger.LogWarning("GetMe: Identity details are sparse. Email: {Email}, Name: {Name}. Token present: {TokenPresent}. Dumping all claims:", 
+                email, name, !string.IsNullOrEmpty(accessToken));
             foreach (var claim in currentUserService.User?.Claims ?? [])
             {
                 logger.LogWarning("Claim: {Type} = {Value}", claim.Type, claim.Value);
@@ -37,7 +40,7 @@ public class GetMeQueryHandler(
         }
 
         // Ensure user exists locally
-        await provisioningService.ProvisionUserAsync(auth0Id, email, name, roles, cancellationToken);
+        await provisioningService.ProvisionUserAsync(auth0Id, email, name, roles, accessToken, cancellationToken);
 
         var user = await dbContext.Users
             .Include(u => u.ScopeAssignments)
@@ -77,6 +80,10 @@ public class GetMeQueryHandler(
                 targetName));
         }
 
+        var auth0Roles = currentUserService.Roles.ToList();
+        var scopeRoles = user.ScopeAssignments.Select(a => a.Role).ToList();
+        var effectiveRoles = auth0Roles.Concat(scopeRoles).Distinct().ToList();
+
         var accessState = "active";
         if (user.IsSuspended)
         {
@@ -86,6 +93,14 @@ public class GetMeQueryHandler(
         {
             accessState = "pending-access";
         }
+
+        // Fix access state if valid scope assignments exist
+        if (accessState == "pending-access" && user.ScopeAssignments.Any())
+        {
+            accessState = "active";
+        }
+
+        var permissions = await permissionEvaluator.GetEffectivePermissionsAsync();
 
         return new UserDetailDto(
             user.Id,
@@ -100,6 +115,8 @@ public class GetMeQueryHandler(
             user.IsPlatformAdmin,
             accessState,
             scopeDtos,
-            currentUserService.Roles);
+            auth0Roles,
+            effectiveRoles,
+            permissions);
     }
 }
