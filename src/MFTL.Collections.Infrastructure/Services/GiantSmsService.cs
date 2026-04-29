@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Infrastructure.Configuration;
@@ -68,10 +69,23 @@ public class GiantSmsService : ISmsService
 
             if (response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<GiantSmsResponse<GiantSmsBalanceData>>();
-                if (result?.Status == true && result.Data != null)
+                var content = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(content);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("status", out var status) && status.GetBoolean())
                 {
-                    return result.Data.Credit;
+                    if (root.TryGetProperty("message", out var message))
+                    {
+                        if (message.ValueKind == JsonValueKind.Number)
+                        {
+                            return message.GetDecimal();
+                        }
+                        if (message.ValueKind == JsonValueKind.String && decimal.TryParse(message.GetString(), out var balance))
+                        {
+                            return balance;
+                        }
+                    }
                 }
             }
             
@@ -144,10 +158,21 @@ public class GiantSmsService : ISmsService
             return;
         }
 
-        var result = await response.Content.ReadFromJsonAsync<GiantSmsBaseResponse>();
-        if (result?.Status == false)
+        // We use JsonDocument here too because 'message' can be inconsistent (string or number)
+        var contentStr = await response.Content.ReadAsStringAsync();
+        try 
         {
-            _logger.LogError("GiantSMS {Operation} returned error status: {Message}", operation, result.Message);
+            using var doc = JsonDocument.Parse(contentStr);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("status", out var status) && !status.GetBoolean())
+            {
+                var message = root.TryGetProperty("message", out var msg) ? msg.ToString() : "No message";
+                _logger.LogError("GiantSMS {Operation} returned error status: {Message}", operation, message);
+            }
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse GiantSMS response for {Operation}", operation);
         }
     }
 
@@ -169,19 +194,13 @@ public class GiantSmsService : ISmsService
         public bool Status { get; set; }
 
         [JsonPropertyName("message")]
-        public string Message { get; set; } = string.Empty;
+        public object? Message { get; set; }
     }
 
     private class GiantSmsResponse<T> : GiantSmsBaseResponse
     {
         [JsonPropertyName("data")]
         public T? Data { get; set; }
-    }
-
-    private class GiantSmsBalanceData
-    {
-        [JsonPropertyName("credit")]
-        public decimal Credit { get; set; }
     }
 
     private class GiantSmsStatusData

@@ -27,6 +27,7 @@ public sealed class CollectionsDbContext(
     public DbSet<User> Users => Set<User>();
     public DbSet<UserScopeAssignment> UserScopeAssignments => Set<UserScopeAssignment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<SmsTemplate> SmsTemplates => Set<SmsTemplate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

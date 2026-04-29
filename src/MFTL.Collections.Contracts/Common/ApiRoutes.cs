@@ -111,4 +111,11 @@ public static class ApiRoutes
     {
         public const string Auth0 = "v1/webhooks/auth0/user-created";
     }
+
+    public static class SmsTemplates
+    {
+        public const string Base = BasePath + "/sms-templates";
+        public const string GetById = Base + "/{id:guid}";
+        public const string Update = Base + "/{id:guid}";
+    }
 }

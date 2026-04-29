@@ -38,6 +38,8 @@ public sealed class Event : BaseBranchEntity
     public string? ReceiptLogoUrl { get; set; }
     public string? Metadata { get; set; }
     public Branch? Branch { get; set; }
+    public Guid? SmsTemplateId { get; set; }
+    public SmsTemplate? SmsTemplate { get; set; }
 
     public ICollection<RecipientFund> RecipientFunds { get; set; } = new List<RecipientFund>();
     public ICollection<Receipt> Receipts { get; set; } = new List<Receipt>();
@@ -123,4 +125,10 @@ public sealed class Settlement : BaseBranchEntity
     public Branch? Branch { get; set; }
     public Guid? ReviewedByUserId { get; set; }
     public User? ReviewedByUser { get; set; }
+}
+
+public sealed class SmsTemplate : BaseBranchEntity
+{
+    public string Name { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
 }

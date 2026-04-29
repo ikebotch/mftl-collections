@@ -61,6 +61,11 @@ public static class EndpointAccessPolicies
         { "GetPaymentById", new(EndpointAccessPolicyType.Permission, "payments.view") },
 
         { "ListSettlements", new(EndpointAccessPolicyType.Permission, "settlements.view") },
+        
+        { "ListSmsTemplates", new(EndpointAccessPolicyType.Permission, "sms_templates.read") },
+        { "GetSmsTemplateById", new(EndpointAccessPolicyType.Permission, "sms_templates.read") },
+        { "CreateSmsTemplate", new(EndpointAccessPolicyType.Permission, "sms_templates.create") },
+        { "UpdateSmsTemplate", new(EndpointAccessPolicyType.Permission, "sms_templates.update") },
 
         { "ListDonors", new(EndpointAccessPolicyType.Permission, "donors.view") },
         { "GetDonorById", new(EndpointAccessPolicyType.Permission, "donors.view") },

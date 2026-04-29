@@ -50,7 +50,8 @@ public class RecordCashContributionCommandHandler(
     IApplicationDbContext dbContext,
     IAccessPolicyResolver policyResolver,
     IContributionSettlementService settlementService,
-    ISmsService smsService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
+    ISmsService smsService,
+    ISmsTemplateService templateService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
 {
     public async Task<CashContributionResult> Handle(RecordCashContributionCommand request, CancellationToken cancellationToken)
     {
@@ -104,7 +105,10 @@ public class RecordCashContributionCommandHandler(
         }
 
 
-        var @event = await dbContext.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == request.EventId, cancellationToken);
+        var @event = await dbContext.Events
+            .Include(e => e.SmsTemplate)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == request.EventId, cancellationToken);
         if (@event == null) throw new KeyNotFoundException("Event not found.");
 
 
@@ -176,7 +180,26 @@ public class RecordCashContributionCommandHandler(
         // Send SMS Notification
         if (!string.IsNullOrWhiteSpace(contributor.PhoneNumber))
         {
-            var message = $"Thank you {contributor.Name} for your contribution of {contribution.Currency} {contribution.Amount} to {@event.Title}. Receipt: {settlement.ReceiptId}";
+            var template = @event.SmsTemplate?.Content;
+            if (string.IsNullOrEmpty(template))
+            {
+                // Fallback to a default template if not specified on the event
+                template = "Thank you {ContributorName} for your contribution of {Currency} {Amount} to {EventTitle}. Receipt: {ReceiptNumber}";
+            }
+
+            var receipt = await dbContext.Receipts.AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == settlement.ReceiptId, cancellationToken);
+
+            var messageData = new
+            {
+                ContributorName = contribution.ContributorName,
+                Amount = contribution.Amount,
+                Currency = contribution.Currency,
+                EventTitle = @event.Title,
+                ReceiptNumber = receipt?.ReceiptNumber ?? "N/A"
+            };
+
+            var message = templateService.Render(template, messageData);
             await smsService.SendSmsAsync(contributor.PhoneNumber, message);
         }
 
