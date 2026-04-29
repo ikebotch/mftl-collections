@@ -9,4 +9,9 @@ public interface IPermissionEvaluator
     /// <param name="scopeId">The optional target ID (e.g. BranchId, EventId)</param>
     /// <returns>True if access is granted</returns>
     Task<bool> HasPermissionAsync(string permission, Guid? scopeId = null);
+
+    /// <summary>
+    /// Gets all unique permissions assigned to the current user across all scopes and roles.
+    /// </summary>
+    Task<IEnumerable<string>> GetEffectivePermissionsAsync();
 }

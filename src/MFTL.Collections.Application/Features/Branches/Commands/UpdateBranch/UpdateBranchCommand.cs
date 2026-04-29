@@ -1,15 +1,20 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 
 namespace MFTL.Collections.Application.Features.Branches.Commands.UpdateBranch;
 
+[HasPermission("branches.update")]
 public record UpdateBranchCommand(
     Guid Id,
     string? Name = null,
     string? Identifier = null,
     string? Location = null,
-    bool? IsActive = null) : IRequest<bool>;
+    bool? IsActive = null) : IRequest<bool>, IHasScope
+{
+    public Guid? GetScopeId() => Id;
+}
 
 public class UpdateBranchCommandHandler(IApplicationDbContext dbContext) : IRequestHandler<UpdateBranchCommand, bool>
 {

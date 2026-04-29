@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Common;
+using MFTL.Collections.Application.Common.Security;
 
 namespace MFTL.Collections.Application.Features.Contributions.Queries.ListContributions;
 
@@ -21,20 +22,27 @@ public sealed record ContributionListItemDto(
     string? Note,
     Guid? ReceiptId);
 
+[HasPermission("contributions.view")]
 public record ListContributionsQuery(
     int Page = 1,
     int PageSize = 10,
     IEnumerable<Guid>? BranchIds = null,
-    IEnumerable<Guid>? TenantIds = null) : IRequest<PagedResponse<ContributionListItemDto>>;
+    IEnumerable<Guid>? TenantIds = null) : IRequest<PagedResponse<ContributionListItemDto>>, IHasScope
+{
+    public Guid? GetScopeId() => null; // Evaluated via policy filters
+}
 
-public class ListContributionsQueryHandler(IApplicationDbContext dbContext)
+public class ListContributionsQueryHandler(
+    IApplicationDbContext dbContext,
+    IAccessPolicyResolver policyResolver)
     : IRequestHandler<ListContributionsQuery, PagedResponse<ContributionListItemDto>>
 {
     public async Task<PagedResponse<ContributionListItemDto>> Handle(
         ListContributionsQuery request,
         CancellationToken cancellationToken)
     {
-        var query = dbContext.Contributions
+        var policy = await policyResolver.ResolvePolicyAsync();
+        var query = policy.FilterCollections(dbContext.Contributions.AsQueryable())
             .Include(c => c.Event)
             .Include(c => c.RecipientFund)
             .Include(c => c.Contributor)
@@ -49,7 +57,7 @@ public class ListContributionsQueryHandler(IApplicationDbContext dbContext)
 
         if (request.TenantIds != null && request.TenantIds.Any())
         {
-            query = query.Where(c => c.Branch != null && request.TenantIds.Contains(c.Branch.TenantId));
+            query = query.Where(c => request.TenantIds.Contains(c.TenantId));
         }
 
         query = query.OrderByDescending(c => c.CreatedAt);

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Domain.Entities;
 
 namespace MFTL.Collections.Application.Features.Collectors.Queries.GetCollectorAssignments;
@@ -12,7 +13,8 @@ public sealed record CollectorAssignedEventDto(
     string Status,
     DateTimeOffset? EventDate,
     string Location,
-    int AssignedFundCount);
+    int AssignedFundCount,
+    IEnumerable<CollectorAssignedFundDto> Funds);
 
 public sealed record CollectorAssignedFundDto(
     Guid Id,
@@ -27,17 +29,24 @@ public sealed record CollectorAssignmentsDto(
     bool HasAssignments,
     string? BlockedReason,
     IEnumerable<CollectorAssignedEventDto> Events,
-    IEnumerable<CollectorAssignedFundDto> Funds);
+    Guid? TenantId = null,
+    Guid? BranchId = null);
 
-public record GetCollectorAssignmentsQuery(string? ExplicitUserId = null) : IRequest<CollectorAssignmentsDto>;
+[HasPermission("events.view")]
+public record GetCollectorAssignmentsQuery(string? ExplicitUserId = null) : IRequest<CollectorAssignmentsDto>, IHasScope
+{
+    public Guid? GetScopeId() => null;
+}
 
 public class GetCollectorAssignmentsQueryHandler(
     IApplicationDbContext dbContext,
-    ICurrentUserService currentUserService) : IRequestHandler<GetCollectorAssignmentsQuery, CollectorAssignmentsDto>
+    IAccessPolicyResolver policyResolver) : IRequestHandler<GetCollectorAssignmentsQuery, CollectorAssignmentsDto>
 {
     public async Task<CollectorAssignmentsDto> Handle(GetCollectorAssignmentsQuery request, CancellationToken cancellationToken)
     {
-        var auth0Id = request.ExplicitUserId ?? currentUserService.UserId;
+        var context = await policyResolver.GetAccessContextAsync();
+        var auth0Id = request.ExplicitUserId ?? context.Auth0Id;
+        
         if (string.IsNullOrWhiteSpace(auth0Id))
         {
             throw new UnauthorizedAccessException("Collector authentication is required.");
@@ -54,7 +63,7 @@ public class GetCollectorAssignmentsQueryHandler(
 
         if (!user.IsActive)
         {
-            return new CollectorAssignmentsDto(false, "Collector is inactive.", [], []);
+            return new CollectorAssignmentsDto(false, "Collector is inactive.", [], null, null);
         }
 
         var collectorAssignments = user.ScopeAssignments.Where(a => a.Role == "Collector").ToList();
@@ -70,44 +79,78 @@ public class GetCollectorAssignmentsQueryHandler(
             .Distinct()
             .ToList();
 
-        if (eventIds.Count == 0 && fundIds.Count == 0)
+        var orgIds = collectorAssignments
+            .Where(a => a.ScopeType == ScopeType.Organisation && a.TargetId.HasValue)
+            .Select(a => a.TargetId!.Value)
+            .Distinct()
+            .ToList();
+
+        var branchIds = collectorAssignments
+            .Where(a => a.ScopeType == ScopeType.Branch && a.TargetId.HasValue)
+            .Select(a => a.TargetId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (eventIds.Count == 0 && fundIds.Count == 0 && orgIds.Count == 0 && branchIds.Count == 0)
         {
             return new CollectorAssignmentsDto(
                 false,
                 "No active campaign or fund assignments established for this collector.",
                 [],
-                []);
+                null,
+                null);
         }
 
         var funds = await dbContext.RecipientFunds
-            .Where(fund => fundIds.Contains(fund.Id) || eventIds.Contains(fund.EventId))
+            .IgnoreQueryFilters()
+            .Include(f => f.Event)
+            .Where(fund => 
+                fundIds.Contains(fund.Id) || 
+                eventIds.Contains(fund.EventId) ||
+                (fund.TenantId != Guid.Empty && orgIds.Contains(fund.TenantId)) ||
+                (fund.BranchId != Guid.Empty && branchIds.Contains(fund.BranchId)))
             .ToListAsync(cancellationToken);
 
         var allowedEventIdsFromFunds = funds.Select(f => f.EventId).Distinct().ToList();
         var allAllowedEventIds = eventIds.Concat(allowedEventIdsFromFunds).Distinct().ToList();
 
         var events = await dbContext.Events
-            .Where(e => allAllowedEventIds.Contains(e.Id))
+            .IgnoreQueryFilters()
+            .Include(e => e.Branch)
+            .Where(e => 
+                allAllowedEventIds.Contains(e.Id) || 
+                orgIds.Contains(e.TenantId) || 
+                branchIds.Contains(e.BranchId))
             .ToListAsync(cancellationToken);
+
+        var firstEvent = events.FirstOrDefault();
+        var tenantId = firstEvent?.TenantId ?? orgIds.FirstOrDefault();
+        var branchId = firstEvent?.BranchId ?? branchIds.FirstOrDefault();
 
         return new CollectorAssignmentsDto(
             true,
             null,
-            events.Select(evt => new CollectorAssignedEventDto(
-                evt.Id,
-                evt.Title,
-                evt.Description,
-                evt.IsActive ? "Live" : "Draft",
-                evt.EventDate,
-                "Main Site",
-                funds.Count(fund => fund.EventId == evt.Id))),
-            funds.Select(fund => new CollectorAssignedFundDto(
-                fund.Id,
-                fund.EventId,
-                fund.Name,
-                fund.Description,
-                fund.TargetAmount,
-                fund.CollectedAmount,
-                "GHS")));
+            events.Select(evt => 
+            {
+                var eventFunds = funds.Where(f => f.EventId == evt.Id).ToList();
+                return new CollectorAssignedEventDto(
+                    evt.Id,
+                    evt.Title,
+                    evt.Description,
+                    evt.IsActive ? "Live" : "Draft",
+                    evt.EventDate,
+                    evt.Branch?.Location ?? "Main Site",
+                    eventFunds.Count,
+                    eventFunds.Select(fund => new CollectorAssignedFundDto(
+                        fund.Id,
+                        fund.EventId,
+                        fund.Name,
+                        fund.Description,
+                        fund.TargetAmount,
+                        fund.CollectedAmount,
+                        "GHS")));
+            }),
+            tenantId == Guid.Empty ? null : tenantId,
+            branchId == Guid.Empty ? null : branchId);
     }
 }

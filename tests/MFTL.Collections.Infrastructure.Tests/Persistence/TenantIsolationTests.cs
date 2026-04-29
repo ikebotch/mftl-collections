@@ -13,6 +13,10 @@ using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Domain.Enums;
 using MFTL.Collections.Infrastructure.Persistence;
 using MFTL.Collections.Infrastructure.Services;
+using MFTL.Collections.Application.Common.Security;
+using MFTL.Collections.Infrastructure.Identity.Policies;
+using MFTL.Collections.Infrastructure.Identity;
+using Moq;
 
 namespace MFTL.Collections.Infrastructure.Tests.Persistence;
 
@@ -26,12 +30,12 @@ public class TenantIsolationTests
 
         await using var writeContext = CreateDbContext(databaseName, tenantId);
         var branchId = Guid.NewGuid();
-        var createdEvent = await new CreateEventCommandHandler(writeContext).Handle(
+        var createdEvent = await new CreateEventCommandHandler(writeContext, CreatePolicyResolverMock(writeContext, "test-user").Object).Handle(
             new CreateEventCommand("Tenant event", "Live tenant readback", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
         await using var readContext = CreateDbContext(databaseName, tenantId);
-        var reloadedEvent = await new GetEventByIdQueryHandler(readContext).Handle(
+        var reloadedEvent = await new GetEventByIdQueryHandler(readContext, CreatePolicyResolverMock(readContext, "test-user").Object).Handle(
             new GetEventByIdQuery(createdEvent.Id),
             CancellationToken.None);
 
@@ -48,12 +52,12 @@ public class TenantIsolationTests
 
         await using var writeContext = CreateDbContext(databaseName, tenantA);
         var branchId = Guid.NewGuid();
-        var createdEvent = await new CreateEventCommandHandler(writeContext).Handle(
+        var createdEvent = await new CreateEventCommandHandler(writeContext, CreatePolicyResolverMock(writeContext, "test-user").Object).Handle(
             new CreateEventCommand("Tenant A event", "Hidden from tenant B", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
         await using var readContext = CreateDbContext(databaseName, tenantB);
-        var act = async () => await new GetEventByIdQueryHandler(readContext).Handle(
+        var act = async () => await new GetEventByIdQueryHandler(readContext, CreatePolicyResolverMock(readContext, "test-user").Object).Handle(
             new GetEventByIdQuery(createdEvent.Id),
             CancellationToken.None);
 
@@ -69,7 +73,7 @@ public class TenantIsolationTests
 
         await using var seedContext = CreateDbContext(databaseName, tenantId);
         var branchId = Guid.NewGuid();
-        var createdEvent = await new CreateEventCommandHandler(seedContext).Handle(
+        var createdEvent = await new CreateEventCommandHandler(seedContext, CreatePolicyResolverMock(seedContext, "test-user").Object).Handle(
             new CreateEventCommand("Fund event", "Recipient fund test", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
@@ -95,7 +99,7 @@ public class TenantIsolationTests
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
         var branchId = Guid.NewGuid();
-        var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
+        var createdEvent = await new CreateEventCommandHandler(dbContext, CreatePolicyResolverMock(dbContext, "test-user").Object).Handle(
             new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
@@ -111,7 +115,11 @@ public class TenantIsolationTests
             new StaticReceiptNumberGenerator("RCT-TEST-0001"),
             NullLogger<ContributionSettlementService>.Instance);
 
-        var result = await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService).Handle(
+        var smsServiceMock = new Mock<ISmsService>();
+
+        var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
+
+        var result = await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -123,7 +131,8 @@ public class TenantIsolationTests
                 false,
                 "cash",
                 "Live verification",
-                collectorAuth0Id),
+                collectorAuth0Id,
+                "1234"),
             CancellationToken.None);
 
         var contribution = await dbContext.Contributions
@@ -194,7 +203,7 @@ public class TenantIsolationTests
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
         var branchId = Guid.NewGuid();
-        var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
+        var createdEvent = await new CreateEventCommandHandler(dbContext, CreatePolicyResolverMock(dbContext, "test-user").Object).Handle(
             new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
@@ -210,7 +219,11 @@ public class TenantIsolationTests
             new StaticReceiptNumberGenerator("RCT-TEST-0100"),
             NullLogger<ContributionSettlementService>.Instance);
 
-        var act = async () => await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService).Handle(
+        var smsServiceMock = new Mock<ISmsService>();
+
+        var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
+
+        var act = async () => await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -222,7 +235,8 @@ public class TenantIsolationTests
                 false,
                 "cash",
                 "Blocked",
-                collectorAuth0Id),
+                collectorAuth0Id,
+                "1234"),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>()
@@ -238,7 +252,7 @@ public class TenantIsolationTests
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
         var branchId = Guid.NewGuid();
-        var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
+        var createdEvent = await new CreateEventCommandHandler(dbContext, CreatePolicyResolverMock(dbContext, "test-user").Object).Handle(
             new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
@@ -254,7 +268,11 @@ public class TenantIsolationTests
             new StaticReceiptNumberGenerator("RCT-TEST-0101"),
             NullLogger<ContributionSettlementService>.Instance);
 
-        var act = async () => await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService).Handle(
+        var smsServiceMock = new Mock<ISmsService>();
+
+        var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
+
+        var act = async () => await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -266,7 +284,8 @@ public class TenantIsolationTests
                 false,
                 "cash",
                 "Blocked",
-                collectorAuth0Id),
+                collectorAuth0Id,
+                "1234"),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<UnauthorizedAccessException>()
@@ -281,7 +300,7 @@ public class TenantIsolationTests
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
         var branchId = Guid.NewGuid();
-        var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
+        var createdEvent = await new CreateEventCommandHandler(dbContext, CreatePolicyResolverMock(dbContext, "test-user").Object).Handle(
             new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
@@ -304,8 +323,13 @@ public class TenantIsolationTests
             new StaticReceiptNumberGenerator("RCT-TEST-0202"),
             NullLogger<ContributionSettlementService>.Instance);
 
-        var handlerOne = new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService("collector-one"), firstSettlementService);
-        var handlerTwo = new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService("collector-two"), secondSettlementService);
+        var smsServiceMock = new Mock<ISmsService>();
+
+        var policyResolverOne = CreatePolicyResolverMock(dbContext, "collector-one");
+        var policyResolverTwo = CreatePolicyResolverMock(dbContext, "collector-two");
+
+        var handlerOne = new RecordCashContributionCommandHandler(dbContext, policyResolverOne.Object, firstSettlementService, smsServiceMock.Object);
+        var handlerTwo = new RecordCashContributionCommandHandler(dbContext, policyResolverTwo.Object, secondSettlementService, smsServiceMock.Object);
 
         await handlerOne.Handle(new RecordCashContributionCommand(
             createdEvent.Id,
@@ -318,7 +342,8 @@ public class TenantIsolationTests
             false,
             "cash",
             null,
-            "collector-one"), CancellationToken.None);
+            "collector-one",
+            "1234"), CancellationToken.None);
 
         await handlerTwo.Handle(new RecordCashContributionCommand(
             createdEvent.Id,
@@ -331,9 +356,10 @@ public class TenantIsolationTests
             false,
             "cash",
             null,
-            "collector-two"), CancellationToken.None);
+            "collector-two",
+            "1234"), CancellationToken.None);
 
-        var history = await new ListCollectorHistoryQueryHandler(dbContext, new TestCurrentUserService("collector-one"))
+        var history = await new ListCollectorHistoryQueryHandler(dbContext, policyResolverOne.Object)
             .Handle(new ListCollectorHistoryQuery("collector-one"), CancellationToken.None);
 
         history.Should().ContainSingle();
@@ -380,10 +406,51 @@ public class TenantIsolationTests
     {
         public string? UserId => userId;
         public string? Email => email;
+        public string? Name => userId;
+        public string? GivenName => null;
+        public string? FamilyName => null;
+        public string? Nickname => null;
+        public string? Picture => null;
+        public string? AccessToken => null;
         public System.Security.Claims.ClaimsPrincipal? User => null;
         public bool IsAuthenticated => !string.IsNullOrEmpty(userId);
         public bool IsPlatformAdmin => isPlatformAdmin;
+        public string? PhoneNumber => null;
         public IEnumerable<string> Roles => Enumerable.Empty<string>();
+    }
+
+    private static Mock<IAccessPolicyResolver> CreatePolicyResolverMock(CollectionsDbContext dbContext, string auth0Id)
+    {
+        var mock = new Mock<IAccessPolicyResolver>();
+        var user = dbContext.Users.Include(u => u.ScopeAssignments).FirstOrDefault(u => u.Auth0Id == auth0Id);
+        
+        var context = new AccessContext(
+            user?.Id ?? Guid.Empty,
+            auth0Id,
+            user?.Email ?? "test@test.com",
+            [],
+            [],
+            user?.ScopeAssignments.Where(a => a.ScopeType == ScopeType.Organisation).Select(a => a.TargetId ?? Guid.Empty).ToList() ?? [],
+            user?.ScopeAssignments.Where(a => a.ScopeType == ScopeType.Branch).Select(a => a.TargetId ?? Guid.Empty).ToList() ?? [],
+            user?.ScopeAssignments.Where(a => a.ScopeType == ScopeType.Event).Select(a => a.TargetId ?? Guid.Empty).ToList() ?? [],
+            user?.ScopeAssignments.Where(a => a.ScopeType == ScopeType.RecipientFund).Select(a => a.TargetId ?? Guid.Empty).ToList() ?? [],
+            null,
+            user?.IsPlatformAdmin ?? false
+        );
+
+        mock.Setup(r => r.GetAccessContextAsync()).ReturnsAsync(context);
+        
+        // Return a collector policy for testing if role is collector-like
+        if (auth0Id.Contains("collector"))
+        {
+            mock.Setup(r => r.ResolvePolicyAsync()).ReturnsAsync(new CollectorAccessPolicy(context));
+        }
+        else
+        {
+             mock.Setup(r => r.ResolvePolicyAsync()).ReturnsAsync(new PlatformAdminAccessPolicy(context));
+        }
+
+        return mock;
     }
 
     private sealed class StaticReceiptNumberGenerator(string receiptNumber) : IReceiptNumberGenerator
@@ -396,7 +463,7 @@ public class TenantIsolationTests
         await using var dbContext = CreateDbContext(databaseName, tenantId);
         const string collectorAuth0Id = "collector-receipt";
         var branchId = Guid.NewGuid();
-        var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
+        var createdEvent = await new CreateEventCommandHandler(dbContext, CreatePolicyResolverMock(dbContext, "test-user").Object).Handle(
             new CreateEventCommand("Receipt event", "Receipt readback", DateTimeOffset.UtcNow, branchId),
             CancellationToken.None);
 
@@ -412,7 +479,11 @@ public class TenantIsolationTests
             new StaticReceiptNumberGenerator(receiptNumber),
             NullLogger<ContributionSettlementService>.Instance);
 
-        var result = await new RecordCashContributionCommandHandler(dbContext, new TestCurrentUserService(collectorAuth0Id), settlementService).Handle(
+        var smsServiceMock = new Mock<ISmsService>();
+
+        var policyResolverMock = CreatePolicyResolverMock(dbContext, collectorAuth0Id);
+
+        var result = await new RecordCashContributionCommandHandler(dbContext, policyResolverMock.Object, settlementService, smsServiceMock.Object).Handle(
             new RecordCashContributionCommand(
                 createdEvent.Id,
                 fundId,
@@ -424,7 +495,8 @@ public class TenantIsolationTests
                 false,
                 "cash",
                 "Receipt note",
-                collectorAuth0Id),
+                collectorAuth0Id,
+                "1234"),
             CancellationToken.None);
 
         result.ReceiptId.Should().NotBeNull();
@@ -444,6 +516,7 @@ public class TenantIsolationTests
             Email = $"{auth0Id}@mftl.local",
             Name = auth0Id,
             IsActive = isActive,
+            Pin = "1234",
         };
 
         dbContext.Users.Add(user);

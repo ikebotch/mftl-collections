@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Infrastructure.Configuration;
 using MFTL.Collections.Infrastructure.Tenancy;
 using MFTL.Collections.Infrastructure.Persistence;
@@ -27,16 +28,20 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IScopeAccessService, ScopeAccessService>();
         services.AddScoped<IPermissionEvaluator, PermissionEvaluator>();
+        services.AddScoped<IAccessPolicyResolver, AccessPolicyResolver>();
         
         services.Configure<Auth0ProvisioningOptions>(options =>
         {
-            options.Domain = configuration["Values:Auth0:Domain"] ?? string.Empty;
-            options.ManagementClientId = configuration["Values:AUTH0_MANAGEMENT_CLIENT_ID"] ?? string.Empty;
-            options.ManagementClientSecret = configuration["Values:AUTH0_MANAGEMENT_CLIENT_SECRET"] ?? string.Empty;
-            options.ManagementAudience = configuration["Values:AUTH0_MANAGEMENT_AUDIENCE"] ?? $"https://{options.Domain}/api/v2/";
-            options.ApiAudience = configuration["Values:Auth0:Audience"] ?? string.Empty;
+            options.Domain = configuration["Auth0:Domain"] ?? string.Empty;
+            options.ManagementClientId = configuration["AUTH0_MANAGEMENT_CLIENT_ID"] ?? string.Empty;
+            options.ManagementClientSecret = configuration["AUTH0_MANAGEMENT_CLIENT_SECRET"] ?? string.Empty;
+            options.ManagementAudience = configuration["AUTH0_MANAGEMENT_AUDIENCE"] ?? (string.IsNullOrEmpty(options.Domain) ? string.Empty : $"https://{options.Domain}/api/v2/");
+            options.ApiAudience = configuration["Auth0:Audience"] ?? string.Empty;
+            options.WebhookSecret = configuration["AUTH0_WEBHOOK_SECRET"] ?? string.Empty;
         });
         services.AddScoped<Auth0ProvisioningService>();
+        services.AddScoped<IAuth0Service>(sp => sp.GetRequiredService<Auth0ProvisioningService>());
+        services.AddScoped<IUserProvisioningService, UserProvisioningService>();
         
         services.AddScoped<FunctionHttpRequestAccessor>();
         services.AddScoped<TenantContext>();
@@ -77,6 +82,8 @@ public static class DependencyInjection
         services.AddScoped<IPaymentStateService, PaymentStateService>();
         services.AddScoped<IDashboardProjectionUpdater, DashboardProjectionUpdater>();
         services.AddScoped<IEmailService, MockEmailService>();
+        
+        services.AddHttpClient<ISmsService, GiantSmsService>();
 
         return services;
     }

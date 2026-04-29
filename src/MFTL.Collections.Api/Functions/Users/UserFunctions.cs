@@ -33,9 +33,14 @@ public class UserFunctions(IMediator mediator)
 
     [Function("GetUserById")]
     public async Task<IActionResult> GetById(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.GetById)] HttpRequest req, Guid id)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.GetById)] HttpRequest req, string id)
     {
-        var result = await mediator.Send(new Application.Features.Users.Queries.GetUserById.GetUserByIdQuery(id));
+        if (!Guid.TryParse(id, out var guidId))
+        {
+            return new BadRequestObjectResult(new ApiResponse(false, $"Invalid user ID format: {id}", CorrelationId: req.GetOrCreateCorrelationId()));
+        }
+
+        var result = await mediator.Send(new Application.Features.Users.Queries.GetUserById.GetUserByIdQuery(guidId));
         return new OkObjectResult(new ApiResponse<UserDetailDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
@@ -86,9 +91,14 @@ public class UserFunctions(IMediator mediator)
 
     [Function("GetUserAuditLogs")]
     public async Task<IActionResult> GetAudit(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.Audit)] HttpRequest req, Guid id)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.Audit)] HttpRequest req, string id)
     {
-        var result = await mediator.Send(new Application.Features.Users.Queries.GetUserAuditLogs.GetUserAuditLogsQuery(id));
+        if (!Guid.TryParse(id, out var guidId))
+        {
+            return new BadRequestObjectResult(new ApiResponse(false, $"Invalid user ID format: {id}", CorrelationId: req.GetOrCreateCorrelationId()));
+        }
+
+        var result = await mediator.Send(new Application.Features.Users.Queries.GetUserAuditLogs.GetUserAuditLogsQuery(guidId));
         return new OkObjectResult(new ApiResponse<IEnumerable<Application.Features.Users.Queries.GetUserAuditLogs.AuditLogDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
@@ -128,5 +138,18 @@ public class UserFunctions(IMediator mediator)
         if (!result) return new NotFoundResult();
         
         return new OkObjectResult(new ApiResponse<bool>(true, "Scope revoked.", result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
+    [Function("SetCollectorPin")]
+    public async Task<IActionResult> SetPin(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Users.Base + "/pin")] HttpRequest req)
+    {
+        var body = await new StreamReader(req.Body).ReadToEndAsync();
+        var command = System.Text.Json.JsonSerializer.Deserialize<Application.Features.Users.Commands.SetCollectorPin.SetCollectorPinCommand>(body, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        
+        if (command == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body.", CorrelationId: req.GetOrCreateCorrelationId()));
+
+        var result = await mediator.Send(command);
+        return new OkObjectResult(new ApiResponse<bool>(true, "PIN set successfully.", result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 }

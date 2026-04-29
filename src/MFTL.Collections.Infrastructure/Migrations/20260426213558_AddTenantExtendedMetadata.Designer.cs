@@ -9,7 +9,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace MFTL.Collections.Infrastructure.Persistence.Migrations
+namespace MFTL.Collections.Infrastructure.Migrations
 {
     [DbContext(typeof(CollectionsDbContext))]
     [Migration("20260426213558_AddTenantExtendedMetadata")]

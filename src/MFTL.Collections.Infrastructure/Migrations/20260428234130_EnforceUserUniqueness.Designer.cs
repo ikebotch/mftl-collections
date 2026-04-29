@@ -9,11 +9,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace MFTL.Collections.Infrastructure.Persistence.Migrations
+namespace MFTL.Collections.Infrastructure.Migrations
 {
     [DbContext(typeof(CollectionsDbContext))]
-    [Migration("20260426100834_EnforceMandatoryBranchId")]
-    partial class EnforceMandatoryBranchId
+    [Migration("20260428234130_EnforceUserUniqueness")]
+    partial class EnforceUserUniqueness
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -193,8 +193,6 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
                     b.HasIndex("Reference")
                         .IsUnique();
 
-                    b.HasIndex("TenantId");
-
                     b.ToTable("Contributions");
                 });
 
@@ -300,8 +298,6 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
-
-                    b.HasIndex("TenantId");
 
                     b.ToTable("Events");
                 });
@@ -481,8 +477,6 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RecordedByUserId");
 
-                    b.HasIndex("TenantId");
-
                     b.ToTable("Receipts");
                 });
 
@@ -612,12 +606,23 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
+                    b.Property<string>("DefaultCurrency")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DefaultLocale")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Identifier")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("MissionStatement")
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
@@ -627,6 +632,15 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PosLogoUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PrimaryLogoUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SupportEmail")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -652,7 +666,8 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<int>("InviteStatus")
                         .HasColumnType("integer");
@@ -677,13 +692,23 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Pin")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Auth0Id")
+                        .IsUnique();
+
+                    b.HasIndex("Email")
+                        .IsUnique();
 
                     b.ToTable("Users");
                 });
@@ -797,12 +822,6 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("MFTL.Collections.Domain.Entities.Tenant", null)
-                        .WithMany("Events")
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Branch");
                 });
 
@@ -841,12 +860,6 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
                         .WithMany("RecordedReceipts")
                         .HasForeignKey("RecordedByUserId")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("MFTL.Collections.Domain.Entities.Tenant", null)
-                        .WithMany("Receipts")
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
 
                     b.Navigation("Branch");
 
@@ -941,10 +954,6 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Tenant", b =>
                 {
                     b.Navigation("Branches");
-
-                    b.Navigation("Events");
-
-                    b.Navigation("Receipts");
                 });
 
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.User", b =>

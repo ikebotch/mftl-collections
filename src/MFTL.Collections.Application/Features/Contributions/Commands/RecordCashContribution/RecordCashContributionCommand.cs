@@ -1,13 +1,15 @@
 using MediatR;
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Contracts.Responses;
 using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Domain.Enums;
-using FluentValidation;
-using Microsoft.EntityFrameworkCore;
 
 namespace MFTL.Collections.Application.Features.Contributions.Commands.RecordCashContribution;
 
+[HasPermission("contributions.record_cash")]
 public record RecordCashContributionCommand(
     Guid EventId,
     Guid RecipientFundId,
@@ -19,7 +21,11 @@ public record RecordCashContributionCommand(
     bool Anonymous,
     string PaymentMethod,
     string? Note,
-    string? ExplicitUserId) : IRequest<CashContributionResult>;
+    string? ExplicitUserId,
+    string? Pin) : IRequest<CashContributionResult>, IHasScope
+{
+    public Guid? GetScopeId() => EventId;
+}
 
 public class RecordCashContributionCommandValidator : AbstractValidator<RecordCashContributionCommand>
 {
@@ -31,6 +37,7 @@ public class RecordCashContributionCommandValidator : AbstractValidator<RecordCa
         RuleFor(v => v.Currency).NotEmpty();
         RuleFor(v => v.ContributorPhone).NotEmpty().MinimumLength(7);
         RuleFor(v => v.PaymentMethod).NotEmpty();
+        RuleFor(v => v.Pin).NotEmpty().Length(4);
         When(v => !v.Anonymous, () =>
         {
             RuleFor(v => v.ContributorName).NotEmpty().MinimumLength(2);
@@ -40,20 +47,34 @@ public class RecordCashContributionCommandValidator : AbstractValidator<RecordCa
 
 public class RecordCashContributionCommandHandler(
     IApplicationDbContext dbContext,
-    ICurrentUserService currentUserService,
-    IContributionSettlementService settlementService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
+    IAccessPolicyResolver policyResolver,
+    IContributionSettlementService settlementService,
+    ISmsService smsService) : IRequestHandler<RecordCashContributionCommand, CashContributionResult>
 {
     public async Task<CashContributionResult> Handle(RecordCashContributionCommand request, CancellationToken cancellationToken)
     {
-        var collectorAuth0Id = request.ExplicitUserId ?? currentUserService.UserId;
-        if (string.IsNullOrWhiteSpace(collectorAuth0Id))
+        var policy = await policyResolver.ResolvePolicyAsync();
+        var context = await policyResolver.GetAccessContextAsync();
+
+        if (!policy.CanRecordCollection(request.EventId, request.RecipientFundId))
         {
-            throw new UnauthorizedAccessException("Collector authentication is required.");
+            throw new UnauthorizedAccessException("You do not have access to record contributions for the specified event or fund.");
+        }
+
+        var auth0Id = context.Auth0Id;
+        
+        if (!string.IsNullOrWhiteSpace(request.ExplicitUserId) && request.ExplicitUserId != auth0Id)
+        {
+            if (!context.IsPlatformAdmin)
+            {
+                throw new UnauthorizedAccessException("You are not authorized to record contributions for another collector.");
+            }
+            auth0Id = request.ExplicitUserId;
         }
 
         var collector = await dbContext.Users
-            .Include(user => user.ScopeAssignments)
-            .FirstOrDefaultAsync(user => user.Auth0Id == collectorAuth0Id, cancellationToken);
+            .FirstOrDefaultAsync(user => user.Auth0Id == auth0Id, cancellationToken);
+
 
         if (collector == null)
         {
@@ -65,38 +86,27 @@ public class RecordCashContributionCommandHandler(
             throw new UnauthorizedAccessException("Collector is inactive.");
         }
 
-        var collectorAssignments = collector.ScopeAssignments
-            .Where(assignment => assignment.Role == "Collector")
-            .ToList();
+        // PIN Verification
+        if (string.IsNullOrEmpty(collector.Pin))
+        {
+             // If PIN is not set, we might want to allow it or force set? 
+             // The user said "collectors have a pin", implying it should be there.
+             // For now, I'll allow it if not set to prevent breaking existing collectors, 
+             // but if request has a PIN or it's required, we check it.
+             // Actually, let's be strict as requested.
+             throw new UnauthorizedAccessException("Collector PIN is not set. Please set a PIN in settings.");
+        }
+
+        if (collector.Pin != request.Pin)
+        {
+            throw new UnauthorizedAccessException("Invalid collector PIN.");
+        }
+
 
         var @event = await dbContext.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == request.EventId, cancellationToken);
         if (@event == null) throw new KeyNotFoundException("Event not found.");
 
-        var hasEventAccess = collectorAssignments.Any(assignment =>
-            assignment.ScopeType == ScopeType.Event && assignment.TargetId == request.EventId);
 
-        var hasBranchAccess = collectorAssignments.Any(assignment =>
-            assignment.ScopeType == ScopeType.Branch && assignment.TargetId == @event.BranchId);
-
-        if (!hasEventAccess && !hasBranchAccess)
-        {
-            throw new UnauthorizedAccessException("Collector is not assigned to this event or branch.");
-        }
-
-        var hasFundAccess = collectorAssignments.Any(assignment =>
-            assignment.ScopeType == ScopeType.RecipientFund && assignment.TargetId == request.RecipientFundId);
-
-        if (!hasFundAccess && !hasBranchAccess && !hasEventAccess)
-        {
-            // If they have branch or event access, they might not need direct fund assignment
-            // But usually collectors are assigned to funds. I'll stick to the logic: Branch/Event access implies access to children.
-        }
-        
-        // Actually, I'll follow the existing strictness but allow Branch-level access to override Event/Fund requirements
-        if (!hasFundAccess && !hasEventAccess && !hasBranchAccess)
-        {
-             throw new UnauthorizedAccessException("Collector is not assigned to this recipient fund.");
-        }
 
         var recipientFund = await dbContext.RecipientFunds
             .FirstOrDefaultAsync(f => f.Id == request.RecipientFundId && f.EventId == request.EventId, cancellationToken);
@@ -144,6 +154,13 @@ public class RecordCashContributionCommandHandler(
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Send SMS Notification
+        if (!string.IsNullOrWhiteSpace(contributor.PhoneNumber))
+        {
+            var message = $"Thank you {contributor.Name} for your contribution of {contribution.Currency} {contribution.Amount} to {@event.Title}. Receipt: {settlement.ReceiptId}";
+            await smsService.SendSmsAsync(contributor.PhoneNumber, message);
+        }
 
         return new CashContributionResult(contribution.Id, settlement.ReceiptId, contribution.Status.ToString());
     }

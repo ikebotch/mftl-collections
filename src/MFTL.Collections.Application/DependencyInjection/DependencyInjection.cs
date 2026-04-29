@@ -13,7 +13,7 @@ public static class DependencyInjection
 
         services.AddMediatR(cfg => {
             cfg.RegisterServicesFromAssembly(assembly);
-            // We will add behaviors here
+            cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(MFTL.Collections.Application.Common.Behaviors.AuthorizationBehavior<,>));
         });
 
         services.AddValidatorsFromAssembly(assembly);

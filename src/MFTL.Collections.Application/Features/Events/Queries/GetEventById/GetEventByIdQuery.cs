@@ -3,21 +3,38 @@ using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Requests;
 using MFTL.Collections.Contracts.Common;
 using Microsoft.EntityFrameworkCore;
+using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Domain.Enums;
+
+using MFTL.Collections.Application.Common.Security;
 
 namespace MFTL.Collections.Application.Features.Events.Queries.GetEventById;
 
-public record GetEventByIdQuery(Guid Id) : IRequest<EventDto>;
+[HasPermission("events.view")]
+public record GetEventByIdQuery(Guid Id) : IRequest<EventDto>, IHasScope
+{
+    public Guid? GetScopeId() => Id;
+}
 
-public class GetEventByIdQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<GetEventByIdQuery, EventDto>
+public class GetEventByIdQueryHandler(
+    IApplicationDbContext dbContext,
+    IAccessPolicyResolver policyResolver) : IRequestHandler<GetEventByIdQuery, EventDto>
 {
     public async Task<EventDto> Handle(GetEventByIdQuery request, CancellationToken cancellationToken)
     {
         var e = await dbContext.Events
+            .Include(e => e.Branch)
             .Include(e => e.RecipientFunds)
             .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
         if (e == null) throw new KeyNotFoundException("Event not found.");
+
+        var policy = await policyResolver.ResolvePolicyAsync();
+        if (e.IsPrivate && !policy.CanViewPrivateEvent(e.Id))
+        {
+            throw new UnauthorizedAccessException("You do not have access to this private event.");
+        }
+
 
         var eventContributions = await dbContext.Contributions
             .Where(c => c.EventId == e.Id && c.Status == ContributionStatus.Completed)

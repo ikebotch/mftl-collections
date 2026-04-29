@@ -7,12 +7,15 @@ public sealed class User : BaseEntity
     public string Auth0Id { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string? Nickname { get; set; }
+    public string? Picture { get; set; }
     public string PhoneNumber { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     public bool IsPlatformAdmin { get; set; }
     public bool IsSuspended { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
     public UserInviteStatus InviteStatus { get; set; } = UserInviteStatus.Accepted;
+    public string? Pin { get; set; }
 
     public ICollection<UserScopeAssignment> ScopeAssignments { get; set; } = new List<UserScopeAssignment>();
     public ICollection<Receipt> RecordedReceipts { get; set; } = new List<Receipt>();
@@ -38,7 +41,7 @@ public enum ScopeType
     Branch,
     Event,
     RecipientFund,
-    CollectorSelf
+    Self
 }
 
 public enum UserInviteStatus

@@ -49,6 +49,18 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
                 targetName));
         }
 
+        var accessState = "active";
+        if (user.IsSuspended)
+        {
+            accessState = "suspended";
+        }
+        else if (!user.IsPlatformAdmin && !user.ScopeAssignments.Any())
+        {
+            accessState = "pending-access";
+        }
+
+        var scopeRoles = user.ScopeAssignments.Select(a => a.Role).ToList();
+
         return new UserDetailDto(
             user.Id,
             user.Auth0Id,
@@ -60,7 +72,10 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
             user.CreatedAt,
             user.LastLoginAt,
             user.IsPlatformAdmin,
+            accessState,
             scopeDtos,
-            Enumerable.Empty<string>());
+            Enumerable.Empty<string>(), // Auth0Roles not available for other users
+            scopeRoles,                 // EffectiveRoles from local scopes
+            Enumerable.Empty<string>()); // Permissions not easily calculated for others
     }
 }

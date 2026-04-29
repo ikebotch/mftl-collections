@@ -190,8 +190,6 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.HasIndex("Reference")
                         .IsUnique();
 
-                    b.HasIndex("TenantId");
-
                     b.ToTable("Contributions");
                 });
 
@@ -270,6 +268,9 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsPrivate")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Metadata")
                         .HasColumnType("text");
 
@@ -297,8 +298,6 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
-
-                    b.HasIndex("TenantId");
 
                     b.ToTable("Events");
                 });
@@ -477,8 +476,6 @@ namespace MFTL.Collections.Infrastructure.Migrations
                     b.HasIndex("RecipientFundId");
 
                     b.HasIndex("RecordedByUserId");
-
-                    b.HasIndex("TenantId");
 
                     b.ToTable("Receipts");
                 });
@@ -669,7 +666,8 @@ namespace MFTL.Collections.Infrastructure.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<int>("InviteStatus")
                         .HasColumnType("integer");
@@ -694,13 +692,29 @@ namespace MFTL.Collections.Infrastructure.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Nickname")
                         .HasColumnType("text");
 
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Picture")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Pin")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Auth0Id")
+                        .IsUnique();
+
+                    b.HasIndex("Email")
+                        .IsUnique();
 
                     b.ToTable("Users");
                 });
@@ -814,12 +828,6 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("MFTL.Collections.Domain.Entities.Tenant", null)
-                        .WithMany("Events")
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Branch");
                 });
 
@@ -858,12 +866,6 @@ namespace MFTL.Collections.Infrastructure.Migrations
                         .WithMany("RecordedReceipts")
                         .HasForeignKey("RecordedByUserId")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("MFTL.Collections.Domain.Entities.Tenant", null)
-                        .WithMany("Receipts")
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
 
                     b.Navigation("Branch");
 
@@ -958,10 +960,6 @@ namespace MFTL.Collections.Infrastructure.Migrations
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.Tenant", b =>
                 {
                     b.Navigation("Branches");
-
-                    b.Navigation("Events");
-
-                    b.Navigation("Receipts");
                 });
 
             modelBuilder.Entity("MFTL.Collections.Domain.Entities.User", b =>

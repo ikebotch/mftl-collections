@@ -3,11 +3,17 @@ using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
+using MFTL.Collections.Application.Common.Security;
+
 namespace MFTL.Collections.Application.Features.Users.Commands.UpdateUserStatus;
 
+[HasPermission("users.update")]
 public record UpdateUserStatusCommand(
     Guid Id,
-    UserStatusAction Action) : IRequest<bool>;
+    UserStatusAction Action) : IRequest<bool>, IHasScope
+{
+    public Guid? GetScopeId() => null;
+}
 
 public enum UserStatusAction
 {
@@ -19,12 +25,21 @@ public enum UserStatusAction
     ResendInvite
 }
 
-public class UpdateUserStatusHandler(IApplicationDbContext dbContext) : IRequestHandler<UpdateUserStatusCommand, bool>
+public class UpdateUserStatusHandler(
+    IApplicationDbContext dbContext,
+    IAccessPolicyResolver policyResolver,
+    ICurrentUserService currentUserService) : IRequestHandler<UpdateUserStatusCommand, bool>
 {
     public async Task<bool> Handle(UpdateUserStatusCommand request, CancellationToken cancellationToken)
     {
-        var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == request.Id, cancellationToken);
-        if (user == null) return false;
+        var policy = await policyResolver.ResolvePolicyAsync();
+        var user = await policy.FilterUsers(dbContext.Users.AsQueryable())
+            .FirstOrDefaultAsync(u => u.Id == request.Id, cancellationToken);
+
+        if (user == null)
+        {
+            throw new UnauthorizedAccessException("User not found or you do not have permission to manage this user.");
+        }
 
         string detailAction = "";
 

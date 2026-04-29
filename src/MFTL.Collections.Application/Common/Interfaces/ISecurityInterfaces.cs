@@ -6,6 +6,13 @@ public interface ICurrentUserService
 {
     string? UserId { get; }
     string? Email { get; }
+    string? Name { get; }
+    string? GivenName { get; }
+    string? FamilyName { get; }
+    string? Nickname { get; }
+    string? Picture { get; }
+    string? PhoneNumber { get; }
+    string? AccessToken { get; }
     ClaimsPrincipal? User { get; }
     bool IsAuthenticated { get; }
     bool IsPlatformAdmin { get; }
@@ -19,4 +26,9 @@ public interface IScopeAccessService
     Task<bool> HasAccessToEventAsync(Guid eventId);
     Task<bool> HasAccessToRecipientFundAsync(Guid fundId);
     Task<IEnumerable<Guid>> GetAccessibleEventIdsAsync(Guid tenantId, Guid? branchId = null);
+}
+
+public interface IHasScope
+{
+    Guid? GetScopeId();
 }

@@ -1,4 +1,5 @@
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MediatR;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ using Mapster;
 
 namespace MFTL.Collections.Application.Features.Events.Commands.CreateEvent;
 
+[HasPermission("events.create")]
 public record CreateEventCommand(
     string Title, 
     string Description, 
@@ -17,7 +19,10 @@ public record CreateEventCommand(
     Guid BranchId,
     string? Slug = null,
     string? DisplayImageUrl = null,
-    string? ReceiptLogoUrl = null) : IRequest<EventDto>;
+    string? ReceiptLogoUrl = null) : IRequest<EventDto>, IHasScope
+{
+    public Guid? GetScopeId() => BranchId;
+}
 
 public class CreateEventCommandValidator : AbstractValidator<CreateEventCommand>
 {
@@ -34,10 +39,17 @@ public class CreateEventCommandValidator : AbstractValidator<CreateEventCommand>
     }
 }
 
-public class CreateEventCommandHandler(IApplicationDbContext dbContext) : IRequestHandler<CreateEventCommand, EventDto>
+public class CreateEventCommandHandler(
+    IApplicationDbContext dbContext,
+    IAccessPolicyResolver policyResolver) : IRequestHandler<CreateEventCommand, EventDto>
 {
     public async Task<EventDto> Handle(CreateEventCommand request, CancellationToken cancellationToken)
     {
+        var policy = await policyResolver.ResolvePolicyAsync();
+        if (!policy.CanAccessBranch(request.BranchId))
+        {
+            throw new UnauthorizedAccessException("You do not have access to create events in the specified branch.");
+        }
         var slug = string.IsNullOrWhiteSpace(request.Slug)
             ? SlugHelper.Generate(request.Title)
             : request.Slug!;

@@ -106,4 +106,9 @@ public static class ApiRoutes
         public const string GetEventBySlug = Base + "/events/{slug}";
         public const string ListFundsByEventSlug = Base + "/events/{slug}/funds";
     }
+
+    public static class Webhooks
+    {
+        public const string Auth0 = "v1/webhooks/auth0/user-created";
+    }
 }

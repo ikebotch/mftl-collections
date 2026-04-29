@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
+using MFTL.Collections.Contracts.Responses;
 using MFTL.Collections.Domain.Entities;
 
 namespace MFTL.Collections.Application.Features.Collectors.Queries.GetCollectorMe;
@@ -19,9 +21,14 @@ public sealed record CollectorMeDto(
     string? BlockedReason,
     string? PhoneNumber = null,
     IEnumerable<Guid>? EventIds = null,
-    IEnumerable<Guid>? FundIds = null);
+    IEnumerable<Guid>? FundIds = null,
+    bool HasPin = false);
 
-public record GetCollectorMeQuery(string? ExplicitUserId = null) : IRequest<CollectorMeDto>;
+[HasPermission("self.view")]
+public record GetCollectorMeQuery(string? ExplicitUserId = null) : IRequest<CollectorMeDto>, IHasScope
+{
+    public Guid? GetScopeId() => null; // Evaluated in handler or against Self scope
+}
 
 public class GetCollectorMeQueryHandler(
     IApplicationDbContext dbContext,
@@ -29,11 +36,25 @@ public class GetCollectorMeQueryHandler(
 {
     public async Task<CollectorMeDto> Handle(GetCollectorMeQuery request, CancellationToken cancellationToken)
     {
-        var auth0Id = request.ExplicitUserId ?? currentUserService.UserId;
+        var auth0Id = currentUserService.UserId;
+        
+        if (!string.IsNullOrWhiteSpace(request.ExplicitUserId) && request.ExplicitUserId != auth0Id)
+        {
+            // Only Platform Admins or Support can view other profiles
+            if (!currentUserService.IsPlatformAdmin)
+            {
+                // We should also check for support permission if we had a more granular check
+                // but for now, we'll follow the rule: users can only see themselves unless they are platform staff.
+                throw new UnauthorizedAccessException("You are not authorized to view this collector profile.");
+            }
+            auth0Id = request.ExplicitUserId;
+        }
+
         if (string.IsNullOrWhiteSpace(auth0Id))
         {
             throw new UnauthorizedAccessException("Collector authentication is required.");
         }
+
 
         var user = await dbContext.Users
             .Include(u => u.ScopeAssignments)
@@ -45,9 +66,39 @@ public class GetCollectorMeQueryHandler(
         }
 
         var assignments = user.ScopeAssignments.Where(a => a.Role == "Collector").ToList();
-        var eventCount = assignments.Count(a => a.ScopeType == ScopeType.Event);
-        var fundCount = assignments.Count(a => a.ScopeType == ScopeType.RecipientFund);
-        var hasAssignments = eventCount > 0 || fundCount > 0;
+        var orgIds = assignments
+            .Where(a => a.ScopeType == ScopeType.Organisation && a.TargetId.HasValue)
+            .Select(a => a.TargetId!.Value)
+            .ToList();
+
+        var branchIds = assignments
+            .Where(a => a.ScopeType == ScopeType.Branch && a.TargetId.HasValue)
+            .Select(a => a.TargetId!.Value)
+            .ToList();
+
+        var directEventIds = assignments
+            .Where(a => a.ScopeType == ScopeType.Event && a.TargetId.HasValue)
+            .Select(a => a.TargetId!.Value)
+            .ToList();
+
+        var directFundIds = assignments
+            .Where(a => a.ScopeType == ScopeType.RecipientFund && a.TargetId.HasValue)
+            .Select(a => a.TargetId!.Value)
+            .ToList();
+
+        var funds = await dbContext.RecipientFunds
+            .Include(f => f.Event)
+            .Where(fund => 
+                directFundIds.Contains(fund.Id) || 
+                directEventIds.Contains(fund.EventId) ||
+                orgIds.Contains(fund.Event.TenantId) ||
+                branchIds.Contains(fund.Event.BranchId))
+            .ToListAsync(cancellationToken);
+
+        var fundCount = funds.Count;
+        var eventCount = funds.Select(f => f.EventId).Concat(directEventIds).Distinct().Count();
+        
+        var hasAssignments = eventCount > 0 || fundCount > 0 || orgIds.Count > 0 || branchIds.Count > 0;
         var today = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
 
         var receiptsToday = await dbContext.Receipts
@@ -76,7 +127,8 @@ public class GetCollectorMeQueryHandler(
                 ? (hasAssignments ? null : "No active campaign or fund assignments established for this collector.")
                 : "Collector is inactive.",
             user.PhoneNumber,
-            assignments.Where(a => a.ScopeType == ScopeType.Event).Select(a => a.TargetId ?? Guid.Empty),
-            assignments.Where(a => a.ScopeType == ScopeType.RecipientFund).Select(a => a.TargetId ?? Guid.Empty));
+            directEventIds,
+            directFundIds,
+            !string.IsNullOrEmpty(user.Pin));
     }
 }

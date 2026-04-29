@@ -19,7 +19,9 @@ public record AdminDashboardDto(
     int TotalCollectors,
     int TotalDonors,
     int TotalReceipts,
-    IEnumerable<RecentContributionDto> RecentContributions);
+    IEnumerable<RecentContributionDto> RecentContributions,
+    bool IsAuth0Configured = false,
+    bool IsAuth0WebhookConfigured = false);
 
 public record RecentContributionDto(
     string ContributorName,

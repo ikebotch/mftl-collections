@@ -11,16 +11,57 @@ public record AssignScopeCommand(
     string ScopeType,
     Guid? TargetId) : IRequest<bool>;
 
-public class AssignScopeCommandHandler(IApplicationDbContext dbContext) : IRequestHandler<AssignScopeCommand, bool>
+public class AssignScopeCommandHandler(
+    IApplicationDbContext dbContext,
+    ICurrentUserService currentUserService,
+    IPermissionEvaluator permissionEvaluator) : IRequestHandler<AssignScopeCommand, bool>
 {
     public async Task<bool> Handle(AssignScopeCommand request, CancellationToken cancellationToken)
     {
+        // 1. Basic Existence Check
         var user = await dbContext.Users.FindAsync(new object[] { request.UserId }, cancellationToken);
         if (user == null) throw new KeyNotFoundException("User not found.");
 
-        var scopeType = Enum.Parse<ScopeType>(request.ScopeType);
+        // 2. Prevent Self-Escalation
+        var currentUserId = currentUserService.UserId;
+        var targetUserAuth0Id = user.Auth0Id;
+        
+        if (currentUserId == targetUserAuth0Id && !currentUserService.IsPlatformAdmin)
+        {
+            throw new UnauthorizedAccessException("Security Policy: Users are not permitted to modify their own role assignments.");
+        }
 
-        foreach (var role in request.Roles)
+        var roles = request.Roles ?? Enumerable.Empty<string>();
+        
+        string scopeTypeString = request.ScopeType;
+        if (scopeTypeString == "Tenant") scopeTypeString = "Organisation";
+
+        if (!Enum.TryParse<ScopeType>(scopeTypeString, true, out var scopeType))
+        {
+            throw new ArgumentException($"Invalid ScopeType: {request.ScopeType}");
+        }
+
+        // 3. Permission Check for the Scope
+        if (!await permissionEvaluator.HasPermissionAsync("users.assign_role", request.TargetId))
+        {
+            throw new UnauthorizedAccessException($"You do not have permission to manage roles for the requested {scopeType}.");
+        }
+
+        // 4. Security check: Only platform admins can assign platform scope or platform admin role
+        if (!currentUserService.IsPlatformAdmin)
+        {
+            if (scopeType == ScopeType.Platform)
+            {
+                throw new UnauthorizedAccessException("Only Platform Administrators can assign system-wide access.");
+            }
+
+            if (roles.Any(r => string.Equals(r, "Platform Admin", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new UnauthorizedAccessException("Only Platform Administrators can assign the Platform Admin role.");
+            }
+        }
+
+        foreach (var role in roles)
         {
             var assignment = new UserScopeAssignment
             {
@@ -40,7 +81,7 @@ public class AssignScopeCommandHandler(IApplicationDbContext dbContext) : IReque
             Action = "ScopesAssigned",
             EntityName = "User",
             EntityId = user.Id.ToString(),
-            Details = $"Assigned roles [{string.Join(", ", request.Roles)}] on scope {request.ScopeType} (Target: {request.TargetId?.ToString() ?? "Global"})",
+            Details = $"Assigned roles [{string.Join(", ", roles)}] on scope {request.ScopeType} (Target: {request.TargetId?.ToString() ?? "Global"})",
             PerformedBy = "System Administrator"
         };
         dbContext.AuditLogs.Add(audit);
