@@ -60,7 +60,18 @@ public static class DependencyInjection
         // Additional services for payments and dashboards
         services.AddScoped<IPaymentStateService, PaymentStateService>();
         services.AddScoped<IDashboardProjectionUpdater, DashboardProjectionUpdater>();
-        services.AddScoped<IEmailService, MockEmailService>();
+
+        // Email: use SendGrid when API key is configured; fall back to MockEmailService
+        services.Configure<SendGridOptions>(configuration.GetSection(SendGridOptions.SectionName));
+        var sendGridApiKey = configuration[$"{SendGridOptions.SectionName}:ApiKey"];
+        if (!string.IsNullOrWhiteSpace(sendGridApiKey))
+        {
+            services.AddScoped<IEmailService, SendGridEmailService>();
+        }
+        else
+        {
+            services.AddScoped<IEmailService, MockEmailService>();
+        }
 
         return services;
     }

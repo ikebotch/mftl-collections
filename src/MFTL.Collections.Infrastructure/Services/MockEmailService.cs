@@ -7,12 +7,17 @@ public class MockEmailService(ILogger<MockEmailService> logger) : IEmailService
 {
     public async Task SendInvitationAsync(string email, string name, string role)
     {
-        // Simulate email sending delay
-        await Task.Delay(500);
-        
-        logger.LogInformation("SIMULATED EMAIL: To {Email}, Name {Name}. Content: You have been invited to MFTL Collections as a {Role}.", 
+        await Task.Delay(100);
+        logger.LogInformation(
+            "[MOCK EMAIL] Invitation → {Email} ({Name}) | Role: {Role}",
             email, name, role);
-            
-        // In a real scenario, we'd use SendGrid, Mailtrap, etc.
+    }
+
+    public Task<bool> SendAsync(string toEmail, string toName, string subject, string htmlBody)
+    {
+        logger.LogInformation(
+            "[MOCK EMAIL] {Subject} → {ToEmail} ({ToName})",
+            subject, toEmail, toName);
+        return Task.FromResult(true);
     }
 }
