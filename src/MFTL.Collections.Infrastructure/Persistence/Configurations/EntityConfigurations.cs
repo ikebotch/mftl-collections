@@ -88,3 +88,24 @@ public class ProcessedWebhookEventConfiguration : IEntityTypeConfiguration<Proce
         builder.HasIndex(x => new { x.Provider, x.EventId }).IsUnique();
     }
 }
+
+public class NotificationTemplateConfiguration : IEntityTypeConfiguration<NotificationTemplate>
+{
+    public void Configure(EntityTypeBuilder<NotificationTemplate> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => x.TenantId);
+        builder.HasIndex(x => new { x.TenantId, x.TemplateKey, x.Channel }).IsUnique();
+        
+        builder.Property(x => x.TemplateKey).IsRequired().HasMaxLength(100);
+        builder.Property(x => x.Channel).IsRequired().HasMaxLength(32);
+        builder.Property(x => x.Name).IsRequired().HasMaxLength(200);
+        builder.Property(x => x.Subject).HasMaxLength(500);
+        builder.Property(x => x.Body).IsRequired();
+        
+        builder.HasOne(x => x.Branch)
+            .WithMany()
+            .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.SetNull);
+    }
+}
