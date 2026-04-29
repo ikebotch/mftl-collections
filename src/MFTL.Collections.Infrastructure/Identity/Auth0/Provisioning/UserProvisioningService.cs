@@ -23,28 +23,36 @@ public class UserProvisioningService(
         string? phoneNumber = null,
         CancellationToken cancellationToken = default)
     {
+        // 0. Fast-path: Check local DB first without holding the semaphore
+        // If we have a complete profile, we can skip the semaphore and enrichment logic
+        var user = await dbContext.Users
+            .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
+
+        bool isSparse = string.IsNullOrEmpty(email) || 
+                        string.IsNullOrEmpty(name) || 
+                        name == "New User" || 
+                        name == auth0Id ||
+                        (email != null && (email.Contains("unprovisioned") || email.EndsWith(".local") || email.EndsWith(".mftl") || email == auth0Id));
+
+        if (user != null && !isSparse)
+        {
+            // Update LastLoginAt occasionally or just skip for GetMe performance
+            // For now, we return the user ID immediately to avoid the semaphore bottleneck
+            return user.Id;
+        }
+
         await _semaphore.WaitAsync(cancellationToken);
         try
         {
-            // Check local DB first to see if we already have a complete profile
-            var user = await dbContext.Users
+            // Re-check inside semaphore to avoid race conditions
+            user = await dbContext.Users
                 .Include(u => u.ScopeAssignments)
                 .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
 
             // 1. Try to enrich sparse identity details only if we don't have them locally
-            bool isSparse = string.IsNullOrEmpty(email) || 
-                            string.IsNullOrEmpty(name) || 
-                            name == "New User" || 
-                            name == auth0Id ||
-                            email.Contains("unprovisioned") ||
-                            email.EndsWith(".local") ||
-                            email.EndsWith(".mftl") ||
-                            email == auth0Id;
-
-            // Only call Auth0 if incoming data is sparse AND we don't have a good local record
             bool needsEnrichment = isSparse && (user == null || user.Email.Contains("unprovisioned") || user.Name == "New User" || string.IsNullOrEmpty(user.Name));
 
-            logger.LogInformation("ProvisionUserAsync: auth0Id={Auth0Id}, isSparse={IsSparse}, needsEnrichment={NeedsEnrichment}, hasToken={HasToken}", 
+            logger.LogInformation("ProvisionUserAsync (Full): auth0Id={Auth0Id}, isSparse={IsSparse}, needsEnrichment={NeedsEnrichment}, hasToken={HasToken}", 
                 auth0Id, isSparse, needsEnrichment, !string.IsNullOrEmpty(accessToken));
 
             if (needsEnrichment)

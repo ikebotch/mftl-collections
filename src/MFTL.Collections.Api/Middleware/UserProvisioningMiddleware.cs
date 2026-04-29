@@ -48,7 +48,7 @@ public sealed class UserProvisioningMiddleware : IFunctionsWorkerMiddleware
                 nickname,
                 picture,
                 userService.PhoneNumber,
-                CancellationToken.None);
+                context.CancellationToken);
         }
         catch (Exception ex)
         {
