@@ -13,4 +13,14 @@ public class MockSmsService(ILogger<MockSmsService> logger) : ISmsService
         logger.LogInformation("SIMULATED SMS: To {PhoneNumber}. Content: {Message}", 
             phoneNumber, message);
     }
+
+    public Task<decimal> GetBalanceAsync()
+    {
+        return Task.FromResult(100.00m);
+    }
+
+    public Task<string> GetStatusAsync(string messageId)
+    {
+        return Task.FromResult("Delivered");
+    }
 }

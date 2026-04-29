@@ -46,3 +46,11 @@ public sealed class TenantResolutionOptions
     public bool EnableHostResolution { get; init; } = true;
     public string? HostSuffix { get; init; }
 }
+
+public sealed class GiantSmsOptions
+{
+    public const string SectionName = "GiantSms";
+    public string Username { get; init; } = string.Empty;
+    public string Password { get; init; } = string.Empty;
+    public string SenderId { get; init; } = "MFTL";
+}

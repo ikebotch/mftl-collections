@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.Configure<OpenApiOptions>(configuration.GetSection(OpenApiOptions.SectionName));
         services.Configure<ScalarOptions>(configuration.GetSection(ScalarOptions.SectionName));
         services.Configure<TenantResolutionOptions>(configuration.GetSection(TenantResolutionOptions.SectionName));
+        services.Configure<GiantSmsOptions>(configuration.GetSection(GiantSmsOptions.SectionName));
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
