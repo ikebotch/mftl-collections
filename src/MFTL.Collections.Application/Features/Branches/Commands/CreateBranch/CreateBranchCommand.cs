@@ -5,6 +5,7 @@ using MFTL.Collections.Domain.Entities;
 namespace MFTL.Collections.Application.Features.Branches.Commands.CreateBranch;
 
 public record CreateBranchCommand(
+    Guid TenantId,
     string Name,
     string Identifier,
     string? Location,
@@ -16,6 +17,7 @@ public class CreateBranchCommandHandler(IApplicationDbContext dbContext) : IRequ
     {
         var branch = new Branch
         {
+            TenantId = request.TenantId,
             Name = request.Name,
             Identifier = request.Identifier,
             Location = request.Location,
