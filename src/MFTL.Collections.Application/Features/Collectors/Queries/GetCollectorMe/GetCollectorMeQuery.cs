@@ -22,7 +22,10 @@ public sealed record CollectorMeDto(
     string? PhoneNumber = null,
     IEnumerable<Guid>? EventIds = null,
     IEnumerable<Guid>? FundIds = null,
-    bool HasPin = false);
+    bool HasPin = false,
+    IEnumerable<CurrencyTotalDto>? TotalsPerCurrency = null);
+
+public sealed record CurrencyTotalDto(string Currency, decimal Amount);
 
 [HasPermission("self.view")]
 public record GetCollectorMeQuery(string? ExplicitUserId = null) : IRequest<CollectorMeDto>, IHasScope
@@ -112,6 +115,11 @@ public class GetCollectorMeQueryHandler(
             .Select(r => (DateTimeOffset?)r.IssuedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+        var totalsPerCurrency = receiptsToday
+            .GroupBy(r => r.Contribution?.Currency ?? "GHS")
+            .Select(g => new CurrencyTotalDto(g.Key, g.Sum(r => r.Contribution?.Amount ?? 0)))
+            .ToList();
+
         return new CollectorMeDto(
             user.Id,
             user.Name,
@@ -119,7 +127,7 @@ public class GetCollectorMeQueryHandler(
             user.IsActive ? "Active" : "Inactive",
             eventCount,
             fundCount,
-            receiptsToday.Sum(r => r.Contribution?.Amount ?? 0),
+            totalsPerCurrency.FirstOrDefault(t => t.Currency == "GHS")?.Amount ?? totalsPerCurrency.FirstOrDefault()?.Amount ?? 0,
             receiptsToday.Count,
             lastActive,
             hasAssignments,
@@ -129,6 +137,7 @@ public class GetCollectorMeQueryHandler(
             user.PhoneNumber,
             directEventIds,
             directFundIds,
-            !string.IsNullOrEmpty(user.Pin));
+            !string.IsNullOrEmpty(user.Pin),
+            totalsPerCurrency);
     }
 }

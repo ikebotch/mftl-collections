@@ -14,6 +14,7 @@ public sealed record CollectorAssignedEventDto(
     DateTimeOffset? EventDate,
     string Location,
     int AssignedFundCount,
+    decimal TotalCollectedByCollector,
     IEnumerable<CollectorAssignedFundDto> Funds);
 
 public sealed record CollectorAssignedFundDto(
@@ -101,6 +102,12 @@ public class GetCollectorAssignmentsQueryHandler(
                 null);
         }
 
+        var today = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
+        var receiptsToday = await dbContext.Receipts
+            .Where(r => r.RecordedByUserId == user.Id && r.IssuedAt >= today)
+            .Include(r => r.Contribution)
+            .ToListAsync(cancellationToken);
+
         var funds = await dbContext.RecipientFunds
             .IgnoreQueryFilters()
             .Include(f => f.Event)
@@ -133,6 +140,11 @@ public class GetCollectorAssignmentsQueryHandler(
             events.Select(evt => 
             {
                 var eventFunds = funds.Where(f => f.EventId == evt.Id).ToList();
+                var eventFundIds = eventFunds.Select(f => f.Id).ToList();
+                var collectorTotalForEvent = receiptsToday
+                    .Where(r => r.EventId == evt.Id)
+                    .Sum(r => r.Contribution?.Amount ?? 0);
+
                 return new CollectorAssignedEventDto(
                     evt.Id,
                     evt.Title,
@@ -141,6 +153,7 @@ public class GetCollectorAssignmentsQueryHandler(
                     evt.EventDate,
                     evt.Branch?.Location ?? "Main Site",
                     eventFunds.Count,
+                    collectorTotalForEvent,
                     eventFunds.Select(fund => new CollectorAssignedFundDto(
                         fund.Id,
                         fund.EventId,
@@ -148,7 +161,7 @@ public class GetCollectorAssignmentsQueryHandler(
                         fund.Description,
                         fund.TargetAmount,
                         fund.CollectedAmount,
-                        "GHS")));
+                        fund.Event.Tenant.DefaultCurrency)));
             }),
             tenantId == Guid.Empty ? null : tenantId,
             branchId == Guid.Empty ? null : branchId);

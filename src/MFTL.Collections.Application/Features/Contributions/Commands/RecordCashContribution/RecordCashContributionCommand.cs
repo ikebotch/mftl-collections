@@ -22,7 +22,8 @@ public record RecordCashContributionCommand(
     string PaymentMethod,
     string? Note,
     string? ExplicitUserId,
-    string? Pin) : IRequest<CashContributionResult>, IHasScope
+    string? Pin,
+    string? IdempotencyKey) : IRequest<CashContributionResult>, IHasScope
 {
     public Guid? GetScopeId() => EventId;
 }
@@ -128,6 +129,21 @@ public class RecordCashContributionCommandHandler(
 
         dbContext.Contributors.Add(contributor);
 
+        if (!string.IsNullOrEmpty(request.IdempotencyKey))
+        {
+            var existingContribution = await dbContext.Contributions
+                .Include(c => c.Receipt)
+                .FirstOrDefaultAsync(c => c.Reference == request.IdempotencyKey, cancellationToken);
+
+            if (existingContribution != null)
+            {
+                return new CashContributionResult(
+                    existingContribution.Id, 
+                    existingContribution.Receipt?.Id, 
+                    existingContribution.Status.ToString());
+            }
+        }
+
         var contribution = new Contribution
         {
             TenantId = @event.TenantId,
@@ -141,7 +157,8 @@ public class RecordCashContributionCommandHandler(
             ContributorName = request.Anonymous ? "Anonymous" : request.ContributorName?.Trim() ?? string.Empty,
             Method = request.PaymentMethod,
             Status = ContributionStatus.RecordedCash,
-            Note = request.Note
+            Note = request.Note,
+            Reference = request.IdempotencyKey
         };
 
         dbContext.Contributions.Add(contribution);

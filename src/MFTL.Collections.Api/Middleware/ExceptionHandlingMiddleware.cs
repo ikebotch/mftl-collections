@@ -63,8 +63,14 @@ public sealed class ExceptionHandlingMiddleware(ILogger<ExceptionHandlingMiddlew
                         _ => "An internal server error occurred.",
                     };
 
+                    var details = new[] { 
+                        exception.Message, 
+                        $"Type: {exception.GetType().Name}",
+                        exception.StackTrace ?? ""
+                    };
+
                     var response = request.CreateResponse(statusCode);
-                    var envelope = new ApiResponse(false, message, new[] { exception.Message }, request.GetOrCreateCorrelationId());
+                    var envelope = new ApiResponse(false, message, details, request.GetOrCreateCorrelationId());
                     
                     await response.WriteStringAsync(JsonSerializer.Serialize(envelope));
                     context.GetInvocationResult().Value = response;

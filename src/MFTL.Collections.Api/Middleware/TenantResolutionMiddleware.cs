@@ -179,13 +179,23 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
             }
         }
 
-        if (requestedTenantIds.Count > 1)
+        if (requestedTenantIds.Count > 0)
         {
-            tenantContext.UseTenants(requestedTenantIds);
+            if (requestedTenantIds.Count > 1)
+            {
+                tenantContext.UseTenants(requestedTenantIds);
+            }
+            else
+            {
+                tenantContext.UseTenant(requestedTenantIds[0], resolution.Identifier);
+            }
         }
-        else
+        else if (requiresTenant)
         {
-            tenantContext.UseTenant(requestedTenantIds[0], resolution.Identifier);
+             var response = request.CreateResponse(System.Net.HttpStatusCode.BadRequest);
+             await response.WriteAsJsonAsync(new ApiResponse(false, "No organization context resolved.", CorrelationId: request.GetOrCreateCorrelationId()));
+             context.GetInvocationResult().Value = response;
+             return;
         }
 
         if (request.Headers.TryGetValues("X-Branch-Id", out var branchIdValues))
