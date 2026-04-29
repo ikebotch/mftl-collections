@@ -35,11 +35,13 @@ public record GetCollectorMeQuery(string? ExplicitUserId = null) : IRequest<Coll
 
 public class GetCollectorMeQueryHandler(
     IApplicationDbContext dbContext,
+    IAccessPolicyResolver policyResolver,
     ICurrentUserService currentUserService) : IRequestHandler<GetCollectorMeQuery, CollectorMeDto>
 {
     public async Task<CollectorMeDto> Handle(GetCollectorMeQuery request, CancellationToken cancellationToken)
     {
-        var auth0Id = currentUserService.UserId;
+        var context = await policyResolver.GetAccessContextAsync();
+        var auth0Id = context.Auth0Id;
         
         if (!string.IsNullOrWhiteSpace(request.ExplicitUserId) && request.ExplicitUserId != auth0Id)
         {
