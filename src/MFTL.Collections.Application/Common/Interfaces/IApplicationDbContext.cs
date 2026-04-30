@@ -18,6 +18,8 @@ public interface IApplicationDbContext
     DbSet<Settlement> Settlements { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<NotificationTemplate> NotificationTemplates { get; }
+    DbSet<Permission> Permissions { get; }
+    DbSet<RolePermission> RolePermissions { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

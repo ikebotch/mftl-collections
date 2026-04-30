@@ -55,6 +55,24 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
             effectiveRoles.Add("Platform Admin");
         }
 
+        var permissions = new List<string>();
+        if (user.IsPlatformAdmin)
+        {
+            permissions.Add("*");
+        }
+        else
+        {
+            // Fetch permissions for the effective roles from the database
+            var rolePermissions = await dbContext.RolePermissions
+                .Where(rp => effectiveRoles.Contains(rp.RoleName))
+                .Select(rp => rp.PermissionKey)
+                .ToListAsync(cancellationToken);
+
+            permissions.AddRange(rolePermissions);
+        }
+        
+        permissions = permissions.Distinct().ToList();
+
         return new UserDetailDto(
             user.Id,
             user.Auth0Id,
@@ -68,7 +86,7 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
             scopeDtos,
             user.IsSuspended ? "suspended" : (user.IsActive ? "active" : "inactive"),
             effectiveRoles,
-            new List<string>(), // Permissions placeholder
+            permissions,
             new List<string>(), // Auth0Roles placeholder
             user.IsPlatformAdmin);
     }

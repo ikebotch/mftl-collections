@@ -16,4 +16,5 @@ public interface IScopeAccessService
     Task<bool> HasAccessToEventAsync(Guid eventId);
     Task<bool> HasAccessToRecipientFundAsync(Guid fundId);
     Task<IEnumerable<Guid>> GetAccessibleEventIdsAsync(Guid tenantId);
+    Task<bool> HasPermissionAsync(string permissionKey);
 }

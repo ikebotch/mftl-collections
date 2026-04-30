@@ -5,7 +5,7 @@ using MFTL.Collections.Domain.Entities;
 
 namespace MFTL.Collections.Infrastructure.Identity;
 
-public sealed class ScopeAccessService(CollectionsDbContext dbContext, ICurrentUserService currentUserService) : IScopeAccessService
+public sealed class ScopeAccessService(IApplicationDbContext dbContext, ICurrentUserService currentUserService) : IScopeAccessService
 {
     public async Task<bool> HasAccessToTenantAsync(Guid tenantId)
     {
@@ -73,5 +73,30 @@ public sealed class ScopeAccessService(CollectionsDbContext dbContext, ICurrentU
             .Where(e => e.TenantId == tenantId && (branchIds.Contains(e.BranchId) || directEventIds.Contains(e.Id)))
             .Select(e => e.Id)
             .ToListAsync();
+    }
+
+    public async Task<bool> HasPermissionAsync(string permissionKey)
+    {
+        var auth0Id = currentUserService.UserId;
+        if (string.IsNullOrEmpty(auth0Id)) return false;
+
+        var user = await dbContext.Users
+            .Include(u => u.ScopeAssignments)
+            .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id);
+
+        if (user == null) return false;
+        if (user.IsPlatformAdmin) return true;
+
+        var roles = user.ScopeAssignments.Select(s => s.Role).Distinct().ToList();
+        if (roles.Count == 0) return false;
+
+        // Check if any of the user's roles have the required permission
+        // We support exact match, global wildcard "*", and module wildcard "module.*"
+        return await dbContext.RolePermissions
+            .AnyAsync(rp => roles.Contains(rp.RoleName) && 
+                           (rp.PermissionKey == "*" || 
+                            rp.PermissionKey == permissionKey || 
+                            (rp.PermissionKey.EndsWith(".*") && 
+                             permissionKey.StartsWith(rp.PermissionKey.Substring(0, rp.PermissionKey.Length - 1)))));
     }
 }

@@ -9,7 +9,13 @@ public sealed class TenantContext : ITenantContext
     public Guid? TenantId { get; set; }
     public Guid? BranchId { get; set; }
     public string? TenantIdentifier { get; set; }
-    public bool IsPlatformContext { get; private set; }
+    public bool IsPlatformContext { get; set; }
+    
+    public List<Guid> AllowedTenantIds { get; set; } = new();
+    public List<Guid> AllowedBranchIds { get; set; } = new();
+
+    IEnumerable<Guid> ITenantContext.AllowedTenantIds => AllowedTenantIds;
+    IEnumerable<Guid> ITenantContext.AllowedBranchIds => AllowedBranchIds;
 
     public void UseTenant(Guid tenantId, string? identifier)
     {
@@ -37,6 +43,8 @@ public sealed class TenantContext : ITenantContext
         BranchId = null;
         TenantIdentifier = null;
         IsPlatformContext = false;
+        AllowedTenantIds.Clear();
+        AllowedBranchIds.Clear();
     }
 }
 

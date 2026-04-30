@@ -1,10 +1,14 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Middleware;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Infrastructure.Configuration;
 using MFTL.Collections.Infrastructure.Tenancy;
+using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace MFTL.Collections.Api.Middleware;
 
@@ -18,8 +22,8 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
             return;
         }
 
-        var request = await context.GetHttpRequestDataAsync();
-        if (request == null)
+        var httpContext = context.GetHttpContext();
+        if (httpContext == null)
         {
             await next(context);
             return;
@@ -30,41 +34,152 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
         var requestAccessor = context.InstanceServices.GetRequiredService<FunctionHttpRequestAccessor>();
         requestAccessor.Clear();
 
-        if (!TenantRequestPolicy.RequiresTenant(context.FunctionDefinition.Name))
+        // 1. Authenticate the request early to check for Platform Admin status
+        bool isPlatformAdmin = false;
+        var allowedTenants = new List<Guid>();
+        var allowedBranches = new List<Guid>();
+        
+        try
         {
-            tenantContext.UsePlatformContext();
+            var authResult = await httpContext.AuthenticateAsync();
+            if (authResult.Succeeded && authResult.Principal != null)
+            {
+                httpContext.User = authResult.Principal;
+                
+                // Check for Platform Admin claim
+                isPlatformAdmin = authResult.Principal.HasClaim("extension_is_platform_admin", "true") || 
+                                 authResult.Principal.IsInRole("Platform Admin") ||
+                                 authResult.Principal.Claims.Any(c => c.Type == "https://mftl.com/roles" && c.Value == "Platform Admin");
+
+                if (!isPlatformAdmin)
+                {
+                    // For non-platform admins, resolve their specific assignments to enforce isolation
+                    var dbContext = context.InstanceServices.GetRequiredService<IApplicationDbContext>();
+                    var auth0Id = authResult.Principal.FindFirstValue(ClaimTypes.NameIdentifier) 
+                                  ?? authResult.Principal.FindFirstValue("sub");
+                    
+                    if (!string.IsNullOrEmpty(auth0Id))
+                    {
+                        var userAssignments = await dbContext.UserScopeAssignments
+                            .IgnoreQueryFilters()
+                            .Where(a => a.User.Auth0Id == auth0Id)
+                            .Select(a => new { a.ScopeType, a.TargetId })
+                            .ToListAsync();
+
+                        foreach (var assignment in userAssignments)
+                        {
+                            if (assignment.ScopeType == Domain.Entities.ScopeType.Tenant && assignment.TargetId.HasValue)
+                            {
+                                allowedTenants.Add(assignment.TargetId.Value);
+                            }
+                            else if (assignment.ScopeType == Domain.Entities.ScopeType.Branch && assignment.TargetId.HasValue)
+                            {
+                                allowedBranches.Add(assignment.TargetId.Value);
+                            }
+                        }
+
+                        // If user has tenant assignments, they are authorized for ALL branches of those tenants.
+                        // We must explicitly populate AllowedBranchIds to support strict DB filtering.
+                        if (allowedTenants.Count > 0)
+                        {
+                            var tenantBranches = await dbContext.Branches
+                                .IgnoreQueryFilters()
+                                .Where(b => allowedTenants.Contains(b.TenantId))
+                                .Select(b => b.Id)
+                                .ToListAsync();
+                            
+                            foreach (var bId in tenantBranches)
+                            {
+                                if (!allowedBranches.Contains(bId))
+                                {
+                                    allowedBranches.Add(bId);
+                                }
+                            }
+                        }
+                        
+                        tenantContext.AllowedTenantIds.AddRange(allowedTenants);
+                        tenantContext.AllowedBranchIds.AddRange(allowedBranches);
+                    }
+                }
+            }
+        }
+        catch { /* Ignore auth failures here, let functions handle it if needed */ }
+
+        bool requiresTenant = TenantRequestPolicy.RequiresTenant(context.FunctionDefinition.Name);
+
+        // 2. Set Platform Context ONLY if user is a real Platform Admin 
+        // OR if the endpoint is whitelisted and we don't have a user yet
+        if (!requiresTenant)
+        {
+            if (isPlatformAdmin || httpContext.User?.Identity?.IsAuthenticated != true)
+            {
+                tenantContext.UsePlatformContext();
+            }
+            else
+            {
+                tenantContext.IsPlatformContext = false;
+            }
+            
             await next(context);
             return;
         }
 
+        // 3. Resolve Tenant for required endpoints
         requestAccessor.SetRequest(
-            request.Headers.ToDictionary(
+            httpContext.Request.Headers.ToDictionary(
                 header => header.Key,
                 header => header.Value.ToArray(),
                 StringComparer.OrdinalIgnoreCase),
-            request.Url.Host);
+            httpContext.Request.Host.Value);
 
         var resolver = context.InstanceServices.GetRequiredService<CompositeTenantResolver>();
         var options = context.InstanceServices.GetRequiredService<IOptions<TenantResolutionOptions>>().Value;
         var result = await resolver.ResolveAsync();
-        var resolution = TenantRequestPolicy.Evaluate(context.FunctionDefinition.Name, request.Headers, result, options);
+        var resolution = TenantRequestPolicy.Evaluate(context.FunctionDefinition.Name, httpContext.Request.Headers, result, options);
 
-        if (!resolution.Success || !resolution.TenantId.HasValue)
+        if (!resolution.Success || !resolution.TenantId.HasValue || resolution.TenantId == Guid.Empty)
         {
-            var errorResponse = await TenantRequestPolicy.CreateErrorResponseAsync(request, resolution);
-            context.GetInvocationResult().Value = errorResponse;
+            httpContext.Response.StatusCode = (int)resolution.StatusCode;
+            await httpContext.Response.WriteAsJsonAsync(new { success = false, message = resolution.Message });
+            return;
+        }
+
+        // Validate that the user has access to this tenant if they are not a platform admin
+        if (!isPlatformAdmin && allowedTenants.Count > 0 && !allowedTenants.Contains(resolution.TenantId.Value))
+        {
+            httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await httpContext.Response.WriteAsJsonAsync(new { success = false, message = "You do not have access to this tenant." });
             return;
         }
 
         tenantContext.UseTenant(resolution.TenantId.Value, resolution.Identifier);
 
-        if (request.Headers.TryGetValues("X-Branch-Id", out var branchIdValues))
+        // 4. Resolve and Validate Branch Isolation
+        if (httpContext.Request.Headers.TryGetValue("X-Branch-Id", out var branchIdValues))
         {
             var branchIdStr = branchIdValues.FirstOrDefault();
             if (Guid.TryParse(branchIdStr, out var branchId))
             {
+                // Validate that the user has access to this branch if they are not a platform admin
+                if (!isPlatformAdmin && allowedBranches.Count > 0 && !allowedBranches.Contains(branchId))
+                {
+                    httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    await httpContext.Response.WriteAsJsonAsync(new { success = false, message = "You do not have access to this branch." });
+                    return;
+                }
                 tenantContext.UseBranch(branchId);
             }
+        }
+        else if (!isPlatformAdmin && allowedBranches.Count == 1)
+        {
+            // Automatically set branch if user only has one
+            tenantContext.UseBranch(allowedBranches[0]);
+        }
+
+        // If user is Platform Admin, they get the bypass even on tenant-required endpoints
+        if (isPlatformAdmin)
+        {
+            tenantContext.IsPlatformContext = true;
         }
 
         await next(context);

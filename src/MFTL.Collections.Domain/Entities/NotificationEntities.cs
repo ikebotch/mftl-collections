@@ -2,7 +2,7 @@ using MFTL.Collections.Domain.Common;
 
 namespace MFTL.Collections.Domain.Entities;
 
-public sealed class NotificationTemplate : BaseTenantEntity
+public sealed class NotificationTemplate : BaseTenantEntity, IOptionalBranchEntity
 {
     public Guid? BranchId { get; set; }
     public Branch? Branch { get; set; }
