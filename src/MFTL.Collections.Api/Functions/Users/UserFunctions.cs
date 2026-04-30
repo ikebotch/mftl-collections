@@ -1,15 +1,17 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.EntityFrameworkCore;
 using MediatR;
 using MFTL.Collections.Api.Extensions;
+using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Contracts.Responses;
 using MFTL.Collections.Application.Features.Users.Queries.ListUsers;
 
 namespace MFTL.Collections.Api.Functions.Users;
 
-public class UserFunctions(IMediator mediator)
+public class UserFunctions(IMediator mediator, IApplicationDbContext dbContext)
 {
     [Function("CoreListUsers")]
     public async Task<IActionResult> List(
@@ -17,6 +19,26 @@ public class UserFunctions(IMediator mediator)
     {
         var result = await mediator.Send(new ListUsersQuery());
         return new OkObjectResult(new ApiResponse<IEnumerable<UserDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
+    [Function("GetMe")]
+    public async Task<IActionResult> GetMe(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.Me)] HttpRequest req)
+    {
+        // Resolve the current user by their Auth0 sub claim (NameIdentifier)
+        var auth0Id = req.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrWhiteSpace(auth0Id))
+            return new UnauthorizedResult();
+
+        var user = await dbContext.Users
+            .Include(u => u.ScopeAssignments)
+            .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id);
+
+        if (user == null)
+            return new NotFoundObjectResult(new ApiResponse(false, "User profile not found.", CorrelationId: req.GetOrCreateCorrelationId()));
+
+        var result = await mediator.Send(new Application.Features.Users.Queries.GetUserById.GetUserByIdQuery(user.Id));
+        return new OkObjectResult(new ApiResponse<UserDetailDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
     [Function("GetUserById")]
