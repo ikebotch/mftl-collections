@@ -23,6 +23,32 @@ public enum PaymentStatus
     Reversed
 }
 
+public enum NotificationStatus
+{
+    Pending,
+    Sent,
+    Failed,
+    Skipped
+}
+
+public enum OutboxMessageStatus
+{
+    Pending,
+    Processing,
+    Sent,
+    Failed,
+    DeadLetter
+}
+
+public enum NotificationChannel
+{
+    Sms,
+    Email,
+    Push,
+    InApp,
+    WhatsApp
+}
+
 public enum ReceiptStatus
 {
     Issued,

@@ -1,0 +1,41 @@
+TpTrace Information: 0 : 5626, 1, 2026/04/30, 10:38:52.601, 291370278343333, testhost.dll, DefaultEngineInvoker: Monitoring parent process with id: '5625'
+TpTrace Information: 0 : 5626, 1, 2026/04/30, 10:38:52.610, 291370281779833, testhost.dll, DefaultEngineInvoker: Initialize communication on port number: '57313'
+TpTrace Information: 0 : 5626, 1, 2026/04/30, 10:38:52.611, 291370282613250, testhost.dll, Trying to connect to server on port : 57313
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.614, 291370285455041, testhost.dll, Connected to the server successfully 
+TpTrace Information: 0 : 5626, 1, 2026/04/30, 10:38:52.646, 291370317637000, testhost.dll, DefaultEngineInvoker: Start Request Processing.
+TpTrace Information: 0 : 5626, 8, 2026/04/30, 10:38:52.653, 291370324770041, testhost.dll, Invalid Message types
+TpTrace Information: 0 : 5626, 8, 2026/04/30, 10:38:52.654, 291370325137208, testhost.dll, Discovery Session Initialize.
+TpTrace Information: 0 : 5626, 8, 2026/04/30, 10:38:52.656, 291370328033333, testhost.dll, Execution started.
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.657, 291370328439250, testhost.dll, TestPluginCache: Updating loadOnlyWellKnownExtensions from False to False.
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.657, 291370328645750, testhost.dll, TestPluginCache: Using directories for assembly resolution '/Users/ikebotch/dev/mftl-collections/backend/src/MFTL.Collections.Tests/bin/Debug/net10.0'.
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.657, 291370328663000, testhost.dll, TestPluginCache: Updated the available extensions to '/Users/ikebotch/dev/mftl-collections/backend/src/MFTL.Collections.Tests/bin/Debug/net10.0/xunit.runner.visualstudio.testadapter.dll'.
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.657, 291370328804125, testhost.dll, TestExecutorService: Loading the extensions
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.658, 291370329721541, testhost.dll, TestPluginCache: Discovering the extensions using extension path.
+TpTrace Error: 0 : 5626, 4, 2026/04/30, 10:38:52.658, 291370329801083, testhost.dll, Default extensions folder does not exist
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.659, 291370330409416, testhost.dll, AssemblyResolver: xunit.runner.visualstudio.testadapter: Resolving assembly.
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.664, 291370335168625, testhost.dll, AssemblyResolver: xunit.runner.visualstudio.testadapter: Resolved assembly. 
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.677, 291370348947625, testhost.dll, TestPluginCache: Discovered the extensions using extension path '/Users/ikebotch/dev/mftl-collections/backend/src/MFTL.Collections.Tests/bin/Debug/net10.0/xunit.runner.visualstudio.testadapter.dll'.
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.678, 291370349114375, testhost.dll, TestPluginCache: Discoverers are 'Xunit.Runner.VisualStudio.VsTestRunner, xunit.runner.visualstudio.testadapter, Version=3.1.4.0, Culture=neutral, PublicKeyToken=null'.
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.678, 291370349138666, testhost.dll, TestPluginCache: Executors are 'executor://xunit/VsTestRunner3/netcore/'.
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.678, 291370349152416, testhost.dll, TestPluginCache: Setting providers are ''.
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.678, 291370349160250, testhost.dll, TestPluginCache: Loggers are ''.
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.678, 291370350014833, testhost.dll, TestPluginManager.CreateTestExtension: Attempting to load test extension: Xunit.Runner.VisualStudio.VsTestRunner
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.678, 291370350040041, testhost.dll, TestDiscoveryManager: LoadExtensions: Created discoverer Xunit.Runner.VisualStudio.VsTestRunner
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.678, 291370350047916, testhost.dll, TestExecutorService: Loaded the discoverers
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.680, 291370351560000, testhost.dll, TestPluginManager.CreateTestExtension: Attempting to load test extension: Xunit.Runner.VisualStudio.VsTestRunner
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.680, 291370351579583, testhost.dll, TestExecutorExtensionManager: Loading executor Xunit.Runner.VisualStudio.VsTestRunner
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.680, 291370351585791, testhost.dll, TestExecutorService: Loaded the executors
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.680, 291370351903250, testhost.dll, TestExecutorService: Loaded the settings providers
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.680, 291370351910291, testhost.dll, TestExecutorService: Loaded the extensions
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.685, 291370356342791, testhost.dll, AssemblyResolver: Microsoft.VisualStudio.TestPlatform.Common.resources: Resolving assembly.
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.685, 291370356423750, testhost.dll, AssemblyResolver: Microsoft.VisualStudio.TestPlatform.Common.resources: Resolving assembly.
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.686, 291370357743208, testhost.dll, AssemblyResolver: Microsoft.VisualStudio.TestPlatform.ObjectModel.resources: Resolving assembly.
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.686, 291370357783583, testhost.dll, AssemblyResolver: Microsoft.VisualStudio.TestPlatform.ObjectModel.resources: Resolving assembly.
+TpTrace Warning: 0 : 5626, 4, 2026/04/30, 10:38:52.686, 291370357823083, testhost.dll, Invalid settings 'RunConfiguration'. Unexpected XmlElement: 'CollectSourceInformation'.
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.687, 291370358616625, testhost.dll, TestDiscoveryManager: Discovering tests from sources /Users/ikebotch/dev/mftl-collections/backend/src/MFTL.Collections.Tests/bin/Debug/net10.0/MFTL.Collections.Tests.dll
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.691, 291370362452125, testhost.dll, BaseRunTests.RunTestInternalWithExecutors: Running tests for executor://xunit/VsTestRunner3/netcore/
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.693, 291370364240750, testhost.dll, [xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.4+50e68bbb8b (64-bit .NET 10.0.5)
+TpTrace Verbose: 0 : 5626, 4, 2026/04/30, 10:38:52.711, 291370382589083, testhost.dll, TestExecutionManager.RunTestInternalWithExecutors: Completed running tests for executor://xunit/VsTestRunner3/netcore/
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.712, 291370383083291, testhost.dll, AssemblyResolver: Microsoft.TestPlatform.CrossPlatEngine.resources: Resolving assembly.
+TpTrace Information: 0 : 5626, 4, 2026/04/30, 10:38:52.712, 291370383138750, testhost.dll, AssemblyResolver: Microsoft.TestPlatform.CrossPlatEngine.resources: Resolving assembly.
+TpTrace Warning: 0 : 5626, 4, 2026/04/30, 10:38:52.712, 291370383169416, testhost.dll, No test is available in /Users/ikebotch/dev/mftl-collections/backend/src/MFTL.Collections.Tests/bin/Debug/net10.0/MFTL.Collections.Tests.dll. Make sure that installed test discoverers & executors, platform & framework version settings are appropriate and try again.

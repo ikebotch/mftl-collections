@@ -44,6 +44,7 @@ public sealed class ContributionSettlementService(
         if (contribution.RecipientFund == null)
         {
             contribution.RecipientFund = await dbContext.RecipientFunds
+                .IgnoreQueryFilters() // Internal system resolution
                 .FirstOrDefaultAsync(f => f.Id == contribution.RecipientFundId, cancellationToken)
                 ?? throw new KeyNotFoundException($"Recipient fund {contribution.RecipientFundId} not found.");
         }
@@ -53,7 +54,9 @@ public sealed class ContributionSettlementService(
         {
             payment = contribution.PaymentId == paymentId
                 ? contribution.Payment
-                : await dbContext.Payments.FirstOrDefaultAsync(p => p.Id == paymentId.Value, cancellationToken);
+                : await dbContext.Payments
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(p => p.Id == paymentId.Value, cancellationToken);
 
             if (payment == null || payment.Status != PaymentStatus.Succeeded)
             {
@@ -72,14 +75,18 @@ public sealed class ContributionSettlementService(
             contribution.RecipientFund.CollectedAmount += contribution.Amount;
         }
 
+        // Idempotency: use existing receipt if present
         var receipt = contribution.Receipt ?? await dbContext.Receipts
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(r => r.ContributionId == contribution.Id, cancellationToken);
 
         if (receipt == null)
         {
             receipt = new Receipt
             {
-                TenantId = contribution.TenantId == Guid.Empty ? contribution.RecipientFund.TenantId : contribution.TenantId,
+                // Ensure IDs are copied from contribution to maintain scoping
+                TenantId = contribution.TenantId,
+                BranchId = contribution.BranchId,
                 EventId = contribution.EventId,
                 RecipientFundId = contribution.RecipientFundId,
                 ContributionId = contribution.Id,
@@ -88,16 +95,25 @@ public sealed class ContributionSettlementService(
                 ReceiptNumber = await GenerateUniqueReceiptNumberAsync(cancellationToken),
                 IssuedAt = DateTimeOffset.UtcNow,
                 Status = ReceiptStatus.Issued,
-                Note = contribution.Note,
-                BranchId = contribution.BranchId
+                Note = contribution.Note
             };
 
             dbContext.Receipts.Add(receipt);
             contribution.Receipt = receipt;
         }
-        else if (payment?.Id != null && receipt.PaymentId == null)
+        else
         {
-            receipt.PaymentId = payment.Id;
+            // Update linkage if payment was just matched
+            if (payment?.Id != null && receipt.PaymentId == null)
+            {
+                receipt.PaymentId = payment.Id;
+            }
+            
+            // Ensure status sync
+            if (receipt.Status != ReceiptStatus.Issued)
+            {
+                receipt.Status = ReceiptStatus.Issued;
+            }
         }
 
         return new ContributionSettlementResult(contribution.Id, receipt.Id);

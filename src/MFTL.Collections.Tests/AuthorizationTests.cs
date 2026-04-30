@@ -1,4 +1,10 @@
+using Moq;
+using FluentAssertions;
 using MFTL.Collections.Application.Common.Security;
+using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Domain.Entities;
+using MFTL.Collections.Infrastructure.Identity;
+using MockQueryable.Moq;
 
 namespace MFTL.Collections.Tests;
 
