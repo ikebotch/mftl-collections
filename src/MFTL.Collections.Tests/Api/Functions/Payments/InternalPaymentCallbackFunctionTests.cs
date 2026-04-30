@@ -47,6 +47,7 @@ public class InternalPaymentCallbackFunctionTests : IDisposable
             configurationMock.Object,
             _dbContext,
             _settlementServiceMock.Object,
+            tenantContextMock.Object,
             loggerMock.Object);
             
         SeedDatabase();
@@ -233,6 +234,7 @@ public class InternalPaymentCallbackFunctionTests : IDisposable
             emptyConfigMock.Object,
             _dbContext,
             _settlementServiceMock.Object,
+            new Mock<ITenantContext>().Object,
             new Mock<ILogger<InternalPaymentCallbackFunction>>().Object);
 
         var body = JsonSerializer.Serialize(new { EventType = "PaymentSucceeded" });

@@ -18,6 +18,7 @@ public sealed class PermissionBootstrapper(
     private static readonly string[] ManagedRoles =
     [
         "Platform Admin",
+        "Tenant Admin",
         "Organisation Admin",
         "Tenant Owner",
         "Branch Admin",
@@ -191,6 +192,49 @@ public sealed class PermissionBootstrapper(
         return new Dictionary<string, List<string>>
         {
             ["Platform Admin"] = ["*"],
+
+            ["Tenant Admin"] =
+            [
+                Permissions.Dashboard.View,
+                Permissions.Organisations.View,
+                Permissions.Organisations.Update,
+                Permissions.Branches.View,
+                Permissions.Branches.Create,
+                Permissions.Branches.Update,
+                Permissions.Users.View,
+                Permissions.Users.Invite,
+                Permissions.Users.Update,
+                Permissions.Users.Suspend,
+                Permissions.Users.ScopesAssign,
+                Permissions.Users.ScopesRevoke,
+                Permissions.Events.View,
+                Permissions.Events.Create,
+                Permissions.Events.Update,
+                Permissions.Events.Delete,
+                Permissions.Events.AssignStaff,
+                Permissions.RecipientFunds.View,
+                Permissions.RecipientFunds.Create,
+                Permissions.RecipientFunds.Update,
+                Permissions.RecipientFunds.Delete,
+                Permissions.Contributions.View,
+                Permissions.Receipts.View,
+                Permissions.Receipts.Resend,
+                Permissions.Payments.View,
+                Permissions.Payments.RefundsView,
+                Permissions.Settlements.View,
+                Permissions.Reports.View,
+                Permissions.Reports.Export,
+                Permissions.Donors.View,
+                Permissions.Donors.Update,
+                Permissions.NotificationTemplates.View,
+                Permissions.NotificationTemplates.Create,
+                Permissions.NotificationTemplates.Update,
+                Permissions.NotificationTemplates.Test,
+                Permissions.Notifications.View,
+                Permissions.Notifications.Retry,
+                Permissions.Settings.View,
+                Permissions.Settings.Update,
+            ],
 
             ["Organisation Admin"] =
             [

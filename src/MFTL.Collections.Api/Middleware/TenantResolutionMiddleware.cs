@@ -9,6 +9,7 @@ using MFTL.Collections.Infrastructure.Configuration;
 using MFTL.Collections.Infrastructure.Tenancy;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace MFTL.Collections.Api.Middleware;
 
@@ -42,6 +43,8 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
         try
         {
             var authResult = await httpContext.AuthenticateAsync();
+            string? auth0Id = null;
+
             if (authResult.Succeeded && authResult.Principal != null)
             {
                 httpContext.User = authResult.Principal;
@@ -51,15 +54,50 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
                                  authResult.Principal.IsInRole("Platform Admin") ||
                                  authResult.Principal.Claims.Any(c => c.Type == "https://mftl.com/roles" && c.Value == "Platform Admin");
 
+                auth0Id = authResult.Principal.FindFirstValue(ClaimTypes.NameIdentifier) 
+                          ?? authResult.Principal.FindFirstValue("sub");
+            }
+            
+            // Fallback to dev header if not authenticated or missing ID
+            if (string.IsNullOrEmpty(auth0Id))
+            {
+                auth0Id = httpContext.Request.Headers["X-Dev-User-Id"].FirstOrDefault();
+                
+                // Detailed logging for header resolution
+                var logger = context.InstanceServices.GetRequiredService<Microsoft.Extensions.Logging.ILogger<TenantResolutionMiddleware>>();
+                logger.LogInformation("[DIAGNOSTIC] Middleware: Auth0Id resolved from X-Dev-User-Id: {Auth0Id}. Total Headers: {Count}", 
+                    auth0Id ?? "(null)", httpContext.Request.Headers.Count);
+                
+                if (string.IsNullOrEmpty(auth0Id))
+                {
+                    foreach (var h in httpContext.Request.Headers)
+                    {
+                        logger.LogInformation("[DIAGNOSTIC] Header: {Key}={Value}", h.Key, h.Value.ToString());
+                    }
+                }
+            }
+
+            if (!string.IsNullOrEmpty(auth0Id))
+            {
+                requestAccessor.UserId = auth0Id;
+                httpContext.Items["UserId"] = auth0Id;
+
+                // Ensure the User is set and marked as authenticated for downstream checks
+                if (httpContext.User?.Identity?.IsAuthenticated != true)
+                {
+                    var claims = new List<Claim>
+                    {
+                        new Claim(ClaimTypes.NameIdentifier, auth0Id),
+                        new Claim("sub", auth0Id)
+                    };
+                    var identity = new ClaimsIdentity(claims, "DevBypass");
+                    httpContext.User = new ClaimsPrincipal(identity);
+                }
+                
                 if (!isPlatformAdmin)
                 {
                     // For non-platform admins, resolve their specific assignments to enforce isolation
                     var dbContext = context.InstanceServices.GetRequiredService<IApplicationDbContext>();
-                    var auth0Id = authResult.Principal.FindFirstValue(ClaimTypes.NameIdentifier) 
-                                  ?? authResult.Principal.FindFirstValue("sub");
-                    
-                    if (!string.IsNullOrEmpty(auth0Id))
-                    {
                         var userAssignments = await dbContext.UserScopeAssignments
                             .IgnoreQueryFilters()
                             .Where(a => a.User.Auth0Id == auth0Id)
@@ -75,6 +113,40 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
                             else if (assignment.ScopeType == Domain.Entities.ScopeType.Branch && assignment.TargetId.HasValue)
                             {
                                 allowedBranches.Add(assignment.TargetId.Value);
+                                
+                                var tId = await dbContext.Branches.IgnoreQueryFilters()
+                                    .Where(b => b.Id == assignment.TargetId)
+                                    .Select(b => b.TenantId)
+                                    .FirstOrDefaultAsync();
+                                if (tId != Guid.Empty && !allowedTenants.Contains(tId)) allowedTenants.Add(tId);
+                            }
+                            else if (assignment.ScopeType == Domain.Entities.ScopeType.Event && assignment.TargetId.HasValue)
+                            {
+                                var eId = assignment.TargetId.Value;
+                                var @event = await dbContext.Events.IgnoreQueryFilters()
+                                    .Where(e => e.Id == eId)
+                                    .Select(e => new { e.TenantId, e.BranchId })
+                                    .FirstOrDefaultAsync();
+                                
+                                if (@event != null)
+                                {
+                                    if (!allowedTenants.Contains(@event.TenantId)) allowedTenants.Add(@event.TenantId);
+                                    if (!allowedBranches.Contains(@event.BranchId)) allowedBranches.Add(@event.BranchId);
+                                }
+                            }
+                            else if (assignment.ScopeType == Domain.Entities.ScopeType.RecipientFund && assignment.TargetId.HasValue)
+                            {
+                                var fId = assignment.TargetId.Value;
+                                var fund = await dbContext.RecipientFunds.IgnoreQueryFilters()
+                                    .Where(f => f.Id == fId)
+                                    .Select(f => new { f.Event.TenantId, f.Event.BranchId })
+                                    .FirstOrDefaultAsync();
+                                
+                                if (fund != null)
+                                {
+                                    if (!allowedTenants.Contains(fund.TenantId)) allowedTenants.Add(fund.TenantId);
+                                    if (!allowedBranches.Contains(fund.BranchId)) allowedBranches.Add(fund.BranchId);
+                                }
                             }
                         }
 
@@ -97,15 +169,15 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
                             }
                         }
                         
-                        tenantContext.AllowedTenantIds.AddRange(allowedTenants);
-                        tenantContext.AllowedBranchIds.AddRange(allowedBranches);
+                        tenantContext.AllowedTenantIds.AddRange(allowedTenants.Distinct());
+                        tenantContext.AllowedBranchIds.AddRange(allowedBranches.Distinct());
                     }
                 }
-            }
         }
         catch { /* Ignore auth failures here, let functions handle it if needed */ }
 
         bool requiresTenant = TenantRequestPolicy.RequiresTenant(context.FunctionDefinition.Name);
+        var options = context.InstanceServices.GetRequiredService<IOptions<TenantResolutionOptions>>().Value;
 
         // 2. Set Platform Context ONLY if user is a real Platform Admin 
         // OR if the endpoint is whitelisted and we don't have a user yet
@@ -118,6 +190,26 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
             else
             {
                 tenantContext.IsPlatformContext = false;
+                
+                // For tenant-optional bootstrap endpoints (like /users/me), 
+                // we still want to respect X-Tenant-Id if provided and authorized.
+                if (httpContext.Request.Headers.TryGetValue(options.HeaderName, out var tenantHeaderValues))
+                {
+                    var tenantHeaderValue = tenantHeaderValues.FirstOrDefault();
+                    if (Guid.TryParse(tenantHeaderValue, out var tenantId))
+                    {
+                        if (allowedTenants.Contains(tenantId))
+                        {
+                            tenantContext.UseTenant(tenantId, "Header Resolution");
+                        }
+                        else
+                        {
+                            // Header provided but user has no access. 
+                            // Setting to Guid.Empty prevents accidental bootstrapping later.
+                            tenantContext.UseTenant(Guid.Empty, "Forbidden Header");
+                        }
+                    }
+                }
             }
             
             await next(context);
@@ -130,10 +222,15 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
                 header => header.Key,
                 header => header.Value.ToArray(),
                 StringComparer.OrdinalIgnoreCase),
-            httpContext.Request.Host.Value);
+            httpContext.Request.Query.ToDictionary(
+                q => q.Key,
+                q => q.Value.ToArray(),
+                StringComparer.OrdinalIgnoreCase),
+            httpContext.Request.Host.Value,
+            httpContext.Request.Method);
 
         var resolver = context.InstanceServices.GetRequiredService<CompositeTenantResolver>();
-        var options = context.InstanceServices.GetRequiredService<IOptions<TenantResolutionOptions>>().Value;
+        options = context.InstanceServices.GetRequiredService<IOptions<TenantResolutionOptions>>().Value;
         var result = await resolver.ResolveAsync();
         var resolution = TenantRequestPolicy.Evaluate(context.FunctionDefinition.Name, httpContext.Request.Headers, result, options);
 
@@ -145,7 +242,7 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
         }
 
         // Validate that the user has access to this tenant if they are not a platform admin
-        if (!isPlatformAdmin && allowedTenants.Count > 0 && !allowedTenants.Contains(resolution.TenantId.Value))
+        if (!isPlatformAdmin && allowedTenants.Count > 0 && resolution.TenantId.HasValue && !allowedTenants.Contains(resolution.TenantId.Value))
         {
             httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
             await httpContext.Response.WriteAsJsonAsync(new { success = false, message = "You do not have access to this tenant." });

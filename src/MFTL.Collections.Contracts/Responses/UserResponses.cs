@@ -26,7 +26,8 @@ public record UserDetailDto(
     IEnumerable<string> EffectiveRoles,
     IEnumerable<string> Permissions,
     IEnumerable<string> Auth0Roles,
-    bool IsPlatformAdmin);
+    bool IsPlatformAdmin,
+    Guid? ActiveTenantId = null);
 
 public record ScopeAssignmentDto(
     Guid Id,

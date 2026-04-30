@@ -2,13 +2,16 @@ using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Infrastructure.Persistence;
 using MFTL.Collections.Domain.Entities;
+using Microsoft.Extensions.Logging;
+using MFTL.Collections.Application.Common.Security;
 
 namespace MFTL.Collections.Infrastructure.Identity;
 
 public sealed class ScopeAccessService(
     IApplicationDbContext dbContext,
     ICurrentUserService currentUserService,
-    ITenantContext tenantContext) : IScopeAccessService
+    ITenantContext tenantContext,
+    ILogger<ScopeAccessService> logger) : IScopeAccessService
 {
     // ─────────────────────────────────────────────────────────────────────────
     //  Primary: Scope-Aware Permission Check
@@ -27,34 +30,55 @@ public sealed class ScopeAccessService(
         if (tenantId == Guid.Empty) return false;
 
         var auth0Id = currentUserService.UserId;
-        if (string.IsNullOrEmpty(auth0Id)) return false;
+        if (string.IsNullOrEmpty(auth0Id))
+        {
+            logger.LogWarning("[DIAGNOSTIC] ScopeAccessService: Auth0Id is null or empty.");
+            return false;
+        }
 
         // 1. Load the user's scope assignments with Role info.
-        //    MUST use IgnoreQueryFilters() — these are auth metadata queries,
-        //    not business data. The global tenant filter must not restrict
-        //    which assignments the authorization check can see.
         var assignments = await dbContext.UserScopeAssignments
             .IgnoreQueryFilters()
             .Include(s => s.User)
-            .Where(s => s.User.Auth0Id == auth0Id)
+            .Where(s => s.User.Auth0Id == auth0Id &&
+                        (s.ScopeType == ScopeType.Platform ||
+                         (s.ScopeType == ScopeType.Tenant && s.TargetId == tenantId) ||
+                         (s.ScopeType == ScopeType.Branch && dbContext.Branches.Any(b => b.Id == s.TargetId && b.TenantId == tenantId)) ||
+                         (s.ScopeType == ScopeType.Event && dbContext.Events.Any(e => e.Id == s.TargetId && e.TenantId == tenantId)) ||
+                         (s.ScopeType == ScopeType.RecipientFund && dbContext.RecipientFunds.Any(f => f.Id == s.TargetId && f.TenantId == tenantId))
+                        ))
             .ToListAsync(cancellationToken);
+
+        logger.LogInformation("[DIAGNOSTIC] ScopeAccessService.CanAccessAsync: " +
+            "User: {Auth0Id}, Permission: {Permission}, RequestedTenant: {TenantId}, AssignmentsCount: {Count}",
+            auth0Id, permission, tenantId, assignments.Count);
+
+        foreach (var a in assignments)
+        {
+            logger.LogInformation("[DIAGNOSTIC] Assignment: Id={Id}, UserId={UserId}, Role={Role}, Scope={Scope}, Target={Target}",
+                a.Id, a.UserId, a.Role, a.ScopeType, a.TargetId);
+        }
 
         if (assignments.Count == 0) return false;
 
         // 2. Platform Admin bypass — Platform-scope assignment grants everything
         if (assignments.Any(s => s.ScopeType == ScopeType.Platform))
         {
+            logger.LogInformation("[DIAGNOSTIC] Platform Admin bypass granted.");
             return true;
         }
 
         // 3. Determine which roles the user holds *within* the requested scope
-        //    A role is in-scope when its assignment matches the narrowest applicable scope:
-        //    Tenant → Branch → Event → Fund (from broad to narrow)
         var inScopeRoles = GetInScopeRoles(assignments, tenantId, branchId, eventId, fundId);
+        logger.LogInformation("[DIAGNOSTIC] In-Scope Roles: {Roles}", string.Join(", ", inScopeRoles));
+
         if (inScopeRoles.Count == 0) return false;
 
         // 4. Check if any in-scope role has the requested permission
-        return await RoleHasPermissionAsync(inScopeRoles, permission, cancellationToken);
+        var result = await RoleHasPermissionAsync(inScopeRoles, permission, cancellationToken);
+        logger.LogInformation("[DIAGNOSTIC] RoleHasPermission result: {Result}", result);
+
+        return result;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -177,7 +201,7 @@ public sealed class ScopeAccessService(
 
             var platformRoles = user.ScopeAssignments
                 .Where(s => s.ScopeType == ScopeType.Platform)
-                .Select(s => s.Role)
+                .Select(s => RoleNameNormalizer.Normalize(s.Role))
                 .ToList();
 
             if (!platformRoles.Any()) return false;
@@ -243,7 +267,9 @@ public sealed class ScopeAccessService(
 
             if (isInScope)
             {
-                roles.Add(assignment.Role);
+                // Normalize role names for permission lookup using centralized logic
+                var normalizedRole = RoleNameNormalizer.Normalize(assignment.Role);
+                roles.Add(normalizedRole);
             }
         }
 
@@ -263,24 +289,31 @@ public sealed class ScopeAccessService(
 
         // Exact match or global wildcard
         // RolePermissions is auth metadata — bypass global query filters.
-        var exactOrGlobal = await dbContext.RolePermissions
+        var rolePermissions = await dbContext.RolePermissions
             .IgnoreQueryFilters()
-            .AnyAsync(rp => roles.Contains(rp.RoleName) &&
-                            (rp.PermissionKey == "*" || rp.PermissionKey == permissionKey),
-                      cancellationToken);
+            .Where(rp => roles.Contains(rp.RoleName))
+            .ToListAsync(cancellationToken);
 
-        if (exactOrGlobal) return true;
+        logger.LogInformation("[DIAGNOSTIC] Loaded {Count} permissions for roles: {Roles}", 
+            rolePermissions.Count, string.Join(", ", roles));
+
+        foreach (var rp in rolePermissions)
+        {
+            logger.LogInformation("[DIAGNOSTIC] Role: {Role}, Permission: {Permission}", rp.RoleName, rp.PermissionKey);
+        }
+
+        var hasExactOrGlobal = rolePermissions.Any(rp => 
+            rp.PermissionKey == "*" || rp.PermissionKey == permissionKey);
+
+        if (hasExactOrGlobal) return true;
 
         // Module wildcard: "module.*" matches "module.action"
-        // Extract the module prefix from the requested permission key
         var dotIndex = permissionKey.IndexOf('.');
         if (dotIndex > 0)
         {
             var modulePrefix = permissionKey[..dotIndex] + ".*";
-            return await dbContext.RolePermissions
-                .IgnoreQueryFilters()
-                .AnyAsync(rp => roles.Contains(rp.RoleName) && rp.PermissionKey == modulePrefix,
-                          cancellationToken);
+            var hasModuleWildcard = rolePermissions.Any(rp => rp.PermissionKey == modulePrefix);
+            if (hasModuleWildcard) return true;
         }
 
         return false;

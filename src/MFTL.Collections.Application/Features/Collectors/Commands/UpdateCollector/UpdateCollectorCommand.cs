@@ -1,5 +1,6 @@
 using MediatR;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,7 +34,7 @@ public class UpdateCollectorCommandHandler(IApplicationDbContext dbContext) : IR
         {
             // Remove existing event assignments
             var existingEventAssignments = user.ScopeAssignments
-                .Where(a => a.ScopeType == ScopeType.Event && a.Role == "Collector")
+                .Where(a => a.ScopeType == ScopeType.Event && a.Role == RoleNameNormalizer.Normalize("Collector"))
                 .ToList();
 
             foreach (var assignment in existingEventAssignments)
@@ -49,7 +50,7 @@ public class UpdateCollectorCommandHandler(IApplicationDbContext dbContext) : IR
                     UserId = user.Id,
                     ScopeType = ScopeType.Event,
                     TargetId = eventId,
-                    Role = "Collector"
+                    Role = RoleNameNormalizer.Normalize("Collector")
                 });
             }
         }
@@ -58,7 +59,7 @@ public class UpdateCollectorCommandHandler(IApplicationDbContext dbContext) : IR
         if (request.FundIds != null)
         {
             var existingFundAssignments = user.ScopeAssignments
-                .Where(a => a.ScopeType == ScopeType.RecipientFund && a.Role == "Collector")
+                .Where(a => a.ScopeType == ScopeType.RecipientFund && a.Role == RoleNameNormalizer.Normalize("Collector"))
                 .ToList();
 
             foreach (var assignment in existingFundAssignments)
@@ -73,7 +74,7 @@ public class UpdateCollectorCommandHandler(IApplicationDbContext dbContext) : IR
                     UserId = user.Id,
                     ScopeType = ScopeType.RecipientFund,
                     TargetId = fundId,
-                    Role = "Collector"
+                    Role = RoleNameNormalizer.Normalize("Collector")
                 });
             }
         }

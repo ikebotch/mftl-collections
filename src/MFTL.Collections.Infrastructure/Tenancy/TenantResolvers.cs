@@ -60,18 +60,30 @@ public sealed class TenantContext : ITenantContext
 public sealed class FunctionHttpRequestAccessor
 {
     public IReadOnlyDictionary<string, string[]> Headers { get; private set; } = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, string[]> Query { get; private set; } = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
     public string? Host { get; private set; }
+    public string? Method { get; private set; }
+    public string? UserId { get; set; }
 
-    public void SetRequest(IReadOnlyDictionary<string, string[]> headers, string? host)
+    public void SetRequest(
+        IReadOnlyDictionary<string, string[]> headers, 
+        IReadOnlyDictionary<string, string[]> query, 
+        string? host,
+        string? method)
     {
         Headers = headers;
+        Query = query;
         Host = host;
+        Method = method;
     }
 
     public void Clear()
     {
         Headers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        Query = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
         Host = null;
+        Method = null;
+        UserId = null;
     }
 }
 
@@ -117,6 +129,30 @@ public sealed class HostTenantResolver(FunctionHttpRequestAccessor requestAccess
             if (!string.IsNullOrEmpty(identifier))
             {
                 return Task.FromResult(new TenantResolutionResult(null, identifier));
+            }
+        }
+
+        return Task.FromResult(new TenantResolutionResult(null, null, false));
+    }
+}
+
+public sealed class QueryTenantResolver(FunctionHttpRequestAccessor requestAccessor) : ITenantResolver
+{
+    public Task<TenantResolutionResult> ResolveAsync()
+    {
+        // Fallback to query parameter only for GET requests to prevent state-changing actions
+        // from being triggered by malicious links (CSRF protection layer)
+        if (requestAccessor.Method != "GET")
+        {
+            return Task.FromResult(new TenantResolutionResult(null, null, false));
+        }
+
+        if (requestAccessor.Query.TryGetValue("tenantId", out var values))
+        {
+            var tenantIdStr = values.FirstOrDefault();
+            if (Guid.TryParse(tenantIdStr, out var tenantId) && tenantId != Guid.Empty)
+            {
+                return Task.FromResult(new TenantResolutionResult(tenantId, tenantIdStr));
             }
         }
 

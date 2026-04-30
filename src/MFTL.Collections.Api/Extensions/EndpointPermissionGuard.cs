@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Common;
 
@@ -52,6 +54,31 @@ public static class EndpointPermissionGuard
         var branchId = tenantContext.BranchId;
         var allowed = await scopeService.CanAccessAsync(permission, tenantId.Value, branchId, cancellationToken: cancellationToken);
 
+        if (!allowed)
+        {
+            var loggerFactory = req.HttpContext.RequestServices.GetService(typeof(ILoggerFactory)) as ILoggerFactory;
+            var logger = loggerFactory?.CreateLogger("EndpointPermissionGuard");
+            var currentUserService = req.HttpContext.RequestServices.GetService(typeof(ICurrentUserService)) as ICurrentUserService;
+            var dbContext = req.HttpContext.RequestServices.GetService(typeof(IApplicationDbContext)) as IApplicationDbContext;
+
+            var auth0Id = currentUserService?.UserId;
+            Guid? internalUserId = null;
+            if (dbContext != null && !string.IsNullOrEmpty(auth0Id))
+            {
+                var user = await dbContext.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
+                internalUserId = user?.Id;
+            }
+
+            logger?.LogInformation(
+                "[DIAGNOSTIC] Permission Denied. " +
+                "Permission: {Permission}, TenantId: {TenantId}, BranchId: {BranchId}, " +
+                "Header X-Tenant-Id: {HeaderTenantId}, Query tenantId: {QueryTenantId}, " +
+                "Auth0Id: {Auth0Id}, InternalUserId: {InternalUserId}, Allowed: {Allowed}",
+                permission, tenantId, branchId,
+                req.Headers["X-Tenant-Id"].ToString(), req.Query["tenantId"].ToString(),
+                auth0Id, internalUserId, allowed);
+        }
+
         return allowed ? null : Forbidden(req, permission, tenantContext);
     }
 
@@ -83,15 +110,22 @@ public static class EndpointPermissionGuard
         var userId = req.HttpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? 
                      req.HttpContext.User.FindFirst("sub")?.Value;
 
+        var xTenantId = req.Headers["X-Tenant-Id"].ToString();
+        var queryTenantId = req.Query["tenantId"].ToString();
+
         if (logger != null)
         {
             logger.LogWarning(
-                "Access Denied: User '{UserId}' lacks required permission '{Permission}'. TenantContext: TenantId={TenantId}, BranchId={BranchId}, IsPlatform={IsPlatform}",
+                "Access Denied: User '{UserId}' lacks required permission '{Permission}'. " +
+                "Context: TenantId={TenantId}, BranchId={BranchId}, IsPlatform={IsPlatform}. " +
+                "Request: X-Tenant-Id='{HeaderTenantId}', query tenantId='{QueryTenantId}'",
                 userId,
                 permission,
                 tenantContext?.TenantId,
                 tenantContext?.BranchId,
-                tenantContext?.IsPlatformContext);
+                tenantContext?.IsPlatformContext,
+                xTenantId,
+                queryTenantId);
         }
 
         return new ObjectResult(new ApiResponse(false,

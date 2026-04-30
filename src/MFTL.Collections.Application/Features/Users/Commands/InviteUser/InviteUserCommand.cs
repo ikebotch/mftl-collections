@@ -1,5 +1,6 @@
 using MediatR;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,8 +41,8 @@ public class InviteUserCommandHandler(IApplicationDbContext dbContext, IEmailSer
         var assignment = new UserScopeAssignment
         {
             User = user,
-            Role = request.Role,
-            ScopeType = scopeType,
+            Role = RoleNameNormalizer.Normalize(request.Role),
+            ScopeType = Enum.Parse<ScopeType>(request.ScopeType),
             TargetId = request.TargetId
         };
 

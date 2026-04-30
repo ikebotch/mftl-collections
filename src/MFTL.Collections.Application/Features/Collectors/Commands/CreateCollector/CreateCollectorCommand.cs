@@ -1,5 +1,6 @@
 using MediatR;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Application.Features.Collectors.Queries.GetCollectorMe;
 using MFTL.Collections.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -37,7 +38,7 @@ public class CreateCollectorCommandHandler(IApplicationDbContext dbContext) : IR
         user.ScopeAssignments.Add(new UserScopeAssignment
         {
             ScopeType = ScopeType.Platform,
-            Role = "Collector"
+            Role = RoleNameNormalizer.Normalize("Collector")
         });
 
         dbContext.Users.Add(user);
