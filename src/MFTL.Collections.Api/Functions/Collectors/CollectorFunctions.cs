@@ -8,6 +8,7 @@ using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Application.Features.Collectors.Queries.GetCollectorAssignments;
 using MFTL.Collections.Application.Features.Collectors.Queries.GetCollectorMe;
+using MFTL.Collections.Application.Features.Collectors.Queries.GetCollectorSettlements;
 using MFTL.Collections.Application.Features.Collectors.Queries.ListCollectorHistory;
 using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Contracts.Responses;
@@ -50,6 +51,17 @@ public class CollectorFunctions(
         
         var result = await mediator.Send(new ListCollectorHistoryQuery());
         return new OkObjectResult(new ApiResponse<IEnumerable<CollectorHistoryReceiptDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
+    [Function("GetCollectorSettlements")]
+    public async Task<IActionResult> GetSettlements(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Collectors.Settlements)] HttpRequest req)
+    {
+        // Require authentication. Identity is derived from CurrentUserService in the handler.
+        await req.HttpContext.AuthenticateAsync();
+        
+        var result = await mediator.Send(new GetCollectorSettlementsQuery());
+        return new OkObjectResult(new ApiResponse<IEnumerable<SettlementDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
     [Function("ListCollectors")]
