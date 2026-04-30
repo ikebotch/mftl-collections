@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IPaymentProvider, StripePaymentProvider>();
         services.AddScoped<IPaymentProvider, PaystackPaymentProvider>();
         services.AddScoped<ITenantResolver, HeaderTenantResolver>();
+        services.AddScoped<ITenantResolver, QueryTenantResolver>();
         services.AddScoped<ITenantResolver, HostTenantResolver>();
         services.AddScoped<CompositeTenantResolver>();
 

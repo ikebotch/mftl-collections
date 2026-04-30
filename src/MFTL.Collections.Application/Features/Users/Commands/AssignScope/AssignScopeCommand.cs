@@ -1,5 +1,6 @@
 using MediatR;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,7 +26,7 @@ public class AssignScopeCommandHandler(IApplicationDbContext dbContext) : IReque
             var assignment = new UserScopeAssignment
             {
                 User = user,
-                Role = role,
+                Role = RoleNameNormalizer.Normalize(role),
                 ScopeType = scopeType,
                 TargetId = request.TargetId
             };

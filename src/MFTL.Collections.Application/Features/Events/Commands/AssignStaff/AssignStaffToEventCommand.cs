@@ -1,5 +1,6 @@
 using MediatR;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -29,7 +30,7 @@ public class AssignStaffToEventCommandHandler(IApplicationDbContext dbContext) :
                     UserId = userId,
                     ScopeType = ScopeType.Event,
                     TargetId = request.EventId,
-                    Role = "Collector"
+                    Role = RoleNameNormalizer.Normalize("Collector")
                 });
             }
         }

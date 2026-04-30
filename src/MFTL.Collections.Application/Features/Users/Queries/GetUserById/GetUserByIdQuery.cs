@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Responses;
+using MFTL.Collections.Application.Common.Security;
 
 namespace MFTL.Collections.Application.Features.Users.Queries.GetUserById;
 
@@ -47,16 +48,16 @@ public class GetUserByIdQueryHandler(
 
             scopeDtos.Add(new ScopeAssignmentDto(
                 a.Id,
-                a.Role,
+                RoleNameNormalizer.Normalize(a.Role),
                 a.ScopeType.ToString(),
                 a.TargetId,
                 targetName));
         }
 
         // Determine effective roles scoped to the active tenant context.
-        // If no tenant is active (bootstrap), return empty permissions but all scopeAssignments.
         var effectiveRoles = new List<string>();
         var permissions = new List<string>();
+        Guid? activeTenantId = tenantContext.TenantId;
 
         if (user.IsPlatformAdmin)
         {
@@ -65,40 +66,103 @@ public class GetUserByIdQueryHandler(
         }
         else
         {
-            var activeTenantId = tenantContext.TenantId;
+            var availableTenants = new HashSet<Guid>();
+
+            // Resolve unique tenants from all assignments
+            foreach (var a in user.ScopeAssignments.Where(x => x.TargetId.HasValue))
+            {
+                if (a.ScopeType == Domain.Entities.ScopeType.Tenant)
+                {
+                    availableTenants.Add(a.TargetId!.Value);
+                }
+                else if (a.ScopeType == Domain.Entities.ScopeType.Branch)
+                {
+                    var tId = await dbContext.Branches.IgnoreQueryFilters()
+                        .Where(b => b.Id == a.TargetId)
+                        .Select(b => b.TenantId)
+                        .FirstOrDefaultAsync(cancellationToken);
+                    if (tId != Guid.Empty) availableTenants.Add(tId);
+                }
+                else if (a.ScopeType == Domain.Entities.ScopeType.Event)
+                {
+                    var tId = await dbContext.Events.IgnoreQueryFilters()
+                        .Where(e => e.Id == a.TargetId)
+                        .Select(e => e.TenantId)
+                        .FirstOrDefaultAsync(cancellationToken);
+                    if (tId != Guid.Empty) availableTenants.Add(tId);
+                }
+                else if (a.ScopeType == Domain.Entities.ScopeType.RecipientFund)
+                {
+                    var tId = await dbContext.RecipientFunds.IgnoreQueryFilters()
+                        .Where(f => f.Id == a.TargetId)
+                        .Select(f => f.Event.TenantId)
+                        .FirstOrDefaultAsync(cancellationToken);
+                    if (tId != Guid.Empty) availableTenants.Add(tId);
+                }
+            }
+
+            // Bootstrap Logic: If no tenant is active but user has assignments for exactly one unique tenant, use it.
+            // Note: If activeTenantId is Guid.Empty, it means a tenant was explicitly requested but rejected.
+            if (activeTenantId == null && availableTenants.Count == 1)
+            {
+                activeTenantId = availableTenants.First();
+            }
 
             if (activeTenantId.HasValue && activeTenantId.Value != Guid.Empty)
             {
                 // Scoped: only include roles from assignments matching the active tenant
-                // Tenant-scope assignment covers all child scopes within that tenant
-                // Branch/Event/Fund assignments also qualify if they belong to the active tenant
+                // 1. Tenant-level roles for the active tenant
                 var tenantRoles = user.ScopeAssignments
-                    .Where(a => a.ScopeType == Domain.Entities.ScopeType.Platform ||
-                               (a.ScopeType == Domain.Entities.ScopeType.Tenant && a.TargetId == activeTenantId.Value) ||
-                                a.ScopeType == Domain.Entities.ScopeType.Branch ||
-                                a.ScopeType == Domain.Entities.ScopeType.Event ||
-                                a.ScopeType == Domain.Entities.ScopeType.RecipientFund)
+                    .Where(a => a.ScopeType == Domain.Entities.ScopeType.Tenant && a.TargetId == activeTenantId.Value)
                     .Select(a => a.Role)
+                    .ToList();
+
+                // 2. Child-level roles (Branch/Event/Fund) that belong to this tenant
+                var childRoles = new List<string>();
+                
+                foreach (var a in user.ScopeAssignments.Where(a => a.TargetId.HasValue))
+                {
+                    bool isMatch = false;
+                    if (a.ScopeType == Domain.Entities.ScopeType.Branch)
+                    {
+                        isMatch = await dbContext.Branches.IgnoreQueryFilters()
+                            .AnyAsync(b => b.Id == a.TargetId && b.TenantId == activeTenantId.Value, cancellationToken);
+                    }
+                    else if (a.ScopeType == Domain.Entities.ScopeType.Event)
+                    {
+                        isMatch = await dbContext.Events.IgnoreQueryFilters()
+                            .AnyAsync(e => e.Id == a.TargetId && e.TenantId == activeTenantId.Value, cancellationToken);
+                    }
+                    else if (a.ScopeType == Domain.Entities.ScopeType.RecipientFund)
+                    {
+                        isMatch = await dbContext.RecipientFunds.IgnoreQueryFilters()
+                            .AnyAsync(f => f.Id == a.TargetId && f.Event.TenantId == activeTenantId.Value, cancellationToken);
+                    }
+
+                    if (isMatch) childRoles.Add(a.Role);
+                }
+
+                effectiveRoles.AddRange(tenantRoles);
+                effectiveRoles.AddRange(childRoles);
+
+                // Normalise role names for permission lookup using centralized logic
+                effectiveRoles = effectiveRoles
+                    .Select(RoleNameNormalizer.Normalize)
                     .Distinct()
                     .ToList();
 
-                // For branch/event/fund scopes, we include them because the middleware already
-                // validated that the user's branches belong to the active tenant.
-                // The AllowedBranchIds in the middleware ensures branch isolation.
-                effectiveRoles.AddRange(tenantRoles);
+                // Fetch permissions for the effective roles
+                if (effectiveRoles.Count > 0)
+                {
+                    var rolePermissions = await dbContext.RolePermissions
+                        .IgnoreQueryFilters()
+                        .Where(rp => effectiveRoles.Contains(rp.RoleName))
+                        .Select(rp => rp.PermissionKey)
+                        .ToListAsync(cancellationToken);
 
-                // Fetch permissions for the tenant-scoped roles only
-                var rolePermissions = await dbContext.RolePermissions
-                    .IgnoreQueryFilters()
-                    .Where(rp => effectiveRoles.Contains(rp.RoleName))
-                    .Select(rp => rp.PermissionKey)
-                    .ToListAsync(cancellationToken);
-
-                permissions.AddRange(rolePermissions);
+                    permissions.AddRange(rolePermissions);
+                }
             }
-            // else: no active tenant = bootstrap context.
-            // Return empty permissions; frontend must select a tenant first.
-            // scopeAssignments are still returned so frontend can build tenant switcher.
         }
 
         permissions = permissions.Distinct().ToList();
@@ -118,6 +182,7 @@ public class GetUserByIdQueryHandler(
             effectiveRoles,
             permissions,
             new List<string>(), // Auth0Roles placeholder
-            user.IsPlatformAdmin);
+            user.IsPlatformAdmin,
+            activeTenantId);
     }
 }
