@@ -47,6 +47,7 @@ public class GetCollectorAssignmentsQueryHandler(
         }
 
         var user = await dbContext.Users
+            .IgnoreQueryFilters()
             .Include(u => u.ScopeAssignments)
             .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
 
@@ -90,9 +91,6 @@ public class GetCollectorAssignmentsQueryHandler(
         // Removed IgnoreQueryFilters() — we rely on proper scoped access.
         // Actually, since this is a collector endpoint, it might be called in platform context.
         // But the user's assignments themselves should define the scope.
-        // We filter funds that are directly assigned, OR belong to assigned events, OR belong to assigned branches.
-        var fundsQuery = dbContext.RecipientFunds.AsQueryable();
-        
         // If they have branch access, they see all events/funds in that branch.
         // If they have event access, they see all funds in that event.
         // If they have fund access, they see only that fund.
