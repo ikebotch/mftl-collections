@@ -138,9 +138,13 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
 
                 var tenantScope = Expression.Constant(Domain.Entities.ScopeType.Tenant);
                 var branchScope = Expression.Constant(Domain.Entities.ScopeType.Branch);
+                var eventScope = Expression.Constant(Domain.Entities.ScopeType.Event);
+                var fundScope = Expression.Constant(Domain.Entities.ScopeType.RecipientFund);
 
                 var isTenantScope = Expression.Equal(scopeTypeProp, tenantScope);
                 var isBranchScope = Expression.Equal(scopeTypeProp, branchScope);
+                var isEventScope = Expression.Equal(scopeTypeProp, eventScope);
+                var isFundScope = Expression.Equal(scopeTypeProp, fundScope);
 
                 var targetIdValue = Expression.Property(targetIdProp, "Value");
                 var hasValue = Expression.Property(targetIdProp, "HasValue");
@@ -159,7 +163,14 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
                         Expression.Call(typeof(Enumerable), "Contains", new[] { typeof(Guid) }, ctxAllowedBranches, targetIdValue)
                     ));
 
-                filter = Expression.OrElse(isPlatform, Expression.OrElse(tenantMatch, branchMatch));
+                // For Event and RecipientFund, we allow them if we are in the correct tenant context.
+                // But since we can't join here, we allow them and rely on the fact that the 
+                // target entities (Events/Funds) are themselves filtered by TenantId.
+                var otherScopes = Expression.OrElse(isEventScope, isFundScope);
+
+                filter = Expression.OrElse(isPlatform, 
+                    Expression.OrElse(tenantMatch, 
+                        Expression.OrElse(branchMatch, otherScopes)));
             }
 
             if (filter != null)
