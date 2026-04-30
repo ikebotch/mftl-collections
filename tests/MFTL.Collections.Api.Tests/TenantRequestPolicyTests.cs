@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.AspNetCore.Http;
 using MFTL.Collections.Api.Middleware;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Infrastructure.Configuration;
@@ -11,7 +12,7 @@ public class TenantRequestPolicyTests
     [Fact]
     public void MissingTenantHeader_ReturnsClearError()
     {
-        var headers = new HttpHeadersCollection();
+        var headers = new HeaderDictionary();
         var options = new TenantResolutionOptions { HeaderName = "X-Tenant-Id" };
 
         var result = TenantRequestPolicy.Evaluate(
@@ -30,7 +31,7 @@ public class TenantRequestPolicyTests
     [Fact]
     public void PlatformRoutes_DoNotRequireTenantHeader()
     {
-        var headers = new HttpHeadersCollection();
+        var headers = new HeaderDictionary();
         var options = new TenantResolutionOptions { HeaderName = "X-Tenant-Id" };
 
         var result = TenantRequestPolicy.Evaluate(

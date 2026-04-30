@@ -35,8 +35,11 @@ public sealed class PaymentWebhookProcessor(
         // Parse payload
         var parsed = provider.ParseWebhook(payload);
 
-        // Find payment by contributionId or provider reference
+        // Find payment by contributionId or provider reference. 
+        // We MUST use IgnoreQueryFilters() because the webhook request has no tenant context
+        // and we are resolving the unique record via a trusted provider-supplied reference.
         var payment = await dbContext.Payments
+            .IgnoreQueryFilters()
             .Include(p => p.Receipt)
             .FirstOrDefaultAsync(p => p.ContributionId == parsed.ContributionId || p.ProviderReference == parsed.ProviderReference, cancellationToken);
 

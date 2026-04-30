@@ -18,7 +18,7 @@ public sealed record CollectorHistoryReceiptDto(
     string PaymentStatus,
     string PaymentMethod);
 
-public record ListCollectorHistoryQuery(string? ExplicitUserId = null) : IRequest<IEnumerable<CollectorHistoryReceiptDto>>;
+public record ListCollectorHistoryQuery() : IRequest<IEnumerable<CollectorHistoryReceiptDto>>;
 
 public class ListCollectorHistoryQueryHandler(
     IApplicationDbContext dbContext,
@@ -28,7 +28,10 @@ public class ListCollectorHistoryQueryHandler(
         ListCollectorHistoryQuery request,
         CancellationToken cancellationToken)
     {
-        var auth0Id = request.ExplicitUserId ?? currentUserService.UserId;
+        // Identity MUST come from the authenticated user.
+        // ExplicitUserId fallback removed.
+        var auth0Id = currentUserService.UserId;
+        
         if (string.IsNullOrWhiteSpace(auth0Id))
         {
             throw new UnauthorizedAccessException("Collector authentication is required.");
@@ -37,19 +40,12 @@ public class ListCollectorHistoryQueryHandler(
         var user = await dbContext.Users
             .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
 
-        if (user == null && !string.IsNullOrWhiteSpace(request.ExplicitUserId))
-        {
-            user = await dbContext.Users
-                .Where(u => u.IsActive && u.ScopeAssignments.Any(a => a.Role == "Collector"))
-                .OrderBy(u => u.CreatedAt)
-                .FirstOrDefaultAsync(cancellationToken);
-        }
-
         if (user == null)
         {
             throw new KeyNotFoundException("Collector profile not found.");
         }
 
+        // Strictly scoped to the authenticated collector's own recorded receipts
         return await dbContext.Receipts
             .Where(r => r.RecordedByUserId == user.Id)
             .Include(r => r.Event)

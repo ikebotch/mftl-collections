@@ -26,7 +26,7 @@ public class TenantIsolationTests
 
         await using var writeContext = CreateDbContext(databaseName, tenantId);
         var createdEvent = await new CreateEventCommandHandler(writeContext).Handle(
-            new CreateEventCommand("Tenant event", "Live tenant readback", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Tenant event", "Live tenant readback", DateTimeOffset.UtcNow, Guid.NewGuid()),
             CancellationToken.None);
 
         await using var readContext = CreateDbContext(databaseName, tenantId);
@@ -47,7 +47,7 @@ public class TenantIsolationTests
 
         await using var writeContext = CreateDbContext(databaseName, tenantA);
         var createdEvent = await new CreateEventCommandHandler(writeContext).Handle(
-            new CreateEventCommand("Tenant A event", "Hidden from tenant B", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Tenant A event", "Hidden from tenant B", DateTimeOffset.UtcNow, Guid.NewGuid()),
             CancellationToken.None);
 
         await using var readContext = CreateDbContext(databaseName, tenantB);
@@ -67,7 +67,7 @@ public class TenantIsolationTests
 
         await using var seedContext = CreateDbContext(databaseName, tenantId);
         var createdEvent = await new CreateEventCommandHandler(seedContext).Handle(
-            new CreateEventCommand("Fund event", "Recipient fund test", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Fund event", "Recipient fund test", DateTimeOffset.UtcNow, Guid.NewGuid()),
             CancellationToken.None);
 
         await new CreateRecipientFundCommandHandler(seedContext).Handle(
@@ -92,7 +92,7 @@ public class TenantIsolationTests
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
         var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
-            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, Guid.NewGuid()),
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
@@ -189,7 +189,7 @@ public class TenantIsolationTests
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
         var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
-            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, Guid.NewGuid()),
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
@@ -232,7 +232,7 @@ public class TenantIsolationTests
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
         var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
-            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, Guid.NewGuid()),
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
@@ -274,7 +274,7 @@ public class TenantIsolationTests
 
         await using var dbContext = CreateDbContext(databaseName, tenantId);
         var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
-            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Collector event", "Cash collection", DateTimeOffset.UtcNow, Guid.NewGuid()),
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(
@@ -353,6 +353,8 @@ public class TenantIsolationTests
         public Guid? BranchId { get; init; }
         public string? TenantIdentifier { get; init; }
         public bool IsPlatformContext { get; init; }
+        public IEnumerable<Guid> AllowedTenantIds => TenantId.HasValue ? new[] { TenantId.Value } : [];
+        public IEnumerable<Guid> AllowedBranchIds => BranchId.HasValue ? new[] { BranchId.Value } : [];
     }
 
     private sealed class TestCurrentUserService(string? userId = null, string? email = null) : ICurrentUserService
@@ -373,7 +375,7 @@ public class TenantIsolationTests
         await using var dbContext = CreateDbContext(databaseName, tenantId);
         const string collectorAuth0Id = "collector-receipt";
         var createdEvent = await new CreateEventCommandHandler(dbContext).Handle(
-            new CreateEventCommand("Receipt event", "Receipt readback", DateTimeOffset.UtcNow),
+            new CreateEventCommand("Receipt event", "Receipt readback", DateTimeOffset.UtcNow, Guid.NewGuid()),
             CancellationToken.None);
 
         var fundId = await new CreateRecipientFundCommandHandler(dbContext).Handle(

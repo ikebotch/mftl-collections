@@ -30,7 +30,7 @@ public static class DependencyInjection
         
         services.AddScoped<FunctionHttpRequestAccessor>();
         services.AddScoped<TenantContext>();
-        services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
+        services.AddScoped<ITenantContext, TenantContext>();
         
         services.AddScoped<IPaymentOrchestrator, PaymentOrchestrator>();
         services.AddScoped<IPaymentWebhookProcessor, PaymentWebhookProcessor>();

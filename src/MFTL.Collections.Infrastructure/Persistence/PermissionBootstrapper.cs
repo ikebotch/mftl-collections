@@ -8,205 +8,370 @@ using MFTL.Collections.Domain.Entities;
 
 namespace MFTL.Collections.Infrastructure.Persistence;
 
+/// <summary>
+/// Seeds the Permission catalogue and RolePermission mappings on startup.
+/// </summary>
 public sealed class PermissionBootstrapper(
-    IServiceProvider serviceProvider,
+    IServiceScopeFactory scopeFactory,
     ILogger<PermissionBootstrapper> logger) : IHostedService
 {
+    private static readonly string[] ManagedRoles =
+    [
+        "Platform Admin",
+        "Organisation Admin",
+        "Tenant Owner",
+        "Branch Admin",
+        "Finance Admin",
+        "Accountant",
+        "Event Manager",
+        "Collector",
+        "Notification Manager",
+    ];
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        using var scope = serviceProvider.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
-
-        logger.LogInformation("Starting permission bootstrap...");
-
-        var existingPermissions = await dbContext.Permissions.Select(p => p.Key).ToListAsync(cancellationToken);
-        
-        var permissionsToSeed = new List<Permission>
+        try 
         {
-            new() { Key = Permissions.All, Description = "Full access to all system resources", Group = "System" },
-            
-            new() { Key = Permissions.Dashboard.View, Description = "View basic dashboard", Group = "Dashboard" },
-            new() { Key = Permissions.Dashboard.Admin, Description = "View administrative dashboard", Group = "Dashboard" },
-            
-            new() { Key = Permissions.Organisations.View, Description = "View organization details", Group = "System" },
-            new() { Key = Permissions.Organisations.Create, Description = "Create new organizations", Group = "System" },
-            new() { Key = Permissions.Organisations.Update, Description = "Update organization details", Group = "System" },
-            new() { Key = Permissions.Organisations.Manage, Description = "Full management of organizations", Group = "System" },
+            logger.LogInformation("Starting permission bootstrap background task...");
 
-            new() { Key = Permissions.Events.All, Description = "Manage all events (Wildcard)", Group = "Events" },
-            new() { Key = Permissions.Events.View, Description = "View events and campaigns", Group = "Events" },
-            new() { Key = Permissions.Events.Create, Description = "Create new events", Group = "Events" },
-            new() { Key = Permissions.Events.Update, Description = "Update existing events", Group = "Events" },
-            new() { Key = Permissions.Events.Delete, Description = "Delete or deactivate events", Group = "Events" },
-            new() { Key = Permissions.Events.Manage, Description = "Manage event operations", Group = "Events" },
+            using var scope = scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
 
-            new() { Key = Permissions.Contributions.All, Description = "Manage all contributions (Wildcard)", Group = "Contributions" },
-            new() { Key = Permissions.Contributions.View, Description = "View contributions", Group = "Contributions" },
-            new() { Key = Permissions.Contributions.Create, Description = "Record new contributions", Group = "Contributions" },
-            new() { Key = Permissions.Contributions.Update, Description = "Edit contribution details", Group = "Contributions" },
-            new() { Key = Permissions.Contributions.Settle, Description = "Settle/Reconcile contributions", Group = "Contributions" },
-            new() { Key = Permissions.Contributions.Manage, Description = "Manage contribution flows", Group = "Contributions" },
+            // ── 1. Seed Permission catalogue ──────────────────────────────────────
+            var existingKeys = await dbContext.Permissions
+                .Select(p => p.Key)
+                .ToListAsync(cancellationToken);
 
-            new() { Key = Permissions.Donors.All, Description = "Manage all donor profiles (Wildcard)", Group = "Donors" },
-            new() { Key = Permissions.Donors.View, Description = "View donor profiles", Group = "Donors" },
-            new() { Key = Permissions.Donors.Create, Description = "Register new donors", Group = "Donors" },
-            new() { Key = Permissions.Donors.Update, Description = "Update donor profiles", Group = "Donors" },
-            new() { Key = Permissions.Donors.Manage, Description = "Manage donor database", Group = "Donors" },
-
-            new() { Key = Permissions.Reports.View, Description = "View analytical reports", Group = "Reports" },
-            new() { Key = Permissions.Reports.Export, Description = "Export report data", Group = "Reports" },
-
-            new() { Key = Permissions.Settlements.All, Description = "Manage financial settlements (Wildcard)", Group = "Settlements" },
-            new() { Key = Permissions.Settlements.View, Description = "View financial settlements", Group = "Settlements" },
-            new() { Key = Permissions.Settlements.Manage, Description = "Execute financial settlements", Group = "Settlements" },
-
-            new() { Key = Permissions.Branches.All, Description = "Manage organization branches (Wildcard)", Group = "Branches" },
-            new() { Key = Permissions.Branches.View, Description = "View organization branches", Group = "Branches" },
-            new() { Key = Permissions.Branches.Create, Description = "Create new branches", Group = "Branches" },
-            new() { Key = Permissions.Branches.Update, Description = "Update branch details", Group = "Branches" },
-            new() { Key = Permissions.Branches.Delete, Description = "Delete or deactivate branches", Group = "Branches" },
-            new() { Key = Permissions.Branches.Manage, Description = "Full management of branches", Group = "Branches" },
-
-            new() { Key = Permissions.Users.All, Description = "Manage system users (Wildcard)", Group = "Users" },
-            new() { Key = Permissions.Users.View, Description = "View system users", Group = "Users" },
-            new() { Key = Permissions.Users.Create, Description = "Add new system users", Group = "Users" },
-            new() { Key = Permissions.Users.Update, Description = "Update user profiles", Group = "Users" },
-            new() { Key = Permissions.Users.Manage, Description = "Manage user access and roles", Group = "Users" },
-            new() { Key = Permissions.Users.Invite, Description = "Invite new users via email", Group = "Users" },
-            new() { Key = Permissions.Users.Suspend, Description = "Suspend user accounts", Group = "Users" },
-            new() { Key = Permissions.Users.Resend, Description = "Resend user invitations", Group = "Users" },
-            new() { Key = Permissions.Users.AssignScope, Description = "Assign scopes to users", Group = "Users" },
-
-            new() { Key = Permissions.Settings.All, Description = "Manage system settings (Wildcard)", Group = "Settings" },
-            new() { Key = Permissions.Settings.View, Description = "View system settings", Group = "Settings" },
-            new() { Key = Permissions.Settings.Update, Description = "Update system settings", Group = "Settings" },
-
-            new() { Key = Permissions.Notifications.All, Description = "Manage communication templates (Wildcard)", Group = "Notifications" },
-            new() { Key = Permissions.Notifications.View, Description = "View communication templates", Group = "Notifications" },
-            new() { Key = Permissions.Notifications.Create, Description = "Create communication templates", Group = "Notifications" },
-            new() { Key = Permissions.Notifications.Update, Description = "Update communication templates", Group = "Notifications" },
-            new() { Key = Permissions.Notifications.Preview, Description = "Preview rendered templates", Group = "Notifications" },
-            new() { Key = Permissions.Notifications.SendTest, Description = "Send test notifications", Group = "Notifications" },
-            new() { Key = Permissions.Notifications.Manage, Description = "Full management of notifications", Group = "Notifications" },
-
-            new() { Key = Permissions.Donations.View, Description = "View donation history", Group = "Donations" },
-
-            new() { Key = Permissions.Payments.All, Description = "Manage all payments (Wildcard)", Group = "Payments" },
-            new() { Key = Permissions.Payments.View, Description = "View payment records", Group = "Payments" },
-            new() { Key = Permissions.Payments.Retry, Description = "Retry failed payments", Group = "Payments" },
-            new() { Key = Permissions.Payments.Manage, Description = "Manage payment orchestrations", Group = "Payments" }
-        };
-
-        foreach (var permission in permissionsToSeed)
-        {
-            if (!existingPermissions.Contains(permission.Key))
+            var catalogue = BuildPermissionCatalogue();
+            foreach (var perm in catalogue)
             {
-                dbContext.Permissions.Add(permission);
+                if (!existingKeys.Contains(perm.Key))
+                {
+                    dbContext.Permissions.Add(perm);
+                }
             }
-        }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
 
-        // Seed Role Permissions
-        var existingRolePermissions = await dbContext.RolePermissions.ToListAsync(cancellationToken);
-        
-        var roleMappings = new Dictionary<string, string[]>
-        {
-            { "Platform Admin", new[] { Permissions.All } },
-            { "Organisation Admin", new[] { 
-                Permissions.Dashboard.Admin,
-                Permissions.Events.Manage,
-                Permissions.Contributions.Manage,
-                Permissions.Donors.Manage,
-                Permissions.Reports.View,
-                Permissions.Reports.Export,
-                Permissions.Settlements.Manage,
-                Permissions.Branches.Manage,
-                Permissions.Users.Manage,
-                Permissions.Organisations.View,
-                Permissions.Settings.All,
-                Permissions.Notifications.Manage,
-                Permissions.Donations.View,
-                Permissions.Payments.View
-            } },
-            { "Tenant Owner", new[] { 
-                Permissions.Dashboard.Admin,
-                Permissions.Events.Manage,
-                Permissions.Contributions.Manage,
-                Permissions.Donors.Manage,
-                Permissions.Reports.View,
-                Permissions.Reports.Export,
-                Permissions.Settlements.Manage,
-                Permissions.Branches.Manage,
-                Permissions.Users.Manage,
-                Permissions.Organisations.View,
-                Permissions.Settings.All,
-                Permissions.Notifications.Manage,
-                Permissions.Donations.View,
-                Permissions.Payments.View
-            } },
-            { "Branch Admin", new[] { 
-                Permissions.Dashboard.View,
-                Permissions.Events.Update,
-                Permissions.Events.View,
-                Permissions.Contributions.Settle,
-                Permissions.Contributions.View,
-                Permissions.Donors.View,
-                Permissions.Reports.View,
-                Permissions.Users.View,
-                Permissions.Branches.View
-            } },
-            { "Event Manager", new[] { 
-                Permissions.Dashboard.View,
-                Permissions.Events.View,
-                Permissions.Events.Update,
-                Permissions.Contributions.View,
-                Permissions.Reports.View,
-                Permissions.Donors.View
-            } },
-            { "Finance Admin", new[] { 
-                Permissions.Dashboard.View,
-                Permissions.Contributions.View,
-                Permissions.Payments.All, 
-                Permissions.Settlements.Manage,
-                Permissions.Reports.View,
-                Permissions.Reports.Export,
-                Permissions.Donations.View
-            } },
-            { "Accountant", new[] { 
-                Permissions.Dashboard.View,
-                Permissions.Contributions.View,
-                Permissions.Settlements.View,
-                Permissions.Reports.View,
-                Permissions.Donations.View,
-                Permissions.Payments.View
-            } },
-            { "Collector", new[] { 
-                Permissions.Dashboard.View,
-                Permissions.Contributions.Create,
-                Permissions.Contributions.View,
-                Permissions.Donations.View
-            } }
-        };
+            // ── 2. Idempotent role mapping ────────────────────────────────────────
+            var stale = await dbContext.RolePermissions
+                .Where(rp => ManagedRoles.Contains(rp.RoleName))
+                .ToListAsync(cancellationToken);
 
-        foreach (var mapping in roleMappings)
-        {
-            foreach (var permKey in mapping.Value)
+            foreach (var row in stale)
             {
-                if (!existingRolePermissions.Any(rp => rp.RoleName == mapping.Key && rp.PermissionKey == permKey))
+                dbContext.RolePermissions.Remove(row);
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            // ── 3. Seed granular role mappings ────────────────────────────────────
+            var roleMappings = BuildRoleMappings();
+            foreach (var (role, permissions) in roleMappings)
+            {
+                foreach (var key in permissions)
                 {
                     dbContext.RolePermissions.Add(new RolePermission
                     {
-                        RoleName = mapping.Key,
-                        PermissionKey = permKey
+                        RoleName = role,
+                        PermissionKey = key,
                     });
                 }
             }
-        }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-        logger.LogInformation("Permission bootstrap completed successfully.");
+            await dbContext.SaveChangesAsync(cancellationToken);
+            logger.LogInformation("Permission bootstrap completed. Managed roles: {Roles}", string.Join(", ", ManagedRoles));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Permission bootstrap failed. Continuing startup...");
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    private static List<Permission> BuildPermissionCatalogue()
+    {
+        var catalogue = new List<Permission>();
+        
+        // Dashboard
+        catalogue.Add(new Permission { Key = Permissions.Dashboard.View, Group = "Dashboard", Description = "Allows viewing of dashboard metrics." });
+        
+        // Organisations
+        catalogue.Add(new Permission { Key = Permissions.Organisations.View, Group = "Organisations", Description = "Allows viewing organisation lists." });
+        catalogue.Add(new Permission { Key = Permissions.Organisations.Create, Group = "Organisations", Description = "Allows creating new organisations (Platform Admin)." });
+        catalogue.Add(new Permission { Key = Permissions.Organisations.Update, Group = "Organisations", Description = "Allows updating organisation details." });
+        catalogue.Add(new Permission { Key = Permissions.Organisations.Delete, Group = "Organisations", Description = "Allows deleting organisations (Platform Admin)." });
+
+        // Branches
+        catalogue.Add(new Permission { Key = Permissions.Branches.View, Group = "Branches", Description = "Allows viewing of branches." });
+        catalogue.Add(new Permission { Key = Permissions.Branches.Create, Group = "Branches", Description = "Allows creating new branches." });
+        catalogue.Add(new Permission { Key = Permissions.Branches.Update, Group = "Branches", Description = "Allows updating branch details." });
+        catalogue.Add(new Permission { Key = Permissions.Branches.Delete, Group = "Branches", Description = "Allows deleting branches." });
+
+        // Users
+        catalogue.Add(new Permission { Key = Permissions.Users.View, Group = "Users", Description = "Allows viewing of users." });
+        catalogue.Add(new Permission { Key = Permissions.Users.Invite, Group = "Users", Description = "Allows inviting new users." });
+        catalogue.Add(new Permission { Key = Permissions.Users.Update, Group = "Users", Description = "Allows updating user profiles." });
+        catalogue.Add(new Permission { Key = Permissions.Users.Suspend, Group = "Users", Description = "Allows suspending users." });
+        catalogue.Add(new Permission { Key = Permissions.Users.RolesAssign, Group = "Users", Description = "Allows assigning system roles (Platform Admin)." });
+        catalogue.Add(new Permission { Key = Permissions.Users.ScopesAssign, Group = "Users", Description = "Allows assigning tenant/branch/event scopes." });
+        catalogue.Add(new Permission { Key = Permissions.Users.ScopesRevoke, Group = "Users", Description = "Allows revoking user scope assignments." });
+
+        // Events
+        catalogue.Add(new Permission { Key = Permissions.Events.View, Group = "Events", Description = "Allows viewing of events." });
+        catalogue.Add(new Permission { Key = Permissions.Events.Create, Group = "Events", Description = "Allows creating new events." });
+        catalogue.Add(new Permission { Key = Permissions.Events.Update, Group = "Events", Description = "Allows updating event details." });
+        catalogue.Add(new Permission { Key = Permissions.Events.Delete, Group = "Events", Description = "Allows deleting events." });
+        catalogue.Add(new Permission { Key = Permissions.Events.AssignStaff, Group = "Events", Description = "Allows assigning staff to events." });
+
+        // Recipient Funds
+        catalogue.Add(new Permission { Key = Permissions.RecipientFunds.View, Group = "Funds", Description = "Allows viewing of recipient funds." });
+        catalogue.Add(new Permission { Key = Permissions.RecipientFunds.Create, Group = "Funds", Description = "Allows creating new funds." });
+        catalogue.Add(new Permission { Key = Permissions.RecipientFunds.Update, Group = "Funds", Description = "Allows updating fund details." });
+        catalogue.Add(new Permission { Key = Permissions.RecipientFunds.Delete, Group = "Funds", Description = "Allows deleting funds." });
+
+        // Contributions
+        catalogue.Add(new Permission { Key = Permissions.Contributions.View, Group = "Contributions", Description = "Allows viewing contribution logs." });
+        catalogue.Add(new Permission { Key = Permissions.Contributions.Create, Group = "Contributions", Description = "Allows recording new contributions." });
+        catalogue.Add(new Permission { Key = Permissions.Contributions.Update, Group = "Contributions", Description = "Allows updating contribution details." });
+        catalogue.Add(new Permission { Key = Permissions.Contributions.Reverse, Group = "Contributions", Description = "Allows reversing contribution transactions." });
+
+        // Receipts
+        catalogue.Add(new Permission { Key = Permissions.Receipts.View, Group = "Receipts", Description = "Allows viewing issued receipts." });
+        catalogue.Add(new Permission { Key = Permissions.Receipts.Resend, Group = "Receipts", Description = "Allows resending receipts to contributors." });
+
+        // Payments
+        catalogue.Add(new Permission { Key = Permissions.Payments.View, Group = "Payments", Description = "Allows viewing payment transactions." });
+        catalogue.Add(new Permission { Key = Permissions.Payments.Initiate, Group = "Payments", Description = "Allows initiating external payments." });
+        catalogue.Add(new Permission { Key = Permissions.Payments.Refund, Group = "Payments", Description = "Allows initiating refunds." });
+        catalogue.Add(new Permission { Key = Permissions.Payments.RefundApprove, Group = "Payments", Description = "Allows approving refund requests." });
+        catalogue.Add(new Permission { Key = Permissions.Payments.Reconcile, Group = "Payments", Description = "Allows manual payment reconciliation." });
+        catalogue.Add(new Permission { Key = Permissions.Payments.RefundsView, Group = "Payments", Description = "Allows viewing refund logs." });
+
+        // Settlements
+        catalogue.Add(new Permission { Key = Permissions.Settlements.View, Group = "Settlements", Description = "Allows viewing cash settlements." });
+        catalogue.Add(new Permission { Key = Permissions.Settlements.Submit, Group = "Settlements", Description = "Allows submitting settlements for approval." });
+        catalogue.Add(new Permission { Key = Permissions.Settlements.Approve, Group = "Settlements", Description = "Allows approving cash handovers." });
+        catalogue.Add(new Permission { Key = Permissions.Settlements.Reject, Group = "Settlements", Description = "Allows rejecting settlement submissions." });
+        catalogue.Add(new Permission { Key = Permissions.Settlements.Reconcile, Group = "Settlements", Description = "Allows settlement reconciliation." });
+
+        // Reports
+        catalogue.Add(new Permission { Key = Permissions.Reports.View, Group = "Reports", Description = "Allows viewing of analytical reports." });
+        catalogue.Add(new Permission { Key = Permissions.Reports.Export, Group = "Reports", Description = "Allows exporting report data." });
+
+        // Donors
+        catalogue.Add(new Permission { Key = Permissions.Donors.View, Group = "Donors", Description = "Allows viewing donor profiles." });
+        catalogue.Add(new Permission { Key = Permissions.Donors.Update, Group = "Donors", Description = "Allows updating donor details." });
+
+        // Notification Templates
+        catalogue.Add(new Permission { Key = Permissions.NotificationTemplates.View, Group = "Templates", Description = "Allows viewing notification templates." });
+        catalogue.Add(new Permission { Key = Permissions.NotificationTemplates.Create, Group = "Templates", Description = "Allows creating new templates." });
+        catalogue.Add(new Permission { Key = Permissions.NotificationTemplates.Update, Group = "Templates", Description = "Allows updating existing templates." });
+        catalogue.Add(new Permission { Key = Permissions.NotificationTemplates.Delete, Group = "Templates", Description = "Allows deleting templates." });
+        catalogue.Add(new Permission { Key = Permissions.NotificationTemplates.Test, Group = "Templates", Description = "Allows sending test notifications." });
+        catalogue.Add(new Permission { Key = Permissions.NotificationTemplates.SystemManage, Group = "Templates", Description = "Allows managing core system templates (Platform Admin)." });
+
+        // Notifications
+        catalogue.Add(new Permission { Key = Permissions.Notifications.View, Group = "Notifications", Description = "Allows viewing notification logs." });
+        catalogue.Add(new Permission { Key = Permissions.Notifications.Retry, Group = "Notifications", Description = "Allows retrying failed notifications." });
+
+        // Settings
+        catalogue.Add(new Permission { Key = Permissions.Settings.View, Group = "Settings", Description = "Allows viewing tenant settings." });
+        catalogue.Add(new Permission { Key = Permissions.Settings.Update, Group = "Settings", Description = "Allows updating tenant settings." });
+
+        // Platform
+        catalogue.Add(new Permission { Key = Permissions.Platform.Manage, Group = "Platform", Description = "Allows global system administration." });
+
+        return catalogue;
+    }
+
+    private static Dictionary<string, List<string>> BuildRoleMappings()
+    {
+        return new Dictionary<string, List<string>>
+        {
+            ["Platform Admin"] = ["*"],
+
+            ["Organisation Admin"] =
+            [
+                Permissions.Dashboard.View,
+                Permissions.Organisations.View,
+                Permissions.Organisations.Update,
+                Permissions.Branches.View,
+                Permissions.Branches.Create,
+                Permissions.Branches.Update,
+                Permissions.Users.View,
+                Permissions.Users.Invite,
+                Permissions.Users.Update,
+                Permissions.Users.Suspend,
+                Permissions.Users.ScopesAssign,
+                Permissions.Users.ScopesRevoke,
+                Permissions.Events.View,
+                Permissions.Events.Create,
+                Permissions.Events.Update,
+                Permissions.Events.Delete,
+                Permissions.Events.AssignStaff,
+                Permissions.RecipientFunds.View,
+                Permissions.RecipientFunds.Create,
+                Permissions.RecipientFunds.Update,
+                Permissions.RecipientFunds.Delete,
+                Permissions.Contributions.View,
+                Permissions.Receipts.View,
+                Permissions.Receipts.Resend,
+                Permissions.Payments.View,
+                Permissions.Payments.RefundsView,
+                Permissions.Settlements.View,
+                Permissions.Reports.View,
+                Permissions.Reports.Export,
+                Permissions.Donors.View,
+                Permissions.Donors.Update,
+                Permissions.NotificationTemplates.View,
+                Permissions.NotificationTemplates.Create,
+                Permissions.NotificationTemplates.Update,
+                Permissions.NotificationTemplates.Test,
+                Permissions.Notifications.View,
+                Permissions.Notifications.Retry,
+                Permissions.Settings.View,
+                Permissions.Settings.Update,
+            ],
+
+            ["Tenant Owner"] =
+            [
+                Permissions.Dashboard.View,
+                Permissions.Organisations.View,
+                Permissions.Organisations.Update,
+                Permissions.Branches.View,
+                Permissions.Branches.Create,
+                Permissions.Branches.Update,
+                Permissions.Users.View,
+                Permissions.Users.Invite,
+                Permissions.Users.Update,
+                Permissions.Users.Suspend,
+                Permissions.Users.ScopesAssign,
+                Permissions.Users.ScopesRevoke,
+                Permissions.Events.View,
+                Permissions.Events.Create,
+                Permissions.Events.Update,
+                Permissions.Events.Delete,
+                Permissions.Events.AssignStaff,
+                Permissions.RecipientFunds.View,
+                Permissions.RecipientFunds.Create,
+                Permissions.RecipientFunds.Update,
+                Permissions.RecipientFunds.Delete,
+                Permissions.Contributions.View,
+                Permissions.Receipts.View,
+                Permissions.Receipts.Resend,
+                Permissions.Payments.View,
+                Permissions.Payments.RefundsView,
+                Permissions.Settlements.View,
+                Permissions.Reports.View,
+                Permissions.Reports.Export,
+                Permissions.Donors.View,
+                Permissions.Donors.Update,
+                Permissions.NotificationTemplates.View,
+                Permissions.NotificationTemplates.Create,
+                Permissions.NotificationTemplates.Update,
+                Permissions.NotificationTemplates.Test,
+                Permissions.Notifications.View,
+                Permissions.Notifications.Retry,
+                Permissions.Settings.View,
+                Permissions.Settings.Update,
+            ],
+
+            ["Branch Admin"] =
+            [
+                Permissions.Dashboard.View,
+                Permissions.Branches.View,
+                Permissions.Branches.Update,
+                Permissions.Users.View,
+                Permissions.Users.Invite,
+                Permissions.Users.Update,
+                Permissions.Events.View,
+                Permissions.Events.Create,
+                Permissions.Events.Update,
+                Permissions.Events.AssignStaff,
+                Permissions.RecipientFunds.View,
+                Permissions.RecipientFunds.Create,
+                Permissions.RecipientFunds.Update,
+                Permissions.Contributions.View,
+                Permissions.Receipts.View,
+                Permissions.Receipts.Resend,
+                Permissions.Donors.View,
+                Permissions.NotificationTemplates.View,
+                Permissions.NotificationTemplates.Update,
+                Permissions.NotificationTemplates.Test,
+                Permissions.Notifications.View,
+                Permissions.Reports.View,
+            ],
+
+            ["Finance Admin"] =
+            [
+                Permissions.Dashboard.View,
+                Permissions.Contributions.View,
+                Permissions.Receipts.View,
+                Permissions.Receipts.Resend,
+                Permissions.Payments.View,
+                Permissions.Payments.Refund,
+                Permissions.Payments.RefundApprove,
+                Permissions.Payments.Reconcile,
+                Permissions.Payments.RefundsView,
+                Permissions.Settlements.View,
+                Permissions.Settlements.Submit,
+                Permissions.Settlements.Approve,
+                Permissions.Settlements.Reject,
+                Permissions.Settlements.Reconcile,
+                Permissions.Reports.View,
+                Permissions.Reports.Export,
+                Permissions.Notifications.View,
+            ],
+
+            ["Accountant"] =
+            [
+                Permissions.Dashboard.View,
+                Permissions.Contributions.View,
+                Permissions.Receipts.View,
+                Permissions.Payments.View,
+                Permissions.Payments.Reconcile,
+                Permissions.Payments.RefundsView,
+                Permissions.Settlements.View,
+                Permissions.Settlements.Reconcile,
+                Permissions.Reports.View,
+                Permissions.Reports.Export,
+            ],
+
+            ["Event Manager"] =
+            [
+                Permissions.Dashboard.View,
+                Permissions.Events.View,
+                Permissions.Events.Update,
+                Permissions.RecipientFunds.View,
+                Permissions.RecipientFunds.Create,
+                Permissions.RecipientFunds.Update,
+                Permissions.Contributions.View,
+                Permissions.Receipts.View,
+                Permissions.Reports.View,
+            ],
+
+            ["Collector"] =
+            [
+                Permissions.Dashboard.View,
+                Permissions.Events.View,
+                Permissions.RecipientFunds.View,
+                Permissions.Contributions.Create,
+                Permissions.Receipts.View,
+            ],
+
+            ["Notification Manager"] =
+            [
+                Permissions.Dashboard.View,
+                Permissions.NotificationTemplates.View,
+                Permissions.NotificationTemplates.Create,
+                Permissions.NotificationTemplates.Update,
+                Permissions.NotificationTemplates.Delete,
+                Permissions.NotificationTemplates.Test,
+                Permissions.Notifications.View,
+                Permissions.Notifications.Retry,
+            ],
+        };
+    }
 }

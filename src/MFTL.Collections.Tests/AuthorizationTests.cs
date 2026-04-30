@@ -12,26 +12,39 @@ public class AuthorizationTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<ITenantContext> _mockTenantContext;
     private readonly ScopeAccessService _service;
 
     public AuthorizationTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
-        _service = new ScopeAccessService(_mockContext.Object, _mockCurrentUserService.Object);
+        _mockTenantContext = new Mock<ITenantContext>();
+        _service = new ScopeAccessService(_mockContext.Object, _mockCurrentUserService.Object, _mockTenantContext.Object);
     }
 
     private void SetupUser(string auth0Id, bool isPlatformAdmin, List<UserScopeAssignment> assignments)
     {
         var user = new User
         {
+            Id = Guid.NewGuid(),
             Auth0Id = auth0Id,
             IsPlatformAdmin = isPlatformAdmin,
             ScopeAssignments = assignments
         };
+        
+        foreach (var a in assignments)
+        {
+            a.UserId = user.Id;
+            a.User = user;
+        }
 
         var users = new List<User> { user }.BuildMockDbSet<User>();
         _mockContext.Setup(c => c.Users).Returns(users.Object);
+        
+        var assignmentsDbSet = assignments.BuildMockDbSet<UserScopeAssignment>();
+        _mockContext.Setup(c => c.UserScopeAssignments).Returns(assignmentsDbSet.Object);
+        
         _mockCurrentUserService.Setup(s => s.UserId).Returns(auth0Id);
     }
 
@@ -60,7 +73,7 @@ public class AuthorizationTests
         // Arrange
         SetupUser("auth0|user", false, new List<UserScopeAssignment> 
         { 
-            new() { Role = "Manager" } 
+            new() { Role = "Manager", ScopeType = ScopeType.Platform } 
         });
         SetupPermissions(new List<RolePermission> 
         { 
@@ -80,7 +93,7 @@ public class AuthorizationTests
         // Arrange
         SetupUser("auth0|user", false, new List<UserScopeAssignment> 
         { 
-            new() { Role = "Admin" } 
+            new() { Role = "Admin", ScopeType = ScopeType.Platform } 
         });
         SetupPermissions(new List<RolePermission> 
         { 
@@ -100,11 +113,11 @@ public class AuthorizationTests
         // Arrange
         SetupUser("auth0|user", false, new List<UserScopeAssignment> 
         { 
-            new() { Role = "Collector" } 
+            new() { Role = "Collector", ScopeType = ScopeType.Platform } 
         });
         SetupPermissions(new List<RolePermission> 
         { 
-            new() { RoleName = "Collector", PermissionKey = Permissions.Contributions.All } 
+            new() { RoleName = "Collector", PermissionKey = "contributions.*" } 
         });
 
         // Act
@@ -120,7 +133,7 @@ public class AuthorizationTests
         // Arrange
         SetupUser("auth0|user", false, new List<UserScopeAssignment> 
         { 
-            new() { Role = "Viewer" } 
+            new() { Role = "Viewer", ScopeType = ScopeType.Platform } 
         });
         SetupPermissions(new List<RolePermission> 
         { 

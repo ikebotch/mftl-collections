@@ -16,7 +16,8 @@ public class PaymentWebhookFunction(
     public async Task<IActionResult> Run(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Payments.Webhook + "/{provider}")] HttpRequest req, string provider)
     {
-        var eventId = req.Headers["X-Event-Id"].ToString();
+        // NOTE: Webhooks are provider-to-system. They MUST NOT trust incoming tenant headers.
+        // Isolation is enforced by resolving the payment via the provider's reference/payload.
         var body = await new StreamReader(req.Body).ReadToEndAsync();
         var paymentProvider = paymentProviders.FirstOrDefault(p => p.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase));
 
@@ -25,25 +26,22 @@ public class PaymentWebhookFunction(
             return new BadRequestObjectResult($"Unsupported payment provider '{provider}'.");
         }
 
-        if (string.IsNullOrEmpty(eventId))
-        {
-            return new BadRequestObjectResult("Missing webhook event id.");
-        }
-
         var signature = req.Headers["Stripe-Signature"].FirstOrDefault()
             ?? req.Headers["x-paystack-signature"].FirstOrDefault()
             ?? req.Headers["X-Webhook-Signature"].FirstOrDefault();
-        var secret = configuration[$"Values:Payments:{provider}:WebhookSecret"]
-            ?? configuration[$"Payments:{provider}:WebhookSecret"]
-            ?? configuration[$"Values:{provider}:WebhookSecret"]
-            ?? configuration[$"{provider}:WebhookSecret"];
+        
+        var secret = configuration[$"Payments:{provider}:WebhookSecret"]
+            ?? configuration[$"Values:Payments:{provider}:WebhookSecret"];
 
         if (!paymentProvider.VerifySignature(body, signature ?? string.Empty, secret ?? string.Empty))
         {
             return new UnauthorizedObjectResult("Invalid webhook signature.");
         }
 
-        await webhookProcessor.ProcessAsync(provider, eventId, body);
+        // Parse the webhook to get the unique event ID for idempotency
+        var parsed = paymentProvider.ParseWebhook(body);
+
+        await webhookProcessor.ProcessAsync(provider, parsed.EventId, body);
 
         return new OkResult();
     }

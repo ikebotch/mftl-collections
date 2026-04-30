@@ -5,7 +5,7 @@ using MFTL.Collections.Domain.Enums;
 
 namespace MFTL.Collections.Infrastructure.Payments;
 
-public sealed record ParsedWebhookResult(Guid ContributionId, string ProviderReference, PaymentStatus Status, string? FailureReason = null);
+public sealed record ParsedWebhookResult(string EventId, Guid ContributionId, string ProviderReference, PaymentStatus Status, string? FailureReason = null);
 
 public interface IPaymentProvider
 {
@@ -38,12 +38,14 @@ public sealed class StripePaymentProvider : IPaymentProvider
     {
         using var document = JsonDocument.Parse(payload);
         var root = document.RootElement;
+        var eventId = root.GetProperty("id").GetString() ?? throw new InvalidOperationException("Missing Stripe event ID.");
         var type = root.GetProperty("type").GetString() ?? string.Empty;
         var data = root.GetProperty("data").GetProperty("object");
         var contributionId = Guid.Parse(data.GetProperty("metadata").GetProperty("contributionId").GetString() ?? throw new InvalidOperationException("Missing contributionId metadata."));
         var providerReference = data.GetProperty("id").GetString() ?? throw new InvalidOperationException("Missing Stripe payment id.");
 
         return new ParsedWebhookResult(
+            eventId,
             contributionId,
             providerReference,
             type switch
@@ -91,12 +93,19 @@ public sealed class PaystackPaymentProvider : IPaymentProvider
     {
         using var document = JsonDocument.Parse(payload);
         var root = document.RootElement;
+        // Paystack doesn't always have a top-level event ID that is stable across retries? 
+        // Actually, we can use a hash or just the combination of event name + reference if needed.
+        // But let's try to find a unique one. If not, reference + event name is a good proxy.
         var eventName = root.GetProperty("event").GetString() ?? string.Empty;
         var data = root.GetProperty("data");
+        var reference = data.GetProperty("reference").GetString() ?? string.Empty;
+        var eventId = $"{eventName}_{reference}";
+        
         var contributionId = Guid.Parse(data.GetProperty("metadata").GetProperty("contributionId").GetString() ?? throw new InvalidOperationException("Missing contributionId metadata."));
-        var providerReference = data.GetProperty("reference").GetString() ?? throw new InvalidOperationException("Missing Paystack reference.");
+        var providerReference = reference;
 
         return new ParsedWebhookResult(
+            eventId,
             contributionId,
             providerReference,
             eventName switch

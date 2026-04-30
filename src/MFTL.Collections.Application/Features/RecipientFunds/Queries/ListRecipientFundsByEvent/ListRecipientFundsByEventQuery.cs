@@ -9,13 +9,22 @@ namespace MFTL.Collections.Application.Features.RecipientFunds.Queries.ListRecip
 
 public record ListRecipientFundsByEventQuery(Guid EventId) : IRequest<IEnumerable<RecipientFundDto>>;
 
+/// <summary>
+/// Handler for listing recipient funds for a specific event on the public storefront.
+/// NOTE: Uses IgnoreQueryFilters() to allow public access to funds regardless of the 
+/// current user's tenant context (which is empty for public storefront), but manually 
+/// enforces the IsActive check.
+/// </summary>
 public class ListRecipientFundsByEventQueryHandler(IApplicationDbContext dbContext) : IRequestHandler<ListRecipientFundsByEventQuery, IEnumerable<RecipientFundDto>>
 {
     public async Task<IEnumerable<RecipientFundDto>> Handle(ListRecipientFundsByEventQuery request, CancellationToken cancellationToken)
     {
+        // For public storefront, only show active funds.
+        // We bypass the tenant filter because the storefront guest has no tenant context,
+        // but we strictly constrain by EventId and IsActive.
         var funds = await dbContext.RecipientFunds
             .IgnoreQueryFilters()
-            .Where(f => f.EventId == request.EventId)
+            .Where(f => f.EventId == request.EventId && f.IsActive)
             .ToListAsync(cancellationToken);
 
         var fundIds = funds.Select(f => f.Id).ToList();

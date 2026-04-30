@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Features.Contributions.Commands.RecordCashContribution;
 using MFTL.Collections.Infrastructure.Persistence;
 using MFTL.Collections.Infrastructure.Payments;
 using MFTL.Collections.Domain.Entities;
@@ -22,17 +23,20 @@ public class PaymentIdempotencyTests
 
         var loggerMock = new Mock<ILogger<PaymentWebhookProcessor>>();
         var settlementMock = new Mock<IContributionSettlementService>();
+        var outboxServiceMock = new Mock<IOutboxService>();
         var providerMock = new Mock<IPaymentProvider>();
         var tenantContextMock = new Mock<ITenantContext>();
         tenantContextMock.Setup(t => t.TenantId).Returns(Guid.NewGuid());
         tenantContextMock.Setup(t => t.IsPlatformContext).Returns(false);
+        tenantContextMock.Setup(t => t.AllowedTenantIds).Returns(Array.Empty<Guid>());
+        tenantContextMock.Setup(t => t.AllowedBranchIds).Returns(Array.Empty<Guid>());
         settlementMock
             .Setup(s => s.SettleContributionAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ContributionSettlementResult(Guid.NewGuid(), Guid.NewGuid()));
 
         providerMock.Setup(p => p.ProviderName).Returns("Stripe");
         providerMock.Setup(p => p.ParseWebhook(It.IsAny<string>()))
-            .Returns((Guid.NewGuid(), "ref_123", PaymentStatus.Succeeded));
+            .Returns(new ParsedWebhookResult(Guid.NewGuid(), "ref_123", PaymentStatus.Succeeded));
 
         using (var context = new CollectionsDbContext(options, tenantContextMock.Object))
         {
@@ -46,7 +50,12 @@ public class PaymentIdempotencyTests
             context.Payments.Add(payment);
             await context.SaveChangesAsync();
 
-            var processor = new PaymentWebhookProcessor(context, settlementMock.Object, new[] { providerMock.Object }, loggerMock.Object);
+            var processor = new PaymentWebhookProcessor(
+                context,
+                settlementMock.Object,
+                outboxServiceMock.Object,
+                new[] { providerMock.Object },
+                loggerMock.Object);
             
             var payload = "{}";
             var eventId = "evt_123";
