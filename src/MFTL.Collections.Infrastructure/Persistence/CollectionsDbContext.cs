@@ -48,18 +48,31 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
             if (typeof(BaseTenantEntity).IsAssignableFrom(clrType))
             {
                 var tenantIdProp = Expression.Property(parameter, nameof(BaseTenantEntity.TenantId));
+                var ctxTenantId = Expression.Property(accessor, nameof(ITenantContext.TenantId));
                 var ctxAllowedTenants = Expression.Property(accessor, nameof(ITenantContext.AllowedTenantIds));
                 var ctxAllowedBranches = Expression.Property(accessor, nameof(ITenantContext.AllowedBranchIds));
                 var isPlatform = Expression.Property(accessor, nameof(ITenantContext.IsPlatformContext));
 
+                // (IsPlatformContext || (Context.TenantId != null ? TenantId == Context.TenantId : Context.AllowedTenantIds.Contains(TenantId)))
+                var hasTenantId = Expression.Property(ctxTenantId, "HasValue");
+                var tenantIdValue = Expression.Property(ctxTenantId, "Value");
+                
+                var exactTenantMatch = Expression.Equal(tenantIdProp, tenantIdValue);
                 var allowedTenantsContains = Expression.Call(
                     typeof(Enumerable), 
                     "Contains", 
                     new[] { typeof(Guid) }, 
                     ctxAllowedTenants, 
                     tenantIdProp);
-                
-                var tenantFilter = Expression.OrElse(isPlatform, allowedTenantsContains);
+
+                var tenantFilter = Expression.OrElse(
+                    isPlatform,
+                    Expression.Condition(
+                        hasTenantId,
+                        exactTenantMatch,
+                        allowedTenantsContains
+                    )
+                );
                 filter = tenantFilter;
 
                 // 2. Branch Filter (if applicable)

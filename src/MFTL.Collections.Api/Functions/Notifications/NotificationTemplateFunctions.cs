@@ -18,8 +18,6 @@ namespace MFTL.Collections.Api.Functions.Notifications;
 
 public class NotificationTemplateFunctions(
     IMediator mediator,
-    IApplicationDbContext dbContext,
-    IOutboxService outboxService,
     IScopeAccessService scopeService,
     ITenantContext tenantContext)
 {
