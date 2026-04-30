@@ -11,6 +11,8 @@
     <PackageReference Include="Mapster" Version="7.4.0" />
     <PackageReference Include="Mapster.DependencyInjection" Version="1.0.1" />
     <PackageReference Include="MediatR" Version="12.4.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Cryptography.KeyDerivation" Version="10.0.0-preview.2.25120.3" />
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="10.0.0-preview.2.25120.3" />
   </ItemGroup>
 
   <PropertyGroup>

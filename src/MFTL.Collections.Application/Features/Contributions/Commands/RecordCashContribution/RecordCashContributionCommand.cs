@@ -19,6 +19,7 @@ public record RecordCashContributionCommand(
     bool Anonymous,
     string PaymentMethod,
     string? Note,
+    string? Reference,
     string? ExplicitUserId) : IRequest<CashContributionResult>;
 
 public class RecordCashContributionCommandValidator : AbstractValidator<RecordCashContributionCommand>
@@ -127,7 +128,8 @@ public class RecordCashContributionCommandHandler(
             ContributorName = request.Anonymous ? "Anonymous" : request.ContributorName?.Trim() ?? string.Empty,
             Method = request.PaymentMethod,
             Status = ContributionStatus.RecordedCash,
-            Note = request.Note
+            Note = request.Note,
+            Reference = request.Reference
         };
 
         dbContext.Contributions.Add(contribution);

@@ -35,3 +35,5 @@ public record ScopeAssignmentDto(
     string ScopeType,
     Guid? TargetId,
     string? TargetName);
+
+public record CollectorPinStatusResponse(bool HasPin, bool? Verified = null);

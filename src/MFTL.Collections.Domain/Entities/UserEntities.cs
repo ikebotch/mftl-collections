@@ -18,6 +18,15 @@ public sealed class User : BaseEntity
     public ICollection<Receipt> RecordedReceipts { get; set; } = new List<Receipt>();
 }
 
+public sealed class CollectorPin : BaseTenantEntity
+{
+    public Guid UserId { get; set; }
+    public User User { get; set; } = null!;
+    public string PinHash { get; set; } = string.Empty;
+    public DateTimeOffset? LastVerifiedAt { get; set; }
+    public int FailedAttempts { get; set; }
+}
+
 public sealed class UserScopeAssignment : BaseEntity
 {
     public Guid UserId { get; set; }

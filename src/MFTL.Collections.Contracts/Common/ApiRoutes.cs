@@ -47,6 +47,9 @@ public static class ApiRoutes
         public const string Assignments = MobileBase + "/assignments";
         public const string History = MobileBase + "/history";
         public const string Settlements = MobileBase + "/settlements";
+        public const string PinSetup = MobileBase + "/pin/setup";
+        public const string PinVerify = MobileBase + "/pin/verify";
+        public const string PinStatus = MobileBase + "/pin/status";
     }
 
     public static class Payments

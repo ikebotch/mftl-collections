@@ -15,6 +15,7 @@ public interface IApplicationDbContext
     DbSet<Receipt> Receipts { get; }
     DbSet<User> Users { get; }
     DbSet<UserScopeAssignment> UserScopeAssignments { get; }
+    DbSet<CollectorPin> CollectorPins { get; }
     DbSet<Settlement> Settlements { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<NotificationTemplate> NotificationTemplates { get; }

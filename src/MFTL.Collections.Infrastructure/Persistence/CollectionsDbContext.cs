@@ -21,6 +21,7 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
     public DbSet<Settlement> Settlements => Set<Settlement>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UserScopeAssignment> UserScopeAssignments => Set<UserScopeAssignment>();
+    public DbSet<CollectorPin> CollectorPins => Set<CollectorPin>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
     public DbSet<Notification> Notifications => Set<Notification>();
@@ -181,6 +182,11 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
         
         // Configure UUIDs and other Postgres specific details
         modelBuilder.HasPostgresExtension("uuid-ossp");
+
+        modelBuilder.Entity<CollectorPin>(entity =>
+        {
+            entity.HasIndex(e => new { e.UserId, e.TenantId }).IsUnique();
+        });
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

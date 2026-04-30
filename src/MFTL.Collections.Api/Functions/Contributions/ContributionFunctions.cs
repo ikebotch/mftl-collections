@@ -46,6 +46,7 @@ public class ContributionFunctions(
             request.Anonymous,
             request.PaymentMethod,
             request.Note,
+            request.Reference,
             null)); // ExplicitUserId is now null, forcing handler to use current user.
             
         return new OkObjectResult(new ApiResponse<CashContributionResult>(true, "Cash contribution recorded.", result, CorrelationId: req.GetOrCreateCorrelationId()));
@@ -102,4 +103,5 @@ public record RecordCashContributionRequest(
     string? ContributorEmail,
     bool Anonymous,
     string PaymentMethod,
-    string? Note);
+    string? Note,
+    string? Reference);

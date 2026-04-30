@@ -11,7 +11,8 @@
         "Scalar:Route": "scalar",
         "Scalar:Title": "MFTL Collections API",
         "Scalar:OpenApiUrl": "/api/swagger/v1/swagger.json",
-        "TenantResolution:DefaultTenantId": "00000000-0000-0000-0000-000000000000"
+        "TenantResolution:DefaultTenantId": "00000000-0000-0000-0000-000000000000",
+        "Api:ExposeDetailedErrors": "false"
     },
     "Host": {
         "LocalHttpPort": 7072,
