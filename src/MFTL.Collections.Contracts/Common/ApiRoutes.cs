@@ -46,6 +46,7 @@ public static class ApiRoutes
         public const string Me = MobileBase + "/me";
         public const string Assignments = MobileBase + "/assignments";
         public const string History = MobileBase + "/history";
+        public const string Settlements = MobileBase + "/settlements";
     }
 
     public static class Payments
