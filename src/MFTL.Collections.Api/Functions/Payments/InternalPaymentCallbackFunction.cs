@@ -68,86 +68,99 @@ public class InternalPaymentCallbackFunction(
 
         try
         {
-            // Parse payload
             var payload = JsonSerializer.Deserialize<CallbackPayload>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (payload == null || string.IsNullOrEmpty(payload.ExternalReference) || string.IsNullOrEmpty(payload.EventType) || string.IsNullOrEmpty(payload.PaymentId))
+            if (!IsRequiredPayloadPresent(payload))
             {
                 return new BadRequestObjectResult("Invalid payload.");
             }
 
-            // 1. Check Idempotency (has this PaymentServicePaymentId been processed?)
             var existingCallback = await dbContext.ProcessedExternalPaymentCallbacks
-                .FirstOrDefaultAsync(x => x.PaymentServicePaymentId == payload.PaymentId);
-                
+                .FirstOrDefaultAsync(x => x.CallbackEventId == payload!.CallbackEventId);
+
             if (existingCallback != null)
             {
-                logger.LogInformation("Callback for PaymentId {PaymentId} was already processed. Idempotent return.", payload.PaymentId);
-                return new OkResult();
+                logger.LogInformation("Callback event {CallbackEventId} was already received with status {Status}.", payload!.CallbackEventId, existingCallback.Status);
+                return existingCallback.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase)
+                    ? new BadRequestObjectResult("Callback event was previously rejected.")
+                    : new OkResult();
             }
 
             var processedRecord = new ProcessedExternalPaymentCallback
             {
-                PaymentServicePaymentId = payload.PaymentId,
+                CallbackEventId = payload!.CallbackEventId,
+                PaymentServicePaymentId = payload.PaymentServicePaymentId,
+                TenantId = payload.TenantId!.Value,
+                ContributionId = payload.ContributionId!.Value,
                 Provider = payload.Provider,
                 ProviderReference = payload.ProviderReference,
                 ProviderTransactionId = payload.ProviderTransactionId,
                 ExternalReference = payload.ExternalReference,
-                PayloadHash = signatureHeader.ToLowerInvariant(), // Using the signature as the hash
-                Status = "Pending"
+                EventType = payload.EventType,
+                Amount = payload.Amount,
+                Currency = payload.Currency.ToUpperInvariant(),
+                OccurredAt = payload.OccurredAt,
+                PayloadHash = ComputeSha256(body),
+                Status = "Received",
+                ProcessedAt = DateTimeOffset.UtcNow
             };
 
             dbContext.ProcessedExternalPaymentCallbacks.Add(processedRecord);
-            await dbContext.SaveChangesAsync(default);
 
-            // We must use IgnoreQueryFilters since this is an anonymous internal system call,
-            // and no TenantContext is set in the middleware.
             var contribution = await dbContext.Contributions
                 .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(c => c.Reference == payload.ExternalReference);
+                .Include(c => c.Event)
+                .Include(c => c.RecipientFund)
+                .Include(c => c.Payment)
+                .Include(c => c.Receipt)
+                .FirstOrDefaultAsync(c => c.Id == payload.ContributionId.Value);
 
             if (contribution == null)
             {
-                logger.LogWarning("Contribution with reference {Ref} not found.", payload.ExternalReference);
-                processedRecord.Status = "Failed";
+                logger.LogWarning("Contribution {ContributionId} not found for callback {CallbackEventId}.", payload.ContributionId, payload.CallbackEventId);
+                processedRecord.Status = "Rejected";
                 processedRecord.Error = "Contribution not found";
                 await dbContext.SaveChangesAsync(default);
-                return new OkResult(); // Acknowledge to stop retries if it's genuinely missing
+                return new BadRequestObjectResult("Contribution not found.");
             }
 
-            // 2. Validate Amount and Currency
-            if (Math.Abs(contribution.Amount - payload.Amount) > 0.01m)
+            var validationError = ValidateContributionBoundary(contribution, payload);
+            if (validationError != null)
             {
-                logger.LogWarning("Amount mismatch for {Ref}: Expected {Exp}, Got {Got}.", payload.ExternalReference, contribution.Amount, payload.Amount);
+                logger.LogWarning("Rejected payment callback {CallbackEventId}: {Error}", payload.CallbackEventId, validationError);
                 processedRecord.Status = "Rejected";
-                processedRecord.Error = $"Amount mismatch: Expected {contribution.Amount}, Got {payload.Amount}";
+                processedRecord.Error = validationError;
                 await dbContext.SaveChangesAsync(default);
-                return new BadRequestObjectResult("Amount mismatch.");
-            }
-            
-            if (!contribution.Currency.Equals(payload.Currency, StringComparison.OrdinalIgnoreCase))
-            {
-                logger.LogWarning("Currency mismatch for {Ref}: Expected {Exp}, Got {Got}.", payload.ExternalReference, contribution.Currency, payload.Currency);
-                processedRecord.Status = "Rejected";
-                processedRecord.Error = $"Currency mismatch: Expected {contribution.Currency}, Got {payload.Currency}";
-                await dbContext.SaveChangesAsync(default);
-                return new BadRequestObjectResult("Currency mismatch.");
+                return new BadRequestObjectResult(validationError);
             }
 
-            // 3. Process Event
+            var localPayment = await ResolveLocalPaymentAsync(payload, contribution);
+            var paymentValidationError = ValidatePaymentBoundary(localPayment, contribution, payload);
+            if (paymentValidationError != null)
+            {
+                logger.LogWarning("Rejected payment callback {CallbackEventId}: {Error}", payload.CallbackEventId, paymentValidationError);
+                processedRecord.Status = "Rejected";
+                processedRecord.Error = paymentValidationError;
+                await dbContext.SaveChangesAsync(default);
+                return new BadRequestObjectResult(paymentValidationError);
+            }
+
+            processedRecord.Status = "Validated";
+
             if (payload.EventType.Equals("PaymentSucceeded", StringComparison.OrdinalIgnoreCase))
             {
+                if (localPayment != null)
+                {
+                    localPayment.Status = PaymentStatus.Succeeded;
+                    localPayment.ProviderReference = string.IsNullOrWhiteSpace(payload.ProviderReference) ? localPayment.ProviderReference : payload.ProviderReference;
+                    localPayment.ProcessedAt = DateTimeOffset.UtcNow;
+                    contribution.PaymentId = localPayment.Id;
+                    contribution.Payment = localPayment;
+                }
+
                 if (contribution.Status != ContributionStatus.Completed)
                 {
-                    // Try to find the local payment record ID if it exists
-                    var localPaymentId = await dbContext.Payments
-                        .IgnoreQueryFilters()
-                        .Where(p => p.ProviderReference == payload.ProviderReference || p.Id.ToString() == payload.PaymentId)
-                        .Select(p => (Guid?)p.Id)
-                        .FirstOrDefaultAsync(default);
-
-                    // Call settlement service directly to settle the contribution properly
-                    await settlementService.SettleContributionAsync(contribution.Id, localPaymentId, default);
-                    logger.LogInformation("Successfully settled contribution {Id} from internal callback (LocalPaymentId: {LocalPaymentId}).", contribution.Id, localPaymentId);
+                    await settlementService.SettleContributionAsync(contribution, localPayment?.Id, null, default);
+                    logger.LogInformation("Successfully settled contribution {ContributionId} from internal callback {CallbackEventId}.", contribution.Id, payload.CallbackEventId);
                 }
 
                 processedRecord.Status = "Processed";
@@ -155,20 +168,36 @@ public class InternalPaymentCallbackFunction(
             }
             else if (payload.EventType.Equals("PaymentFailed", StringComparison.OrdinalIgnoreCase))
             {
-                if (contribution.Status == ContributionStatus.Pending || contribution.Status == ContributionStatus.AwaitingPayment)
+                if (contribution.Status == ContributionStatus.Completed || localPayment?.Status == PaymentStatus.Succeeded)
+                {
+                    processedRecord.Status = "Ignored";
+                    processedRecord.Error = "Failure callback ignored because contribution/payment is already settled.";
+                    await dbContext.SaveChangesAsync(default);
+                    return new OkResult();
+                }
+
+                if (contribution.Status is ContributionStatus.Pending or ContributionStatus.AwaitingPayment)
                 {
                     contribution.Status = ContributionStatus.Failed;
                     logger.LogInformation("Marked contribution {Id} as failed from internal callback.", contribution.Id);
                 }
-                
+
+                if (localPayment != null && localPayment.Status is PaymentStatus.Pending or PaymentStatus.Initiated or PaymentStatus.Processing)
+                {
+                    localPayment.Status = PaymentStatus.Failed;
+                    localPayment.ProcessedAt = DateTimeOffset.UtcNow;
+                    contribution.PaymentId = localPayment.Id;
+                }
+
                 processedRecord.Status = "Processed";
                 await dbContext.SaveChangesAsync(default);
             }
             else
             {
-                processedRecord.Status = "Ignored";
+                processedRecord.Status = "Rejected";
                 processedRecord.Error = $"Unknown event type: {payload.EventType}";
                 await dbContext.SaveChangesAsync(default);
+                return new BadRequestObjectResult("Unknown event type.");
             }
 
             return new OkResult();
@@ -191,10 +220,101 @@ public class InternalPaymentCallbackFunction(
         );
     }
 
+    private async Task<Payment?> ResolveLocalPaymentAsync(CallbackPayload payload, Contribution contribution)
+    {
+        return await dbContext.Payments
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(p =>
+                p.ContributionId == contribution.Id ||
+                (!string.IsNullOrWhiteSpace(payload.ProviderReference) && p.ProviderReference == payload.ProviderReference) ||
+                p.Id.ToString() == payload.PaymentServicePaymentId);
+    }
+
+    private static bool IsRequiredPayloadPresent(CallbackPayload? payload)
+    {
+        return payload != null
+            && !string.IsNullOrWhiteSpace(payload.CallbackEventId)
+            && !string.IsNullOrWhiteSpace(payload.EventType)
+            && !string.IsNullOrWhiteSpace(payload.PaymentServicePaymentId)
+            && payload.TenantId.HasValue
+            && payload.TenantId.Value != Guid.Empty
+            && payload.ContributionId.HasValue
+            && payload.ContributionId.Value != Guid.Empty
+            && !string.IsNullOrWhiteSpace(payload.ExternalReference)
+            && !string.IsNullOrWhiteSpace(payload.Currency);
+    }
+
+    private static string? ValidateContributionBoundary(Contribution contribution, CallbackPayload payload)
+    {
+        if (contribution.Id != payload.ContributionId)
+            return "Contribution mismatch.";
+
+        if (contribution.TenantId != payload.TenantId)
+            return "Tenant mismatch.";
+
+        if (!string.Equals(contribution.Reference, payload.ExternalReference, StringComparison.Ordinal))
+            return "External reference mismatch.";
+
+        if (ToMinorUnits(contribution.Amount) != ToMinorUnits(payload.Amount))
+            return "Amount mismatch.";
+
+        if (!string.Equals(contribution.Currency, payload.Currency, StringComparison.OrdinalIgnoreCase))
+            return "Currency mismatch.";
+
+        if (payload.Amount <= 0 || contribution.Amount <= 0)
+            return "Amount must be greater than zero.";
+
+        if (contribution.Event == null || contribution.RecipientFund == null)
+            return "Contribution event/fund relationship is incomplete.";
+
+        if (contribution.Event.TenantId != contribution.TenantId || contribution.RecipientFund.TenantId != contribution.TenantId)
+            return "Event/fund tenant mismatch.";
+
+        if (contribution.Event.BranchId != contribution.BranchId || contribution.RecipientFund.BranchId != contribution.BranchId)
+            return "Event/fund branch mismatch.";
+
+        if (contribution.RecipientFund.EventId != contribution.EventId)
+            return "Fund event mismatch.";
+
+        return null;
+    }
+
+    private static string? ValidatePaymentBoundary(Payment? payment, Contribution contribution, CallbackPayload payload)
+    {
+        if (payment == null)
+            return null;
+
+        if (payment.TenantId != payload.TenantId || payment.TenantId != contribution.TenantId)
+            return "Payment tenant mismatch.";
+
+        if (payment.ContributionId != contribution.Id)
+            return "Payment contribution mismatch.";
+
+        if (ToMinorUnits(payment.Amount) != ToMinorUnits(payload.Amount))
+            return "Payment amount mismatch.";
+
+        if (!string.Equals(payment.Currency, payload.Currency, StringComparison.OrdinalIgnoreCase))
+            return "Payment currency mismatch.";
+
+        return null;
+    }
+
+    private static long ToMinorUnits(decimal amount) =>
+        decimal.ToInt64(decimal.Round(amount * 100m, 0, MidpointRounding.AwayFromZero));
+
+    private static string ComputeSha256(string payload)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
     private class CallbackPayload
     {
+        public string CallbackEventId { get; set; } = string.Empty;
         public string EventType { get; set; } = string.Empty;
-        public string PaymentId { get; set; } = string.Empty;
+        public string PaymentServicePaymentId { get; set; } = string.Empty;
+        public Guid? TenantId { get; set; }
+        public Guid? ContributionId { get; set; }
         public string Provider { get; set; } = string.Empty;
         public string ProviderReference { get; set; } = string.Empty;
         public string ProviderTransactionId { get; set; } = string.Empty;
@@ -203,5 +323,6 @@ public class InternalPaymentCallbackFunction(
         public decimal Amount { get; set; }
         public string Currency { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
+        public DateTimeOffset? OccurredAt { get; set; }
     }
 }

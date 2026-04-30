@@ -16,6 +16,11 @@ public class PaymentWebhookFunction(
     public async Task<IActionResult> Run(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Payments.Webhook + "/{provider}")] HttpRequest req, string provider)
     {
+        if (!configuration.GetValue<bool>("Payments:LegacyProviderWebhooks:Enabled"))
+        {
+            return new StatusCodeResult(StatusCodes.Status410Gone);
+        }
+
         // NOTE: Webhooks are provider-to-system. They MUST NOT trust incoming tenant headers.
         // Isolation is enforced by resolving the payment via the provider's reference/payload.
         var body = await new StreamReader(req.Body).ReadToEndAsync();

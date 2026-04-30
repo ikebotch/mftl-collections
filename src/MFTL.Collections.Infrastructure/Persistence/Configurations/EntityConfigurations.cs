@@ -94,12 +94,17 @@ public class ProcessedExternalPaymentCallbackConfiguration : IEntityTypeConfigur
     public void Configure(EntityTypeBuilder<ProcessedExternalPaymentCallback> builder)
     {
         builder.HasKey(x => x.Id);
-        builder.HasIndex(x => x.PaymentServicePaymentId).IsUnique();
+        builder.HasIndex(x => x.CallbackEventId).IsUnique();
+        builder.HasIndex(x => x.PaymentServicePaymentId);
+        builder.Property(x => x.CallbackEventId).IsRequired().HasMaxLength(160);
         builder.Property(x => x.PaymentServicePaymentId).IsRequired().HasMaxLength(64);
         builder.Property(x => x.Provider).HasMaxLength(64);
         builder.Property(x => x.ProviderReference).HasMaxLength(256);
         builder.Property(x => x.ProviderTransactionId).HasMaxLength(256);
         builder.Property(x => x.ExternalReference).HasMaxLength(256);
+        builder.Property(x => x.EventType).HasMaxLength(64);
+        builder.Property(x => x.Amount).HasPrecision(18, 2);
+        builder.Property(x => x.Currency).HasMaxLength(3);
         builder.Property(x => x.PayloadHash).HasMaxLength(256);
         builder.Property(x => x.Status).HasMaxLength(64);
     }

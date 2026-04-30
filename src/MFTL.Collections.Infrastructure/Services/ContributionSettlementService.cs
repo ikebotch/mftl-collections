@@ -49,6 +49,8 @@ public sealed class ContributionSettlementService(
                 ?? throw new KeyNotFoundException($"Recipient fund {contribution.RecipientFundId} not found.");
         }
 
+        ValidateContributionSettlementBoundary(contribution);
+
         Payment? payment = null;
         if (paymentId.HasValue)
         {
@@ -61,6 +63,11 @@ public sealed class ContributionSettlementService(
             if (payment == null || payment.Status != PaymentStatus.Succeeded)
             {
                 throw new InvalidOperationException($"Successful payment {paymentId} not found.");
+            }
+
+            if (payment.TenantId != contribution.TenantId || payment.ContributionId != contribution.Id)
+            {
+                throw new InvalidOperationException("Payment does not belong to the contribution tenant.");
             }
 
             contribution.PaymentId = paymentId;
@@ -117,6 +124,24 @@ public sealed class ContributionSettlementService(
         }
 
         return new ContributionSettlementResult(contribution.Id, receipt.Id);
+    }
+
+    private static void ValidateContributionSettlementBoundary(Contribution contribution)
+    {
+        if (contribution.RecipientFund.TenantId != contribution.TenantId)
+        {
+            throw new InvalidOperationException("Recipient fund does not belong to the contribution tenant.");
+        }
+
+        if (contribution.RecipientFund.BranchId != contribution.BranchId)
+        {
+            throw new InvalidOperationException("Recipient fund does not belong to the contribution branch.");
+        }
+
+        if (contribution.RecipientFund.EventId != contribution.EventId)
+        {
+            throw new InvalidOperationException("Recipient fund does not belong to the contribution event.");
+        }
     }
 
     private async Task<Guid?> ResolveRecordedByUserIdAsync(CancellationToken cancellationToken)

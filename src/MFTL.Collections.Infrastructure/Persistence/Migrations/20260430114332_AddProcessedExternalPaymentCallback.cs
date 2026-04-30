@@ -86,14 +86,21 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    CallbackEventId = table.Column<string>(type: "character varying(160)", maxLength: 160, nullable: false),
                     PaymentServicePaymentId = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ContributionId = table.Column<Guid>(type: "uuid", nullable: false),
                     Provider = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     ProviderReference = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     ProviderTransactionId = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     ExternalReference = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    EventType = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    Amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    Currency = table.Column<string>(type: "character varying(3)", maxLength: 3, nullable: false),
                     PayloadHash = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     Status = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     Error = table.Column<string>(type: "text", nullable: true),
+                    OccurredAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     ProcessedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     ModifiedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
@@ -141,10 +148,15 @@ namespace MFTL.Collections.Infrastructure.Persistence.Migrations
                 column: "TenantId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ProcessedExternalPaymentCallbacks_CallbackEventId",
+                table: "ProcessedExternalPaymentCallbacks",
+                column: "CallbackEventId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ProcessedExternalPaymentCallbacks_PaymentServicePaymentId",
                 table: "ProcessedExternalPaymentCallbacks",
-                column: "PaymentServicePaymentId",
-                unique: true);
+                column: "PaymentServicePaymentId");
         }
 
         /// <inheritdoc />
