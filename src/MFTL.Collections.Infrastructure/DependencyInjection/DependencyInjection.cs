@@ -8,6 +8,7 @@ using MFTL.Collections.Infrastructure.Persistence;
 using MFTL.Collections.Infrastructure.Payments;
 using MFTL.Collections.Infrastructure.Services;
 using MFTL.Collections.Infrastructure.Identity;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace MFTL.Collections.Infrastructure.DependencyInjection;
 
@@ -25,6 +26,7 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IScopeAccessService, ScopeAccessService>();
+        services.AddScoped<ISaveChangesInterceptor, OutboxInterceptor>();
         
         services.AddScoped<FunctionHttpRequestAccessor>();
         services.AddScoped<TenantContext>();
@@ -34,8 +36,15 @@ public static class DependencyInjection
         services.AddScoped<IPaymentWebhookProcessor, PaymentWebhookProcessor>();
         services.AddScoped<IContributionSettlementService, ContributionSettlementService>();
         services.AddScoped<IReceiptNumberGenerator, ReceiptNumberGenerator>();
+        services.AddScoped<IOutboxService, OutboxService>();
+        services.AddScoped<IOutboxProcessor, OutboxProcessor>();
+        services.AddScoped<ITemplateRenderer, TemplateRenderer>();
+        services.AddScoped<INotificationTemplateResolver, NotificationTemplateResolver>();
+        services.AddHttpClient(nameof(GiantSmsService));
+        services.AddScoped<ISmsService, GiantSmsService>();
         
         services.AddScoped<IPaymentProvider, StripePaymentProvider>();
+        services.AddScoped<IPaymentProvider, PaystackPaymentProvider>();
         services.AddScoped<ITenantResolver, HeaderTenantResolver>();
         services.AddScoped<ITenantResolver, HostTenantResolver>();
         services.AddScoped<CompositeTenantResolver>();
@@ -49,12 +58,16 @@ public static class DependencyInjection
         var dbOptions = configuration.GetSection(DatabaseOptions.SectionName).Get<DatabaseOptions>();
         if (dbOptions != null && !string.IsNullOrEmpty(dbOptions.ConnectionString))
         {
-            services.AddDbContext<CollectionsDbContext>(options =>
-                options.UseNpgsql(dbOptions.ConnectionString));
+            services.AddDbContext<CollectionsDbContext>((provider, options) =>
+            {
+                options.UseNpgsql(dbOptions.ConnectionString);
+                options.AddInterceptors(provider.GetServices<ISaveChangesInterceptor>());
+            });
             
             services.AddScoped<IApplicationDbContext>(provider => 
                 provider.GetRequiredService<CollectionsDbContext>());
             services.AddHostedService<ReceiptSchemaBootstrapper>();
+            services.AddHostedService<NotificationSchemaBootstrapper>();
             services.AddHostedService<PermissionBootstrapper>();
         }
 

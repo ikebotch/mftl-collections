@@ -109,3 +109,44 @@ public class NotificationTemplateConfiguration : IEntityTypeConfiguration<Notifi
             .OnDelete(DeleteBehavior.SetNull);
     }
 }
+
+public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
+{
+    public void Configure(EntityTypeBuilder<Notification> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => x.TenantId);
+        builder.HasIndex(x => x.OutboxMessageId);
+        builder.Property(x => x.Channel);
+        builder.Property(x => x.Status);
+        builder.Property(x => x.TemplateKey).IsRequired().HasMaxLength(100);
+        builder.Property(x => x.ReceiptId);
+        builder.Property(x => x.PaymentId);
+        builder.Property(x => x.ContributionId);
+        builder.Property(x => x.Recipient).IsRequired().HasMaxLength(256);
+        builder.Property(x => x.RecipientPhone).HasMaxLength(64);
+        builder.Property(x => x.RecipientEmail).HasMaxLength(256);
+        builder.Property(x => x.Subject).HasMaxLength(500);
+        builder.Property(x => x.Body).IsRequired();
+        builder.Property(x => x.ProviderMessageId).HasMaxLength(256);
+        builder.Property(x => x.Error).HasMaxLength(1000);
+    }
+}
+
+public class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
+{
+    public void Configure(EntityTypeBuilder<OutboxMessage> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => x.TenantId);
+        builder.HasIndex(x => x.BranchId);
+        builder.HasIndex(x => x.AggregateId);
+        builder.HasIndex(x => new { x.Status, x.NextAttemptAt, x.CreatedAt });
+        builder.Property(x => x.AggregateType).IsRequired().HasMaxLength(128);
+        builder.Property(x => x.EventType).IsRequired().HasMaxLength(128);
+        builder.Property(x => x.Payload).HasColumnName("PayloadJson").IsRequired();
+        builder.Property(x => x.CorrelationId).IsRequired().HasMaxLength(128);
+        builder.Property(x => x.Status);
+        builder.Property(x => x.LastError).HasMaxLength(2000);
+    }
+}

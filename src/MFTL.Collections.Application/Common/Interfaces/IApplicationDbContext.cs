@@ -18,6 +18,8 @@ public interface IApplicationDbContext
     DbSet<Settlement> Settlements { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<NotificationTemplate> NotificationTemplates { get; }
+    DbSet<Notification> Notifications { get; }
+    DbSet<OutboxMessage> OutboxMessages { get; }
     DbSet<Permission> Permissions { get; }
     DbSet<RolePermission> RolePermissions { get; }
 

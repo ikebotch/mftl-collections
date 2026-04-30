@@ -23,6 +23,8 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
     public DbSet<UserScopeAssignment> UserScopeAssignments => Set<UserScopeAssignment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
