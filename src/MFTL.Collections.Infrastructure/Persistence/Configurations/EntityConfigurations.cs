@@ -89,6 +89,22 @@ public class ProcessedWebhookEventConfiguration : IEntityTypeConfiguration<Proce
     }
 }
 
+public class ProcessedExternalPaymentCallbackConfiguration : IEntityTypeConfiguration<ProcessedExternalPaymentCallback>
+{
+    public void Configure(EntityTypeBuilder<ProcessedExternalPaymentCallback> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => x.PaymentServicePaymentId).IsUnique();
+        builder.Property(x => x.PaymentServicePaymentId).IsRequired().HasMaxLength(64);
+        builder.Property(x => x.Provider).HasMaxLength(64);
+        builder.Property(x => x.ProviderReference).HasMaxLength(256);
+        builder.Property(x => x.ProviderTransactionId).HasMaxLength(256);
+        builder.Property(x => x.ExternalReference).HasMaxLength(256);
+        builder.Property(x => x.PayloadHash).HasMaxLength(256);
+        builder.Property(x => x.Status).HasMaxLength(64);
+    }
+}
+
 public class NotificationTemplateConfiguration : IEntityTypeConfiguration<NotificationTemplate>
 {
     public void Configure(EntityTypeBuilder<NotificationTemplate> builder)

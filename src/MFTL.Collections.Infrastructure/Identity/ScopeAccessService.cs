@@ -29,8 +29,12 @@ public sealed class ScopeAccessService(
         var auth0Id = currentUserService.UserId;
         if (string.IsNullOrEmpty(auth0Id)) return false;
 
-        // 1. Load the user's scope assignments with Role info
+        // 1. Load the user's scope assignments with Role info.
+        //    MUST use IgnoreQueryFilters() — these are auth metadata queries,
+        //    not business data. The global tenant filter must not restrict
+        //    which assignments the authorization check can see.
         var assignments = await dbContext.UserScopeAssignments
+            .IgnoreQueryFilters()
             .Include(s => s.User)
             .Where(s => s.User.Auth0Id == auth0Id)
             .ToListAsync(cancellationToken);
@@ -63,6 +67,7 @@ public sealed class ScopeAccessService(
         if (string.IsNullOrEmpty(userId)) return false;
 
         return await dbContext.UserScopeAssignments
+            .IgnoreQueryFilters()
             .AnyAsync(s => s.User.Auth0Id == userId &&
                            (s.ScopeType == ScopeType.Platform ||
                            (s.ScopeType == ScopeType.Tenant && s.TargetId == tenantId)));
@@ -77,6 +82,7 @@ public sealed class ScopeAccessService(
         if (@event == null) return false;
 
         return await dbContext.UserScopeAssignments
+            .IgnoreQueryFilters()
             .AnyAsync(s => s.User.Auth0Id == userId &&
                            (s.ScopeType == ScopeType.Platform ||
                             s.ScopeType == ScopeType.Tenant ||
@@ -97,6 +103,7 @@ public sealed class ScopeAccessService(
         if (fund == null) return false;
 
         return await dbContext.UserScopeAssignments
+            .IgnoreQueryFilters()
             .AnyAsync(s => s.User.Auth0Id == userId &&
                            (s.ScopeType == ScopeType.Platform ||
                             s.ScopeType == ScopeType.Tenant ||
@@ -111,6 +118,7 @@ public sealed class ScopeAccessService(
         if (string.IsNullOrEmpty(userId)) return [];
 
         var scopes = await dbContext.UserScopeAssignments
+            .IgnoreQueryFilters()
             .Where(s => s.User.Auth0Id == userId)
             .ToListAsync();
 
@@ -160,6 +168,7 @@ public sealed class ScopeAccessService(
             if (string.IsNullOrEmpty(auth0Id)) return false;
 
             var user = await dbContext.Users
+                .IgnoreQueryFilters()
                 .Include(u => u.ScopeAssignments)
                 .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id);
 
@@ -174,6 +183,7 @@ public sealed class ScopeAccessService(
             if (!platformRoles.Any()) return false;
 
             return await dbContext.RolePermissions
+                .IgnoreQueryFilters()
                 .AnyAsync(rp => platformRoles.Contains(rp.RoleName) && 
                                (rp.PermissionKey == "*" || rp.PermissionKey == permissionKey || 
                                 (rp.PermissionKey.EndsWith(".*") && permissionKey.StartsWith(rp.PermissionKey.Substring(0, rp.PermissionKey.Length - 1)))));
@@ -252,7 +262,9 @@ public sealed class ScopeAccessService(
         if (roles.Count == 0) return false;
 
         // Exact match or global wildcard
+        // RolePermissions is auth metadata — bypass global query filters.
         var exactOrGlobal = await dbContext.RolePermissions
+            .IgnoreQueryFilters()
             .AnyAsync(rp => roles.Contains(rp.RoleName) &&
                             (rp.PermissionKey == "*" || rp.PermissionKey == permissionKey),
                       cancellationToken);
@@ -266,6 +278,7 @@ public sealed class ScopeAccessService(
         {
             var modulePrefix = permissionKey[..dotIndex] + ".*";
             return await dbContext.RolePermissions
+                .IgnoreQueryFilters()
                 .AnyAsync(rp => roles.Contains(rp.RoleName) && rp.PermissionKey == modulePrefix,
                           cancellationToken);
         }

@@ -38,6 +38,7 @@ public class CollectionsDbContextFactory : IDesignTimeDbContextFactory<Collectio
         public Guid? BranchId => null;
         public string? TenantIdentifier => null;
         public bool IsPlatformContext => true;
+        public bool IsSystemContext => false;
         public IEnumerable<Guid> AllowedTenantIds => [];
         public IEnumerable<Guid> AllowedBranchIds => [];
     }

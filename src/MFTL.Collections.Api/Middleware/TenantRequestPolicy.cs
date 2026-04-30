@@ -22,6 +22,7 @@ public static class TenantRequestPolicy
     private static readonly HashSet<string> PlatformFunctionNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "PaymentWebhook",
+        "InternalPaymentCallback",
         "ScalarUi",
         "RenderOAuth2Redirect",
         "RenderOpenApiDocument",

@@ -146,4 +146,48 @@ public class AuthorizationTests
         // Assert
         result.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task CanAccessAsync_ShouldReturnTrue_ForOrgAdmin_InAssignedTenant()
+    {
+        // Arrange
+        var tenantA = Guid.NewGuid();
+        SetupUser("auth0|orgadmin", false, new List<UserScopeAssignment> 
+        { 
+            new() { Role = "Organisation Admin", ScopeType = ScopeType.Tenant, TargetId = tenantA } 
+        });
+        SetupPermissions(new List<RolePermission> 
+        { 
+            new() { RoleName = "Organisation Admin", PermissionKey = Permissions.Branches.View },
+            new() { RoleName = "Organisation Admin", PermissionKey = Permissions.Contributions.View },
+            new() { RoleName = "Organisation Admin", PermissionKey = Permissions.Dashboard.View }
+        });
+
+        // Act & Assert
+        (await _service.CanAccessAsync(Permissions.Branches.View, tenantA)).Should().BeTrue();
+        (await _service.CanAccessAsync(Permissions.Contributions.View, tenantA)).Should().BeTrue();
+        (await _service.CanAccessAsync(Permissions.Dashboard.View, tenantA)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CanAccessAsync_ShouldReturnFalse_ForOrgAdmin_InUnassignedTenant()
+    {
+        // Arrange
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        SetupUser("auth0|orgadmin", false, new List<UserScopeAssignment> 
+        { 
+            new() { Role = "Organisation Admin", ScopeType = ScopeType.Tenant, TargetId = tenantA } 
+        });
+        SetupPermissions(new List<RolePermission> 
+        { 
+            new() { RoleName = "Organisation Admin", PermissionKey = Permissions.Branches.View }
+        });
+
+        // Act
+        var result = await _service.CanAccessAsync(Permissions.Branches.View, tenantB);
+
+        // Assert
+        result.Should().BeFalse();
+    }
 }

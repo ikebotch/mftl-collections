@@ -30,6 +30,7 @@
   <ItemGroup>
     <ProjectReference Include="..\MFTL.Collections.Application\MFTL.Collections.Application.csproj" />
     <ProjectReference Include="..\MFTL.Collections.Infrastructure\MFTL.Collections.Infrastructure.csproj" />
+    <ProjectReference Include="..\MFTL.Collections.Api\MFTL.Collections.Api.csproj" />
   </ItemGroup>
 
 </Project>

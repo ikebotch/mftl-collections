@@ -10,6 +10,7 @@ public sealed class TenantContext : ITenantContext
     public Guid? BranchId { get; set; }
     public string? TenantIdentifier { get; set; }
     public bool IsPlatformContext { get; set; }
+    public bool IsSystemContext { get; set; }
     
     public List<Guid> AllowedTenantIds { get; set; } = new();
     public List<Guid> AllowedBranchIds { get; set; } = new();
@@ -22,6 +23,7 @@ public sealed class TenantContext : ITenantContext
         TenantId = tenantId;
         TenantIdentifier = identifier;
         IsPlatformContext = false;
+        IsSystemContext = false;
     }
 
     public void UseBranch(Guid branchId)
@@ -35,6 +37,12 @@ public sealed class TenantContext : ITenantContext
         BranchId = null;
         TenantIdentifier = null;
         IsPlatformContext = true;
+        IsSystemContext = false;
+    }
+
+    public void SetSystemContext()
+    {
+        IsSystemContext = true;
     }
 
     public void Clear()
@@ -43,6 +51,7 @@ public sealed class TenantContext : ITenantContext
         BranchId = null;
         TenantIdentifier = null;
         IsPlatformContext = false;
+        IsSystemContext = false;
         AllowedTenantIds.Clear();
         AllowedBranchIds.Clear();
     }
