@@ -220,11 +220,11 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
         requestAccessor.SetRequest(
             httpContext.Request.Headers.ToDictionary(
                 header => header.Key,
-                header => header.Value.ToArray(),
+                header => header.Value.Select(v => v ?? string.Empty).ToArray(),
                 StringComparer.OrdinalIgnoreCase),
             httpContext.Request.Query.ToDictionary(
                 q => q.Key,
-                q => q.Value.ToArray(),
+                q => q.Value.Select(v => v ?? string.Empty).ToArray(),
                 StringComparer.OrdinalIgnoreCase),
             httpContext.Request.Host.Value,
             httpContext.Request.Method);
@@ -236,7 +236,7 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
 
         if (!resolution.Success || !resolution.TenantId.HasValue || resolution.TenantId == Guid.Empty)
         {
-            httpContext.Response.StatusCode = (int)resolution.StatusCode;
+            httpContext.Response.StatusCode = (int)(resolution.StatusCode ?? System.Net.HttpStatusCode.InternalServerError);
             await httpContext.Response.WriteAsJsonAsync(new { success = false, message = resolution.Message });
             return;
         }
