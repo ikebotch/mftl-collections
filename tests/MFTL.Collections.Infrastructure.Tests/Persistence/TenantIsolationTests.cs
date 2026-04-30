@@ -326,7 +326,7 @@ public class TenantIsolationTests
             "collector-two"), CancellationToken.None);
 
         var history = await new ListCollectorHistoryQueryHandler(dbContext, new TestCurrentUserService("collector-one"))
-            .Handle(new ListCollectorHistoryQuery("collector-one"), CancellationToken.None);
+            .Handle(new ListCollectorHistoryQuery(), CancellationToken.None);
 
         history.Should().ContainSingle();
         history.Single().ReceiptNumber.Should().Be("RCT-TEST-0201");
@@ -353,6 +353,7 @@ public class TenantIsolationTests
         public Guid? BranchId { get; init; }
         public string? TenantIdentifier { get; init; }
         public bool IsPlatformContext { get; init; }
+        public bool IsSystemContext => false;
         public IEnumerable<Guid> AllowedTenantIds => TenantId.HasValue ? new[] { TenantId.Value } : [];
         public IEnumerable<Guid> AllowedBranchIds => BranchId.HasValue ? new[] { BranchId.Value } : [];
     }

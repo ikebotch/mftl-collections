@@ -12,19 +12,20 @@ using MFTL.Collections.Api.Extensions;
 namespace MFTL.Collections.Api.Functions.Tenants;
 
 public class TenantFunctions(
-    IMediator mediator,
-    IScopeAccessService scopeService,
-    ITenantContext tenantContext)
+    IMediator mediator)
 {
     [Function("ListTenants")]
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Tenants.Base)] HttpRequest req)
     {
-        // For the base list tenants endpoint, we check if they have organisations.view.
-        // If they are a platform admin, they'll see all. If they are a tenant user,
-        // they'll see only their assigned tenants (enforced in the query handler).
-        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.Organisations.View, req);
-        if (deny != null) return deny;
+        // ListTenants is a context-bootstrap endpoint — it must NOT require X-Tenant-Id
+        // or a permission guard. The handler filters results to the user's AllowedTenantIds.
+        // Platform Admins see all tenants.
+        if (req.HttpContext.User.Identity?.IsAuthenticated != true)
+        {
+            return new ObjectResult(new ApiResponse(false, "Authentication required."))
+                { StatusCode = StatusCodes.Status401Unauthorized };
+        }
 
         var result = await mediator.Send(new ListTenantsQuery());
         return new OkObjectResult(new ApiResponse<IEnumerable<TenantDto>>(true, "Tenants retrieved.", result, CorrelationId: req.GetOrCreateCorrelationId()));

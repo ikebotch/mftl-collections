@@ -15,3 +15,16 @@ public sealed class Payment : BaseTenantEntity
     public DateTimeOffset? ProcessedAt { get; set; }
     public Receipt? Receipt { get; set; }
 }
+
+public sealed class ProcessedExternalPaymentCallback : BaseEntity
+{
+    public string PaymentServicePaymentId { get; set; } = string.Empty;
+    public string Provider { get; set; } = string.Empty;
+    public string ProviderReference { get; set; } = string.Empty;
+    public string ProviderTransactionId { get; set; } = string.Empty;
+    public string ExternalReference { get; set; } = string.Empty;
+    public string PayloadHash { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string? Error { get; set; }
+    public DateTimeOffset ProcessedAt { get; set; } = DateTimeOffset.UtcNow;
+}

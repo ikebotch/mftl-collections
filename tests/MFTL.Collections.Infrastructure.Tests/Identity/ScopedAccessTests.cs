@@ -31,7 +31,7 @@ public class ScopedAccessTests
             });
             await context.SaveChangesAsync();
 
-            var service = new ScopeAccessService(context, currentUserServiceMock.Object);
+            var service = new ScopeAccessService(context, currentUserServiceMock.Object, new Mock<ITenantContext>().Object);
 
             // Act
             var result = await service.HasAccessToTenantAsync(Guid.NewGuid());

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Common;
 
@@ -51,7 +52,7 @@ public static class EndpointPermissionGuard
         var branchId = tenantContext.BranchId;
         var allowed = await scopeService.CanAccessAsync(permission, tenantId.Value, branchId, cancellationToken: cancellationToken);
 
-        return allowed ? null : Forbidden(req, permission);
+        return allowed ? null : Forbidden(req, permission, tenantContext);
     }
 
     /// <summary>
@@ -75,9 +76,27 @@ public static class EndpointPermissionGuard
         return allowed ? null : Forbidden(req, permission);
     }
 
-    private static IActionResult Forbidden(HttpRequest req, string permission) =>
-        new ObjectResult(new ApiResponse(false,
+    private static IActionResult Forbidden(HttpRequest req, string permission, ITenantContext? tenantContext = null)
+    {
+        var loggerFactory = req.HttpContext.RequestServices.GetService(typeof(Microsoft.Extensions.Logging.ILoggerFactory)) as Microsoft.Extensions.Logging.ILoggerFactory;
+        var logger = loggerFactory?.CreateLogger("EndpointPermissionGuard");
+        var userId = req.HttpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? 
+                     req.HttpContext.User.FindFirst("sub")?.Value;
+
+        if (logger != null)
+        {
+            logger.LogWarning(
+                "Access Denied: User '{UserId}' lacks required permission '{Permission}'. TenantContext: TenantId={TenantId}, BranchId={BranchId}, IsPlatform={IsPlatform}",
+                userId,
+                permission,
+                tenantContext?.TenantId,
+                tenantContext?.BranchId,
+                tenantContext?.IsPlatformContext);
+        }
+
+        return new ObjectResult(new ApiResponse(false,
             $"You do not have permission to perform this action. Required: '{permission}'.",
             CorrelationId: req.GetOrCreateCorrelationId()))
         { StatusCode = StatusCodes.Status403Forbidden };
+    }
 }

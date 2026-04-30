@@ -25,6 +25,7 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<ProcessedExternalPaymentCallback> ProcessedExternalPaymentCallbacks => Set<ProcessedExternalPaymentCallback>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
@@ -168,14 +169,41 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
                     entry.Entity.CreatedAt = DateTimeOffset.UtcNow;
                     if (entry.Entity is BaseTenantEntity tenantEntity)
                     {
-                        if (!_tenantContext.TenantId.HasValue)
+                        if (_tenantContext.IsSystemContext || _tenantContext.IsPlatformContext)
                         {
-                            throw new InvalidOperationException("Tenant context is required when creating tenant-owned entities.");
+                            // System/Platform context can bypass context checks and use preset IDs
+                            if (tenantEntity.TenantId == Guid.Empty && _tenantContext.TenantId.HasValue)
+                            {
+                                tenantEntity.TenantId = _tenantContext.TenantId.Value;
+                            }
                         }
-
-                        if (tenantEntity.TenantId == Guid.Empty)
+                        else
                         {
+                            // Normal request: must match context
+                            if (!_tenantContext.TenantId.HasValue)
+                            {
+                                throw new InvalidOperationException("Tenant context is required for non-system requests.");
+                            }
+
+                            if (tenantEntity.TenantId != Guid.Empty && tenantEntity.TenantId != _tenantContext.TenantId.Value)
+                            {
+                                throw new UnauthorizedAccessException("Cannot spoof TenantId.");
+                            }
+
                             tenantEntity.TenantId = _tenantContext.TenantId.Value;
+                        }
+                    }
+
+                    if (entry.Entity is IBranchEntity branchEntity && !_tenantContext.IsSystemContext && !_tenantContext.IsPlatformContext)
+                    {
+                        if (branchEntity.BranchId != Guid.Empty && _tenantContext.BranchId.HasValue && branchEntity.BranchId != _tenantContext.BranchId.Value)
+                        {
+                            throw new UnauthorizedAccessException("Cannot spoof BranchId.");
+                        }
+                        
+                        if (branchEntity.BranchId == Guid.Empty && _tenantContext.BranchId.HasValue)
+                        {
+                            branchEntity.BranchId = _tenantContext.BranchId.Value;
                         }
                     }
                     break;
