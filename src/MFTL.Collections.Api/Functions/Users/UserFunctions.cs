@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Http;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.EntityFrameworkCore;
 using MediatR;
@@ -11,8 +13,10 @@ using MFTL.Collections.Application.Features.Users.Queries.ListUsers;
 
 namespace MFTL.Collections.Api.Functions.Users;
 
-public class UserFunctions(IMediator mediator, IApplicationDbContext dbContext)
+public class UserFunctions(IMediator mediator, IApplicationDbContext dbContext, ICurrentUserService currentUserService)
 {
+    private const string DevUserIdHeader = "X-Dev-User-Id";
+
     [Function("CoreListUsers")]
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.Base)] HttpRequest req)
@@ -25,17 +29,43 @@ public class UserFunctions(IMediator mediator, IApplicationDbContext dbContext)
     public async Task<IActionResult> GetMe(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Users.Me)] HttpRequest req)
     {
-        // Resolve the current user by their Auth0 sub claim (NameIdentifier)
-        var auth0Id = req.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        // 0. Manually trigger authentication since middleware isn't run in isolated worker automatically
+        var authResult = await req.HttpContext.AuthenticateAsync();
+        if (authResult.Succeeded && authResult.Principal != null)
+        {
+            req.HttpContext.User = authResult.Principal;
+        }
+
+        // 1. Try to resolve the current user by their Auth0 sub claim
+        // We check several possible locations for the user ID
+        var auth0Id = currentUserService.UserId;
+        
         if (string.IsNullOrWhiteSpace(auth0Id))
-            return new UnauthorizedResult();
+        {
+            auth0Id = req.HttpContext?.User?.FindFirst("sub")?.Value 
+                      ?? req.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        }
+        
+        // 2. Fallback to dev header for local development bypass
+        if (string.IsNullOrWhiteSpace(auth0Id))
+        {
+            auth0Id = req.Headers[DevUserIdHeader].FirstOrDefault();
+        }
+
+        if (string.IsNullOrWhiteSpace(auth0Id))
+        {
+            var authHeader = req.Headers["Authorization"].FirstOrDefault();
+            return new UnauthorizedObjectResult(new ApiResponse(false, 
+                $"Authentication required. Claims present: {req.HttpContext?.User?.Claims.Count() ?? 0}. Auth header present: {!string.IsNullOrEmpty(authHeader)}", 
+                CorrelationId: req.GetOrCreateCorrelationId()));
+        }
 
         var user = await dbContext.Users
             .Include(u => u.ScopeAssignments)
             .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id);
 
         if (user == null)
-            return new NotFoundObjectResult(new ApiResponse(false, "User profile not found.", CorrelationId: req.GetOrCreateCorrelationId()));
+            return new NotFoundObjectResult(new ApiResponse(false, $"User profile not found for ID: {auth0Id}", CorrelationId: req.GetOrCreateCorrelationId()));
 
         var result = await mediator.Send(new Application.Features.Users.Queries.GetUserById.GetUserByIdQuery(user.Id));
         return new OkObjectResult(new ApiResponse<UserDetailDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));

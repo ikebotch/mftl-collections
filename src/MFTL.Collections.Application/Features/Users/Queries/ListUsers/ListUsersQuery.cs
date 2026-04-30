@@ -23,7 +23,8 @@ public class ListUsersHandler(IApplicationDbContext dbContext) : IRequestHandler
             u.IsSuspended ? "Suspended" : (u.IsActive ? "Active" : "Inactive"),
             u.InviteStatus.ToString(),
             u.ScopeAssignments.FirstOrDefault()?.ScopeType.ToString() ?? "Global",
-            u.LastLoginAt
+            u.LastLoginAt,
+            u.IsPlatformAdmin
         ));
     }
 }

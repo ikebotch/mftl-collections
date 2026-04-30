@@ -8,7 +8,8 @@ public record UserDto(
     string Status,
     string InviteState,
     string Scope,
-    DateTimeOffset? LastLoginAt);
+    DateTimeOffset? LastLoginAt,
+    bool IsPlatformAdmin = false);
 
 public record UserDetailDto(
     Guid Id,
@@ -20,7 +21,12 @@ public record UserDetailDto(
     string InviteStatus,
     DateTimeOffset CreatedAt,
     DateTimeOffset? LastLoginAt,
-    IEnumerable<ScopeAssignmentDto> ScopeAssignments);
+    IEnumerable<ScopeAssignmentDto> ScopeAssignments,
+    string AccessState,
+    IEnumerable<string> EffectiveRoles,
+    IEnumerable<string> Permissions,
+    IEnumerable<string> Auth0Roles,
+    bool IsPlatformAdmin);
 
 public record ScopeAssignmentDto(
     Guid Id,

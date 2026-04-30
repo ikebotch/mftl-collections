@@ -70,9 +70,13 @@ public sealed class HeaderTenantResolver(FunctionHttpRequestAccessor requestAcce
         if (requestAccessor.Headers.TryGetValue(options.Value.HeaderName, out var tenantIdValues))
         {
             var tenantIdStr = tenantIdValues.FirstOrDefault();
-            if (Guid.TryParse(tenantIdStr, out var tenantId))
+            if (string.IsNullOrEmpty(tenantIdStr)) return Task.FromResult(new TenantResolutionResult(null, null, false));
+
+            // Handle comma-separated values by taking the first one
+            var firstIdStr = tenantIdStr.Split(',').FirstOrDefault()?.Trim();
+            if (Guid.TryParse(firstIdStr, out var tenantId))
             {
-                return Task.FromResult(new TenantResolutionResult(tenantId, tenantIdStr));
+                return Task.FromResult(new TenantResolutionResult(tenantId, firstIdStr));
             }
         }
 
