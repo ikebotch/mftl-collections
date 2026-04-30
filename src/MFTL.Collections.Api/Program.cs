@@ -6,6 +6,7 @@ using MFTL.Collections.Infrastructure.DependencyInjection;
 using MFTL.Collections.Api.Middleware;
 using MFTL.Collections.Api.Extensions;
 using MFTL.Collections.Api.Infrastructure.Json;
+using Microsoft.Azure.Functions.Worker;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication(worker =>

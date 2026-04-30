@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.Azure.Functions.Worker;
 using MFTL.Collections.Api.Extensions;
 using MFTL.Collections.Application.Features.Collectors.Queries.GetCollectorAssignments;
@@ -19,6 +20,7 @@ public class CollectorFunctions(IMediator mediator)
     public async Task<IActionResult> GetMe(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Collectors.Me)] HttpRequest req)
     {
+        await req.HttpContext.AuthenticateAsync();
         var result = await mediator.Send(new GetCollectorMeQuery(req.Headers[DevUserIdHeader].FirstOrDefault()));
         return new OkObjectResult(new ApiResponse<CollectorMeDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
@@ -27,6 +29,7 @@ public class CollectorFunctions(IMediator mediator)
     public async Task<IActionResult> GetAssignments(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Collectors.Assignments)] HttpRequest req)
     {
+        await req.HttpContext.AuthenticateAsync();
         var result = await mediator.Send(new GetCollectorAssignmentsQuery(req.Headers[DevUserIdHeader].FirstOrDefault()));
         return new OkObjectResult(new ApiResponse<CollectorAssignmentsDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
@@ -35,6 +38,7 @@ public class CollectorFunctions(IMediator mediator)
     public async Task<IActionResult> GetHistory(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Collectors.History)] HttpRequest req)
     {
+        await req.HttpContext.AuthenticateAsync();
         var result = await mediator.Send(new ListCollectorHistoryQuery(req.Headers[DevUserIdHeader].FirstOrDefault()));
         return new OkObjectResult(new ApiResponse<IEnumerable<CollectorHistoryReceiptDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }

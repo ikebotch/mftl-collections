@@ -49,6 +49,12 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
                 targetName));
         }
 
+        var effectiveRoles = scopeDtos.Select(s => s.Role).Distinct().ToList();
+        if (user.IsPlatformAdmin && !effectiveRoles.Contains("Platform Admin"))
+        {
+            effectiveRoles.Add("Platform Admin");
+        }
+
         return new UserDetailDto(
             user.Id,
             user.Auth0Id,
@@ -59,6 +65,11 @@ public class GetUserByIdQueryHandler(IApplicationDbContext dbContext) : IRequest
             user.InviteStatus.ToString(),
             user.CreatedAt,
             user.LastLoginAt,
-            scopeDtos);
+            scopeDtos,
+            user.IsSuspended ? "suspended" : (user.IsActive ? "active" : "inactive"),
+            effectiveRoles,
+            new List<string>(), // Permissions placeholder
+            new List<string>(), // Auth0Roles placeholder
+            user.IsPlatformAdmin);
     }
 }
