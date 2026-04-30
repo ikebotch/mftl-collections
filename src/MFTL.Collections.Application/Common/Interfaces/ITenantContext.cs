@@ -6,6 +6,8 @@ public interface ITenantContext
     Guid? BranchId { get; }
     string? TenantIdentifier { get; }
     bool IsPlatformContext { get; }
+    IEnumerable<Guid> AllowedTenantIds { get; }
+    IEnumerable<Guid> AllowedBranchIds { get; }
 }
 
 public interface ITenantResolver

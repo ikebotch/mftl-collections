@@ -3,17 +3,20 @@ using System;
 using MFTL.Collections.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace MFTL.Collections.Infrastructure.Migrations
+namespace MFTL.Collections.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(CollectionsDbContext))]
-    partial class CollectionsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260430080501_AddPermissionsTable")]
+    partial class AddPermissionsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

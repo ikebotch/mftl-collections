@@ -23,6 +23,8 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
     public DbSet<UserScopeAssignment> UserScopeAssignments => Set<UserScopeAssignment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,34 +33,127 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
-            if (typeof(BaseTenantEntity).IsAssignableFrom(entityType.ClrType))
+            var clrType = entityType.ClrType;
+            var parameter = Expression.Parameter(clrType, "e");
+            var context = Expression.Constant(this);
+            var tenantContextField = typeof(CollectionsDbContext).GetField("_tenantContext", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var accessor = Expression.Field(context, tenantContextField!);
+            
+            Expression? filter = null;
+
+            // 1. Tenant Filter
+            if (typeof(BaseTenantEntity).IsAssignableFrom(clrType))
             {
-                modelBuilder.Entity(entityType.ClrType).HasQueryFilter(CreateTenantFilter(entityType.ClrType));
+                var tenantIdProp = Expression.Property(parameter, nameof(BaseTenantEntity.TenantId));
+                var ctxAllowedTenants = Expression.Property(accessor, nameof(ITenantContext.AllowedTenantIds));
+                var ctxAllowedBranches = Expression.Property(accessor, nameof(ITenantContext.AllowedBranchIds));
+                var isPlatform = Expression.Property(accessor, nameof(ITenantContext.IsPlatformContext));
+
+                var allowedTenantsContains = Expression.Call(
+                    typeof(Enumerable), 
+                    "Contains", 
+                    new[] { typeof(Guid) }, 
+                    ctxAllowedTenants, 
+                    tenantIdProp);
+                
+                var tenantFilter = Expression.OrElse(isPlatform, allowedTenantsContains);
+                filter = tenantFilter;
+
+                // 2. Branch Filter (if applicable)
+                if (typeof(IBranchEntity).IsAssignableFrom(clrType))
+                {
+                    var branchIdProp = Expression.Property(parameter, nameof(IBranchEntity.BranchId));
+                    // (IsPlatformContext || Context.AllowedBranchIds.Contains(BranchId))
+                    var allowedBranchesContains = Expression.Call(
+                        typeof(Enumerable), 
+                        "Contains", 
+                        new[] { typeof(Guid) }, 
+                        ctxAllowedBranches, 
+                        branchIdProp);
+                    
+                    var branchFilter = Expression.OrElse(isPlatform, allowedBranchesContains);
+                    
+                    filter = Expression.AndAlso(filter, branchFilter);
+                }
+                else if (typeof(IOptionalBranchEntity).IsAssignableFrom(clrType))
+                {
+                    var branchIdProp = Expression.Property(parameter, nameof(IOptionalBranchEntity.BranchId));
+                    // (IsPlatformContext || BranchId == null || Context.AllowedBranchIds.Contains(BranchId))
+                    var branchIsNull = Expression.Equal(branchIdProp, Expression.Constant(null, typeof(Guid?)));
+                    var allowedBranchesContains = Expression.Call(
+                        typeof(Enumerable), 
+                        "Contains", 
+                        new[] { typeof(Guid) }, 
+                        ctxAllowedBranches, 
+                        Expression.Property(branchIdProp, "Value"));
+                    
+                    // Only call Contains if BranchId has value
+                    var branchFilter = Expression.OrElse(
+                        Expression.OrElse(isPlatform, branchIsNull),
+                        Expression.AndAlso(Expression.Property(branchIdProp, "HasValue"), allowedBranchesContains)
+                    );
+                    
+                    filter = Expression.AndAlso(filter, branchFilter);
+                }
+                else if (clrType == typeof(Branch))
+                {
+                    // Special case for Branch itself: Id must be in allowed list
+                    var idProp = Expression.Property(parameter, nameof(Branch.Id));
+                    
+                    var allowedBranchesContains = Expression.Call(
+                        typeof(Enumerable), 
+                        "Contains", 
+                        new[] { typeof(Guid) }, 
+                        ctxAllowedBranches, 
+                        idProp);
+                    
+                    var branchFilter = Expression.OrElse(isPlatform, allowedBranchesContains);
+                    filter = Expression.AndAlso(filter, branchFilter);
+                }
+            }
+            else if (clrType == typeof(UserScopeAssignment))
+            {
+                // 3. UserScopeAssignment Filter: Must belong to allowed tenants or branches
+                var scopeTypeProp = Expression.Property(parameter, nameof(UserScopeAssignment.ScopeType));
+                var targetIdProp = Expression.Property(parameter, nameof(UserScopeAssignment.TargetId));
+                var isPlatform = Expression.Property(accessor, nameof(ITenantContext.IsPlatformContext));
+                var ctxAllowedTenants = Expression.Property(accessor, nameof(ITenantContext.AllowedTenantIds));
+                var ctxAllowedBranches = Expression.Property(accessor, nameof(ITenantContext.AllowedBranchIds));
+
+                var tenantScope = Expression.Constant(Domain.Entities.ScopeType.Tenant);
+                var branchScope = Expression.Constant(Domain.Entities.ScopeType.Branch);
+
+                var isTenantScope = Expression.Equal(scopeTypeProp, tenantScope);
+                var isBranchScope = Expression.Equal(scopeTypeProp, branchScope);
+
+                var targetIdValue = Expression.Property(targetIdProp, "Value");
+                var hasValue = Expression.Property(targetIdProp, "HasValue");
+
+                var tenantMatch = Expression.AndAlso(
+                    isTenantScope, 
+                    Expression.AndAlso(
+                        hasValue,
+                        Expression.Call(typeof(Enumerable), "Contains", new[] { typeof(Guid) }, ctxAllowedTenants, targetIdValue)
+                    ));
+
+                var branchMatch = Expression.AndAlso(
+                    isBranchScope, 
+                    Expression.AndAlso(
+                        hasValue,
+                        Expression.Call(typeof(Enumerable), "Contains", new[] { typeof(Guid) }, ctxAllowedBranches, targetIdValue)
+                    ));
+
+                filter = Expression.OrElse(isPlatform, Expression.OrElse(tenantMatch, branchMatch));
+            }
+
+            if (filter != null)
+            {
+                modelBuilder.Entity(clrType).HasQueryFilter(Expression.Lambda(filter, parameter));
             }
         }
         
         // Configure UUIDs and other Postgres specific details
         modelBuilder.HasPostgresExtension("uuid-ossp");
-    }
-
-    private LambdaExpression CreateTenantFilter(Type type)
-    {
-        var parameter = Expression.Parameter(type, "x");
-        var property = Expression.Property(parameter, nameof(BaseTenantEntity.TenantId));
-        
-        var context = Expression.Constant(this);
-        var tenantContextField = typeof(CollectionsDbContext).GetField("_tenantContext", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var accessor = Expression.Field(context, tenantContextField!);
-        var tenantIdProperty = typeof(ITenantContext).GetProperty(nameof(ITenantContext.TenantId));
-        var tenantId = Expression.Property(accessor, tenantIdProperty!);
-        var isPlatformContextProperty = typeof(ITenantContext).GetProperty(nameof(ITenantContext.IsPlatformContext));
-        var isPlatformContext = Expression.Property(accessor, isPlatformContextProperty!);
-        
-        var propertyAsNullable = Expression.Convert(property, typeof(Guid?));
-        var tenantMatch = Expression.Equal(propertyAsNullable, tenantId);
-        var filter = Expression.OrElse(isPlatformContext, tenantMatch);
-        
-        return Expression.Lambda(filter, parameter);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

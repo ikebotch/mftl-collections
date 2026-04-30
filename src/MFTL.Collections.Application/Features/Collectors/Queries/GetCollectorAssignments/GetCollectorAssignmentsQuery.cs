@@ -89,6 +89,7 @@ public class GetCollectorAssignmentsQueryHandler(
         }
 
         var funds = await dbContext.RecipientFunds
+            .IgnoreQueryFilters()
             .Where(fund => fundIds.Contains(fund.Id) || eventIds.Contains(fund.EventId))
             .ToListAsync(cancellationToken);
 
@@ -96,6 +97,7 @@ public class GetCollectorAssignmentsQueryHandler(
         var allAllowedEventIds = eventIds.Concat(allowedEventIdsFromFunds).Distinct().ToList();
 
         var events = await dbContext.Events
+            .IgnoreQueryFilters()
             .Where(e => allAllowedEventIds.Contains(e.Id))
             .ToListAsync(cancellationToken);
 

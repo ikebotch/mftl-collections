@@ -7,11 +7,19 @@ namespace MFTL.Collections.Application.Features.Users.Queries.ListUsers;
 
 public record ListUsersQuery() : IRequest<IEnumerable<UserDto>>;
 
-public class ListUsersHandler(IApplicationDbContext dbContext) : IRequestHandler<ListUsersQuery, IEnumerable<UserDto>>
+public class ListUsersHandler(IApplicationDbContext dbContext, ITenantContext tenantContext) : IRequestHandler<ListUsersQuery, IEnumerable<UserDto>>
 {
     public async Task<IEnumerable<UserDto>> Handle(ListUsersQuery request, CancellationToken cancellationToken)
     {
-        var users = await dbContext.Users
+        var query = dbContext.Users.AsQueryable();
+
+        // If not a platform admin, only see users in the same tenant/branch
+        if (!tenantContext.IsPlatformContext)
+        {
+            query = query.Where(u => u.ScopeAssignments.Any());
+        }
+
+        var users = await query
             .Include(u => u.ScopeAssignments)
             .ToListAsync(cancellationToken);
 

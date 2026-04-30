@@ -22,7 +22,7 @@ public sealed class Branch : BaseTenantEntity
     public bool IsActive { get; set; } = true;
 }
 
-public sealed class Event : BaseTenantEntity
+public sealed class Event : BaseTenantEntity, IBranchEntity
 {
     public string Title { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
@@ -39,7 +39,7 @@ public sealed class Event : BaseTenantEntity
     public ICollection<Receipt> Receipts { get; set; } = new List<Receipt>();
 }
 
-public sealed class RecipientFund : BaseTenantEntity
+public sealed class RecipientFund : BaseTenantEntity, IBranchEntity
 {
     public Guid EventId { get; set; }
     public Event Event { get; set; } = null!;
@@ -54,7 +54,7 @@ public sealed class RecipientFund : BaseTenantEntity
     public ICollection<Receipt> Receipts { get; set; } = new List<Receipt>();
 }
 
-public sealed class Contributor : BaseTenantEntity
+public sealed class Contributor : BaseTenantEntity, IBranchEntity
 {
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
@@ -64,7 +64,7 @@ public sealed class Contributor : BaseTenantEntity
     public Branch? Branch { get; set; }
 }
 
-public sealed class Contribution : BaseTenantEntity
+public sealed class Contribution : BaseTenantEntity, IBranchEntity
 {
     public Guid EventId { get; set; }
     public Event Event { get; set; } = null!;
@@ -87,7 +87,7 @@ public sealed class Contribution : BaseTenantEntity
     public Receipt? Receipt { get; set; }
 }
 
-public sealed class Receipt : BaseTenantEntity
+public sealed class Receipt : BaseTenantEntity, IBranchEntity
 {
     public Guid EventId { get; set; }
     public Event Event { get; set; } = null!;
@@ -109,7 +109,7 @@ public sealed class Receipt : BaseTenantEntity
     public Branch? Branch { get; set; }
 }
 
-public sealed class Settlement : BaseTenantEntity
+public sealed class Settlement : BaseTenantEntity, IBranchEntity
 {
     public Guid CollectorId { get; set; }
     public User Collector { get; set; } = null!;

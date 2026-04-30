@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.AspNetCore.Http;
 using MFTL.Collections.Api.Extensions;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Common;
@@ -29,13 +30,14 @@ public static class TenantRequestPolicy
         "GetMe",
         "GetCollectorMe",
         "GetCollectorAssignments",
+        "ListTenants",
     };
 
     public static bool RequiresTenant(string functionName) => !PlatformFunctionNames.Contains(functionName);
 
     public static TenantRequestResolution Evaluate(
         string functionName,
-        HttpHeadersCollection headers,
+        IHeaderDictionary headers,
         TenantResolutionResult resolutionResult,
         TenantResolutionOptions options)
     {
@@ -53,7 +55,7 @@ public static class TenantRequestPolicy
                 resolutionResult.Identifier);
         }
 
-        if (headers.TryGetValues(options.HeaderName, out var tenantHeaderValues))
+        if (headers.TryGetValue(options.HeaderName, out var tenantHeaderValues))
         {
             var tenantHeaderValue = tenantHeaderValues.FirstOrDefault() ?? string.Empty;
             return new TenantRequestResolution(

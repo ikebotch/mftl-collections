@@ -55,6 +55,7 @@ public static class DependencyInjection
             services.AddScoped<IApplicationDbContext>(provider => 
                 provider.GetRequiredService<CollectionsDbContext>());
             services.AddHostedService<ReceiptSchemaBootstrapper>();
+            services.AddHostedService<PermissionBootstrapper>();
         }
 
         // Additional services for payments and dashboards
