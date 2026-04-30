@@ -34,23 +34,23 @@ public class ListContributionsQueryHandler(IApplicationDbContext dbContext)
             .Include(c => c.RecipientFund)
             .Include(c => c.Contributor)
             .Include(c => c.Receipt)
-                .ThenInclude(r => r.RecordedByUser)
+                .ThenInclude(r => r!.RecordedByUser)
             .OrderByDescending(c => c.CreatedAt)
             .Select(contribution => new ContributionListItemDto(
                 contribution.Id,
                 contribution.CreatedAt,
-                contribution.Event?.Title ?? "Unknown Event",
-                contribution.RecipientFund?.Name ?? "General Fund",
+                contribution.Event == null ? "Unknown Event" : contribution.Event.Title,
+                contribution.RecipientFund == null ? "General Fund" : contribution.RecipientFund.Name,
                 contribution.Method,
                 contribution.Status.ToString(),
                 contribution.Amount,
                 contribution.Currency,
                 contribution.ContributorName,
-                contribution.Contributor?.PhoneNumber ?? "",
-                contribution.Contributor?.Email,
-                contribution.Receipt?.RecordedByUser?.Name,
+                contribution.Contributor == null ? "" : (contribution.Contributor.PhoneNumber ?? ""),
+                contribution.Contributor == null ? null : contribution.Contributor.Email,
+                contribution.Receipt == null || contribution.Receipt.RecordedByUser == null ? null : contribution.Receipt.RecordedByUser.Name,
                 contribution.Note,
-                contribution.Receipt?.Id))
+                contribution.Receipt == null ? null : contribution.Receipt.Id))
             .ToListAsync(cancellationToken);
     }
 }
