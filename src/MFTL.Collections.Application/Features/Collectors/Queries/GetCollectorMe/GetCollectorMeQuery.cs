@@ -21,7 +21,7 @@ public sealed record CollectorMeDto(
     IEnumerable<Guid>? EventIds = null,
     IEnumerable<Guid>? FundIds = null);
 
-public record GetCollectorMeQuery(string? ExplicitUserId = null) : IRequest<CollectorMeDto>;
+public record GetCollectorMeQuery() : IRequest<CollectorMeDto>;
 
 public class GetCollectorMeQueryHandler(
     IApplicationDbContext dbContext,
@@ -29,7 +29,7 @@ public class GetCollectorMeQueryHandler(
 {
     public async Task<CollectorMeDto> Handle(GetCollectorMeQuery request, CancellationToken cancellationToken)
     {
-        var auth0Id = request.ExplicitUserId ?? currentUserService.UserId;
+        var auth0Id = currentUserService.UserId;
         if (string.IsNullOrWhiteSpace(auth0Id))
         {
             throw new UnauthorizedAccessException("Collector authentication is required.");
@@ -38,15 +38,6 @@ public class GetCollectorMeQueryHandler(
         var user = await dbContext.Users
             .Include(u => u.ScopeAssignments)
             .FirstOrDefaultAsync(u => u.Auth0Id == auth0Id, cancellationToken);
-
-        if (user == null && !string.IsNullOrWhiteSpace(request.ExplicitUserId))
-        {
-            user = await dbContext.Users
-                .Include(u => u.ScopeAssignments)
-                .Where(u => u.IsActive && u.ScopeAssignments.Any(a => a.Role == "Collector"))
-                .OrderBy(u => u.CreatedAt)
-                .FirstOrDefaultAsync(cancellationToken);
-        }
 
         if (user == null)
         {

@@ -1,32 +1,41 @@
+using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using MediatR;
 using MFTL.Collections.Api.Extensions;
-using MFTL.Collections.Contracts.Requests;
-using MFTL.Collections.Contracts.Common;
-using System.Text.Json;
+using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using MFTL.Collections.Application.Features.RecipientFunds.Commands.CreateRecipientFund;
 using MFTL.Collections.Application.Features.RecipientFunds.Commands.UpdateRecipientFund;
 using MFTL.Collections.Application.Features.RecipientFunds.Queries.GetRecipientFundById;
 using MFTL.Collections.Application.Features.RecipientFunds.Queries.ListRecipientFunds;
 using MFTL.Collections.Application.Features.RecipientFunds.Queries.ListRecipientFundsByEvent;
+using MFTL.Collections.Contracts.Common;
+using MFTL.Collections.Contracts.Responses;
+using MFTL.Collections.Contracts.Requests;
+using System.Text.Json;
 
 namespace MFTL.Collections.Api.Functions.RecipientFunds;
 
-public class RecipientFundFunctions(IMediator mediator)
+public class RecipientFundFunctions(
+    IMediator mediator,
+    IScopeAccessService scopeService,
+    ITenantContext tenantContext)
 {
     [Function("CreateRecipientFund")]
     public async Task<IActionResult> Create(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.RecipientFunds.Base)] HttpRequest req)
     {
+        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.RecipientFunds.Create, req);
+        if (deny != null) return deny;
+
         var body = await new StreamReader(req.Body).ReadToEndAsync();
         var request = JsonSerializer.Deserialize<CreateRecipientFundRequest>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         
         if (request == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body.", CorrelationId: req.GetOrCreateCorrelationId()));
 
         var result = await mediator.Send(new CreateRecipientFundCommand(
-            request.EventId, 
+            request.EventId,
             request.Name, 
             request.Description, 
             request.TargetAmount, 
@@ -40,6 +49,9 @@ public class RecipientFundFunctions(IMediator mediator)
     public async Task<IActionResult> Update(
         [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = ApiRoutes.RecipientFunds.Update)] HttpRequest req, Guid id)
     {
+        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.RecipientFunds.Update, req);
+        if (deny != null) return deny;
+
         var body = await new StreamReader(req.Body).ReadToEndAsync();
         var request = JsonSerializer.Deserialize<UpdateRecipientFundRequest>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         
@@ -62,6 +74,9 @@ public class RecipientFundFunctions(IMediator mediator)
     public async Task<IActionResult> GetById(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.RecipientFunds.GetById)] HttpRequest req, Guid id)
     {
+        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.RecipientFunds.View, req);
+        if (deny != null) return deny;
+
         var result = await mediator.Send(new GetRecipientFundByIdQuery(id));
         if (result == null) return new NotFoundResult();
         return new OkObjectResult(new ApiResponse<RecipientFundDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
@@ -71,6 +86,9 @@ public class RecipientFundFunctions(IMediator mediator)
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.RecipientFunds.Base)] HttpRequest req)
     {
+        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.RecipientFunds.View, req);
+        if (deny != null) return deny;
+
         var result = await mediator.Send(new ListRecipientFundsQuery());
         return new OkObjectResult(new ApiResponse<IEnumerable<RecipientFundDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
@@ -79,6 +97,9 @@ public class RecipientFundFunctions(IMediator mediator)
     public async Task<IActionResult> ListByEvent(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.RecipientFunds.ListByEvent)] HttpRequest req, Guid eventId)
     {
+        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.RecipientFunds.View, req);
+        if (deny != null) return deny;
+
         var result = await mediator.Send(new ListRecipientFundsByEventQuery(eventId));
         return new OkObjectResult(new ApiResponse<IEnumerable<RecipientFundDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }

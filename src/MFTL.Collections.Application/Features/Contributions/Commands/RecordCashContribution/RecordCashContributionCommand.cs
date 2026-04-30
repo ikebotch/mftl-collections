@@ -45,7 +45,9 @@ public class RecordCashContributionCommandHandler(
 {
     public async Task<CashContributionResult> Handle(RecordCashContributionCommand request, CancellationToken cancellationToken)
     {
-        var collectorAuth0Id = request.ExplicitUserId ?? currentUserService.UserId;
+        // Identity MUST come from the authenticated user.
+        // ExplicitUserId fallback removed for security.
+        var collectorAuth0Id = currentUserService.UserId;
         if (string.IsNullOrWhiteSpace(collectorAuth0Id))
         {
             throw new UnauthorizedAccessException("Collector authentication is required.");
@@ -54,15 +56,6 @@ public class RecordCashContributionCommandHandler(
         var collector = await dbContext.Users
             .Include(user => user.ScopeAssignments)
             .FirstOrDefaultAsync(user => user.Auth0Id == collectorAuth0Id, cancellationToken);
-
-        if (collector == null && !string.IsNullOrWhiteSpace(request.ExplicitUserId))
-        {
-            collector = await dbContext.Users
-                .Include(user => user.ScopeAssignments)
-                .Where(user => user.IsActive && user.ScopeAssignments.Any(assignment => assignment.Role == "Collector"))
-                .OrderBy(user => user.CreatedAt)
-                .FirstOrDefaultAsync(cancellationToken);
-        }
 
         if (collector == null)
         {
@@ -81,38 +74,32 @@ public class RecordCashContributionCommandHandler(
         var @event = await dbContext.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == request.EventId, cancellationToken);
         if (@event == null) throw new KeyNotFoundException("Event not found.");
 
+        // Scope Enforcement:
+        // 1. Direct event assignment
         var hasEventAccess = collectorAssignments.Any(assignment =>
             assignment.ScopeType == ScopeType.Event && assignment.TargetId == request.EventId);
 
+        // 2. Branch assignment (covers all events in branch)
         var hasBranchAccess = collectorAssignments.Any(assignment =>
             assignment.ScopeType == ScopeType.Branch && assignment.TargetId == @event.BranchId);
 
-        if (!hasEventAccess && !hasBranchAccess)
-        {
-            throw new UnauthorizedAccessException("Collector is not assigned to this event or branch.");
-        }
-
+        // 3. Fund assignment (covers only that fund)
         var hasFundAccess = collectorAssignments.Any(assignment =>
             assignment.ScopeType == ScopeType.RecipientFund && assignment.TargetId == request.RecipientFundId);
 
-        if (!hasFundAccess && !hasBranchAccess && !hasEventAccess)
+        // A collector can record if they have Branch access, Event access, OR specific Fund access.
+        if (!hasEventAccess && !hasBranchAccess && !hasFundAccess)
         {
-            // If they have branch or event access, they might not need direct fund assignment
-            // But usually collectors are assigned to funds. I'll stick to the logic: Branch/Event access implies access to children.
-        }
-        
-        // Actually, I'll follow the existing strictness but allow Branch-level access to override Event/Fund requirements
-        if (!hasFundAccess && !hasEventAccess && !hasBranchAccess)
-        {
-             throw new UnauthorizedAccessException("Collector is not assigned to this recipient fund.");
+            throw new UnauthorizedAccessException("Collector is not assigned to this event, branch, or recipient fund.");
         }
 
+        // Verify the fund belongs to the event
         var recipientFund = await dbContext.RecipientFunds
             .FirstOrDefaultAsync(f => f.Id == request.RecipientFundId && f.EventId == request.EventId, cancellationToken);
 
         if (recipientFund == null)
         {
-            throw new KeyNotFoundException("Recipient fund not found.");
+            throw new KeyNotFoundException("Recipient fund not found in the specified event.");
         }
 
         var contributor = new Contributor
@@ -146,7 +133,6 @@ public class RecordCashContributionCommandHandler(
         dbContext.Contributions.Add(contribution);
         var settlement = await settlementService.SettleContributionAsync(contribution, null, collector.Id, cancellationToken);
         
-        // Ensure the receipt also gets the BranchId if possible
         if (contribution.Receipt != null)
         {
             contribution.Receipt.BranchId = @event.BranchId;

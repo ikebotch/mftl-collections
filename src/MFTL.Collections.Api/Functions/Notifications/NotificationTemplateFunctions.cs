@@ -11,16 +11,25 @@ using MFTL.Collections.Application.Features.Notifications.Commands.UpdateNotific
 using MFTL.Collections.Application.Features.Notifications.Queries.PreviewNotificationTemplate;
 using MFTL.Collections.Api.Extensions;
 using MFTL.Collections.Application.Common.Interfaces;
+using MFTL.Collections.Application.Common.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace MFTL.Collections.Api.Functions.Notifications;
 
-public class NotificationTemplateFunctions(IMediator mediator, IApplicationDbContext dbContext, IOutboxService outboxService)
+public class NotificationTemplateFunctions(
+    IMediator mediator,
+    IApplicationDbContext dbContext,
+    IOutboxService outboxService,
+    IScopeAccessService scopeService,
+    ITenantContext tenantContext)
 {
     [Function("ListNotificationTemplates")]
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.NotificationTemplates.Base)] HttpRequest req)
     {
+        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.NotificationTemplates.View, req);
+        if (deny != null) return deny;
+
         var templateKey = req.Query["templateKey"].ToString();
         var channel = req.Query["channel"].ToString();
 
@@ -38,6 +47,9 @@ public class NotificationTemplateFunctions(IMediator mediator, IApplicationDbCon
     public async Task<IActionResult> GetById(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.NotificationTemplates.GetById)] HttpRequest req, Guid id)
     {
+        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.NotificationTemplates.View, req);
+        if (deny != null) return deny;
+
         var result = await mediator.Send(new GetNotificationTemplateByIdQuery(id));
         if (result == null) return new NotFoundResult();
         return new OkObjectResult(new ApiResponse<NotificationTemplateDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
@@ -47,6 +59,9 @@ public class NotificationTemplateFunctions(IMediator mediator, IApplicationDbCon
     public async Task<IActionResult> Create(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.NotificationTemplates.Base)] HttpRequest req)
     {
+        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.NotificationTemplates.Create, req);
+        if (deny != null) return deny;
+
         var command = await req.ReadFromJsonAsync<CreateNotificationTemplateCommand>();
         if (command == null) return new BadRequestResult();
 
@@ -58,51 +73,29 @@ public class NotificationTemplateFunctions(IMediator mediator, IApplicationDbCon
     public async Task<IActionResult> Update(
         [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = ApiRoutes.NotificationTemplates.GetById)] HttpRequest req, Guid id)
     {
+        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.NotificationTemplates.Update, req);
+        if (deny != null) return deny;
+
         var command = await req.ReadFromJsonAsync<UpdateNotificationTemplateCommand>();
         if (command == null) return new BadRequestResult();
-        
+
         var result = await mediator.Send(command with { Id = id });
+        if (!result) return new NotFoundResult();
+
         return new OkObjectResult(new ApiResponse<bool>(true, "Notification template updated.", result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
     [Function("PreviewNotificationTemplate")]
     public async Task<IActionResult> Preview(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.NotificationTemplates.Preview)] HttpRequest req, Guid id)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.NotificationTemplates.Preview)] HttpRequest req)
     {
-        var variables = await req.ReadFromJsonAsync<Dictionary<string, string>>();
-        var result = await mediator.Send(new PreviewNotificationTemplateQuery { Id = id, Variables = variables ?? new() });
-        if (result == null) return new NotFoundResult();
+        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.NotificationTemplates.Test, req);
+        if (deny != null) return deny;
+
+        var query = await req.ReadFromJsonAsync<PreviewNotificationTemplateQuery>();
+        if (query == null) return new BadRequestResult();
+
+        var result = await mediator.Send(query);
         return new OkObjectResult(new ApiResponse<RenderedTemplateDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
-
-    [Function("SendTestNotification")]
-    public async Task<IActionResult> SendTest(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.NotificationTemplates.SendTest)] HttpRequest req, Guid id)
-    {
-        var template = await dbContext.NotificationTemplates.FirstOrDefaultAsync(t => t.Id == id);
-        if (template == null)
-        {
-            return new NotFoundObjectResult(new ApiResponse(false, "Notification template not found.", CorrelationId: req.GetOrCreateCorrelationId()));
-        }
-
-        var payload = await req.ReadFromJsonAsync<SendTestNotificationRequest>() ?? new SendTestNotificationRequest(null, null, null);
-        var outboxId = await outboxService.EnqueueAsync(
-            template.TenantId,
-            template.BranchId,
-            id,
-            nameof(Domain.Entities.NotificationTemplate),
-            "ReceiptResendRequestedEvent",
-            new
-            {
-                ReceiptId = payload.ReceiptId ?? Guid.Empty,
-                TemplateKey = template.TemplateKey,
-                TestPhone = payload.Phone,
-                TestEmail = payload.Email
-            },
-            correlationId: req.GetOrCreateCorrelationId());
-
-        return new OkObjectResult(new ApiResponse<Guid>(true, "Test notification queued.", outboxId, CorrelationId: req.GetOrCreateCorrelationId()));
-    }
 }
-
-public sealed record SendTestNotificationRequest(Guid? ReceiptId, string? Phone, string? Email);

@@ -33,10 +33,14 @@ public class StorefrontFunctions(IMediator mediator, IApplicationDbContext dbCon
     public async Task<IActionResult> ListFundsByEventSlug(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Storefront.ListFundsByEventSlug)] HttpRequest req, string slug)
     {
-        var e = await dbContext.Events.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Slug == slug);
+        // Must only return active events to public storefront.
+        var e = await dbContext.Events
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.Slug == slug && x.IsActive);
+
         if (e == null)
         {
-            return new NotFoundObjectResult(new ApiResponse(false, $"Event with slug '{slug}' not found.", CorrelationId: req.GetOrCreateCorrelationId()));
+            return new NotFoundObjectResult(new ApiResponse(false, $"Event with slug '{slug}' not found or inactive.", CorrelationId: req.GetOrCreateCorrelationId()));
         }
 
         var result = await mediator.Send(new ListRecipientFundsByEventQuery(e.Id));
