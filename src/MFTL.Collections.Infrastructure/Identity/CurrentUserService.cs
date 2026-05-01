@@ -28,9 +28,9 @@ public sealed class CurrentUserService(
                 userId = requestAccessor.UserId;
             }
 
-            if (string.IsNullOrEmpty(userId))
+            if (string.IsNullOrEmpty(userId) && requestAccessor.Headers.TryGetValue(DevUserIdHeader, out var devValues))
             {
-                userId = requestAccessor.Headers[DevUserIdHeader].FirstOrDefault();
+                userId = devValues.FirstOrDefault();
             }
 
             return userId;

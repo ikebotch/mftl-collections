@@ -68,7 +68,17 @@ public class InternalPaymentCallbackFunction(
 
         try
         {
-            var payload = JsonSerializer.Deserialize<CallbackPayload>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            CallbackPayload? payload;
+            try
+            {
+                payload = JsonSerializer.Deserialize<CallbackPayload>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "Malformed JSON in internal callback.");
+                return new BadRequestObjectResult("Malformed JSON payload.");
+            }
+
             if (!IsRequiredPayloadPresent(payload))
             {
                 return new BadRequestObjectResult("Invalid payload.");
@@ -322,7 +332,44 @@ public class InternalPaymentCallbackFunction(
         public string ExternalReference { get; set; } = string.Empty;
         public decimal Amount { get; set; }
         public string Currency { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(FlexibleStatusConverter))]
         public string Status { get; set; } = string.Empty;
         public DateTimeOffset? OccurredAt { get; set; }
+    }
+
+    private class FlexibleStatusConverter : System.Text.Json.Serialization.JsonConverter<string>
+    {
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                return reader.GetString() ?? string.Empty;
+            }
+            if (reader.TokenType == JsonTokenType.Number)
+            {
+                if (reader.TryGetInt32(out int val))
+                {
+                    // Map common enum values if needed, or just return as string
+                    return val switch
+                    {
+                        0 => "Pending",
+                        1 => "Succeeded",
+                        2 => "Failed",
+                        3 => "Cancelled",
+                        4 => "Refunded",
+                        _ => val.ToString()
+                    };
+                }
+                return reader.GetDecimal().ToString();
+            }
+            return string.Empty;
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(value);
+        }
     }
 }

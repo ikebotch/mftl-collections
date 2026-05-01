@@ -43,6 +43,7 @@ public sealed class TenantContext : ITenantContext
     public void SetSystemContext()
     {
         IsSystemContext = true;
+        IsPlatformContext = true;
     }
 
     public void Clear()

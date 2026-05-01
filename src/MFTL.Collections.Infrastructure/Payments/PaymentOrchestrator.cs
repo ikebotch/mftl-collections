@@ -1,5 +1,8 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -28,7 +31,13 @@ public sealed class PaymentOrchestrator(
             return new PaymentResult(false, null, null, null, null, "Contribution not found.");
         }
 
-        var provider = method.Equals("paystack", StringComparison.OrdinalIgnoreCase) ? 2 : 1; // 1 = Stripe, 2 = Paystack
+        var provider = method.ToLowerInvariant() switch
+        {
+            "paystack" => 2,
+            "moolre" => 3,
+            "momo" => 3,
+            _ => 1 // Stripe
+        };
 
         var requestMetadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -67,13 +76,31 @@ public sealed class PaymentOrchestrator(
                 return new PaymentResult(false, null, null, null, null, "Payment service integration is not configured.");
             }
 
-            var response = await httpClient.PostAsJsonAsync($"{_options.BaseUrl.TrimEnd('/')}/payments", request, cancellationToken);
+            logger.LogInformation("Payment service configured BaseUrl={BaseUrl} ClientApp={ClientApp} HasSecret={HasSecret}", 
+                _options.BaseUrl, _options.ClientApp, !string.IsNullOrEmpty(_options.SharedSecret));
+
+            var json = JsonSerializer.Serialize(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+            var signature = ComputeSignature(_options.SharedSecret ?? string.Empty, timestamp, json);
+
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl.TrimEnd('/')}/payments")
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+            httpRequest.Headers.Add("X-MFTL-Timestamp", timestamp);
+            httpRequest.Headers.Add("X-MFTL-Signature", signature);
+            httpRequest.Headers.Add("X-MFTL-Client-App", _options.ClientApp);
+
+            logger.LogInformation("Initiating payment service call: Url={Url} ClientApp={ClientApp} HasSecret={HasSecret}", 
+                _options.BaseUrl, _options.ClientApp, !string.IsNullOrEmpty(_options.SharedSecret));
+
+            using var response = await httpClient.SendAsync(httpRequest, cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Payment service initiation failed. StatusCode={StatusCode} Body={Body}", (int)response.StatusCode, body);
-                return new PaymentResult(false, null, null, null, null, $"Payment service error: {body}");
+                return new PaymentResult(false, null, null, null, null, $"Payment service error: {response.StatusCode}");
             }
 
             var result = JsonSerializer.Deserialize<PaymentServiceResponse>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -91,13 +118,55 @@ public sealed class PaymentOrchestrator(
         }
     }
 
+    private static string ComputeSignature(string secret, string timestamp, string payload)
+    {
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes($"{timestamp}.{payload}"));
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
     private class PaymentServiceResponse
     {
         public Guid Id { get; set; }
+
+        [JsonConverter(typeof(FlexibleStatusConverter))]
         public string Status { get; set; } = string.Empty;
         public string Provider { get; set; } = string.Empty;
         public string ProviderReference { get; set; } = string.Empty;
         public string CheckoutUrl { get; set; } = string.Empty;
         public string ExternalReference { get; set; } = string.Empty;
+    }
+
+    private class FlexibleStatusConverter : JsonConverter<string>
+    {
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                return reader.GetString() ?? string.Empty;
+            }
+            if (reader.TokenType == JsonTokenType.Number)
+            {
+                if (reader.TryGetInt32(out int val))
+                {
+                    return val switch
+                    {
+                        0 => "Pending",
+                        1 => "Succeeded",
+                        2 => "Failed",
+                        3 => "Cancelled",
+                        4 => "Refunded",
+                        _ => val.ToString()
+                    };
+                }
+                return reader.GetDecimal().ToString();
+            }
+            return string.Empty;
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(value);
+        }
     }
 }

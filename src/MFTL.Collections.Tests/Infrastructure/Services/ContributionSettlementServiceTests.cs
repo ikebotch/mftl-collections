@@ -135,4 +135,59 @@ public class ContributionSettlementServiceTests
         result.Should().NotBeNull();
         contribution.Status.Should().Be(ContributionStatus.Completed);
     }
+
+    [Fact]
+    public async Task SettleContributionAsync_ShouldWorkInSystemContext_WhenTenantIdIsNull()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        
+        // Use a separate context to avoid constructor side effects if any
+        var options = new DbContextOptionsBuilder<CollectionsDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        var systemTenantContextMock = new Mock<ITenantContext>();
+        systemTenantContextMock.Setup(x => x.TenantId).Returns((Guid?)null);
+        systemTenantContextMock.Setup(x => x.IsSystemContext).Returns(true);
+        systemTenantContextMock.Setup(x => x.IsPlatformContext).Returns(false);
+        systemTenantContextMock.Setup(x => x.AllowedTenantIds).Returns(Array.Empty<Guid>());
+        systemTenantContextMock.Setup(x => x.AllowedBranchIds).Returns(Array.Empty<Guid>());
+
+        var dbContext = new CollectionsDbContext(options, systemTenantContextMock.Object, _currentUserServiceMock.Object);
+        
+        var fund = new RecipientFund { Id = Guid.NewGuid(), TenantId = tenantId, BranchId = branchId, Name = "System Fund" };
+        var contribution = new Contribution
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            BranchId = branchId,
+            RecipientFundId = fund.Id,
+            Amount = 200,
+            Status = ContributionStatus.Pending
+        };
+
+        // Seed using IgnoreQueryFilters if necessary, but in-memory might not enforce them strictly 
+        // depending on how they are applied. 
+        // Actually, for seeding we can just add them.
+        dbContext.RecipientFunds.Add(fund);
+        dbContext.Contributions.Add(contribution);
+        await dbContext.SaveChangesAsync();
+
+        var service = new ContributionSettlementService(dbContext, _currentUserServiceMock.Object, _receiptNumberGeneratorMock.Object, _loggerMock.Object);
+
+        // Act
+        var result = await service.SettleContributionAsync(contribution.Id, null);
+
+        // Assert
+        result.Should().NotBeNull();
+        var receipt = await dbContext.Receipts
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.ContributionId == contribution.Id);
+        
+        receipt.Should().NotBeNull();
+        receipt!.ReceiptNumber.Should().Be("RCT-123");
+        contribution.Status.Should().Be(ContributionStatus.Completed);
+    }
 }

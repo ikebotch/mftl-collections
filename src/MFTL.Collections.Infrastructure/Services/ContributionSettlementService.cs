@@ -18,6 +18,7 @@ public sealed class ContributionSettlementService(
         logger.LogInformation("Settling contribution {ContributionId} with payment {PaymentId}", contributionId, paymentId);
 
         var contribution = await dbContext.Contributions
+            .IgnoreQueryFilters() // Internal system resolution or cross-tenant settlement
             .Include(c => c.RecipientFund)
             .Include(c => c.Payment)
             .Include(c => c.Receipt)
@@ -99,7 +100,7 @@ public sealed class ContributionSettlementService(
                 ContributionId = contribution.Id,
                 PaymentId = payment?.Id,
                 RecordedByUserId = recordedByUserId ?? await ResolveRecordedByUserIdAsync(contribution, cancellationToken),
-                ReceiptNumber = await GenerateUniqueReceiptNumberAsync(cancellationToken),
+                ReceiptNumber = await GenerateUniqueReceiptNumberAsync(contribution.TenantId, cancellationToken),
                 IssuedAt = DateTimeOffset.UtcNow,
                 Status = ReceiptStatus.Issued,
                 Note = contribution.Note
@@ -159,12 +160,15 @@ public sealed class ContributionSettlementService(
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    private async Task<string> GenerateUniqueReceiptNumberAsync(CancellationToken cancellationToken)
+    private async Task<string> GenerateUniqueReceiptNumberAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         for (var attempt = 0; attempt < 5; attempt++)
         {
             var receiptNumber = receiptNumberGenerator.Generate();
-            var exists = await dbContext.Receipts.AnyAsync(r => r.ReceiptNumber == receiptNumber, cancellationToken);
+            var exists = await dbContext.Receipts
+                .IgnoreQueryFilters()
+                .AnyAsync(r => r.TenantId == tenantId && r.ReceiptNumber == receiptNumber, cancellationToken);
+            
             if (!exists)
             {
                 return receiptNumber;
