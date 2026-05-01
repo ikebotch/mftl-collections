@@ -45,7 +45,7 @@ public class DashboardFunctions(
     {
         // Admin dashboard requires higher level view or platform manage?
         // Usually dashboard.view is enough for tenant admins to see their own.
-        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.Dashboard.View, req);
+        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.Dashboard.Admin, req);
         if (deny != null) return deny;
 
         var result = await mediator.Send(new Application.Features.Dashboards.Queries.GetAdminDashboard.GetAdminDashboardQuery());
