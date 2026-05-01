@@ -50,6 +50,7 @@ public static class ApiRoutes
         public const string PinSetup = MobileBase + "/pin/setup";
         public const string PinVerify = MobileBase + "/pin/verify";
         public const string PinStatus = MobileBase + "/pin/status";
+        public const string ContributionStatus = MobileBase + "/contributions/{id:guid}/status";
     }
 
     public static class Payments

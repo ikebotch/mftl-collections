@@ -64,6 +64,17 @@ public class CollectorFunctions(
         return new OkObjectResult(new ApiResponse<IEnumerable<SettlementDto>>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
+    [Function("GetContributionStatus")]
+    public async Task<IActionResult> GetContributionStatus(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Collectors.ContributionStatus)] HttpRequest req, Guid id)
+    {
+        // Require authentication. Identity is derived from CurrentUserService in the handler.
+        await req.HttpContext.AuthenticateAsync();
+        
+        var result = await mediator.Send(new Application.Features.Collectors.Queries.GetContributionStatus.GetContributionStatusQuery(id));
+        return new OkObjectResult(new ApiResponse<ContributionStatusDto>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
     [Function("ListCollectors")]
     public async Task<IActionResult> List(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = ApiRoutes.Collectors.AdminBase)] HttpRequest req)

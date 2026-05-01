@@ -17,3 +17,11 @@ public record ContributionDto(
     Guid? PaymentId,
     Guid? ReceiptId,
     string? Note);
+
+public record ContributionStatusDto(
+    Guid ContributionId,
+    string Status,
+    Guid? ReceiptId,
+    string PaymentMethod,
+    decimal Amount,
+    string Currency);

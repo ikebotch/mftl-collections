@@ -46,7 +46,9 @@ public sealed class ExceptionHandlingMiddleware(
                 {
                     var statusCode = exception switch
                     {
+                        MFTL.Collections.Application.Common.Exceptions.NotFoundException => HttpStatusCode.NotFound,
                         KeyNotFoundException => HttpStatusCode.NotFound,
+                        MFTL.Collections.Application.Common.Exceptions.ForbiddenAccessException => HttpStatusCode.Forbidden,
                         InvalidOperationException => HttpStatusCode.BadRequest,
                         UnauthorizedAccessException => HttpStatusCode.Unauthorized,
                         _ => HttpStatusCode.InternalServerError,
@@ -86,7 +88,10 @@ public sealed class ExceptionHandlingMiddleware(
         if (ex is UnauthorizedAccessException)
             return "Authentication is required to access this resource.";
 
-        if (ex is KeyNotFoundException || ex is InvalidOperationException)
+        if (ex is MFTL.Collections.Application.Common.Exceptions.ForbiddenAccessException)
+            return ex.Message;
+
+        if (ex is MFTL.Collections.Application.Common.Exceptions.NotFoundException || ex is KeyNotFoundException || ex is InvalidOperationException)
             return ex.Message;
 
         // Specific context-aware generic messages
