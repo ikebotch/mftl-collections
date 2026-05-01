@@ -34,7 +34,7 @@ public class UpdateCollectorCommandHandler(IApplicationDbContext dbContext) : IR
         {
             // Remove existing event assignments
             var existingEventAssignments = user.ScopeAssignments
-                .Where(a => a.ScopeType == ScopeType.Event && a.Role == RoleNameNormalizer.Normalize("Collector"))
+                .Where(a => a.ScopeType == ScopeType.Event && a.Role == AppRoles.Collector)
                 .ToList();
 
             foreach (var assignment in existingEventAssignments)
@@ -50,7 +50,7 @@ public class UpdateCollectorCommandHandler(IApplicationDbContext dbContext) : IR
                     UserId = user.Id,
                     ScopeType = ScopeType.Event,
                     TargetId = eventId,
-                    Role = RoleNameNormalizer.Normalize("Collector")
+                    Role = AppRoles.Collector
                 });
             }
         }
@@ -59,7 +59,7 @@ public class UpdateCollectorCommandHandler(IApplicationDbContext dbContext) : IR
         if (request.FundIds != null)
         {
             var existingFundAssignments = user.ScopeAssignments
-                .Where(a => a.ScopeType == ScopeType.RecipientFund && a.Role == RoleNameNormalizer.Normalize("Collector"))
+                .Where(a => a.ScopeType == ScopeType.RecipientFund && a.Role == AppRoles.Collector)
                 .ToList();
 
             foreach (var assignment in existingFundAssignments)
@@ -74,7 +74,7 @@ public class UpdateCollectorCommandHandler(IApplicationDbContext dbContext) : IR
                     UserId = user.Id,
                     ScopeType = ScopeType.RecipientFund,
                     TargetId = fundId,
-                    Role = RoleNameNormalizer.Normalize("Collector")
+                    Role = AppRoles.Collector
                 });
             }
         }

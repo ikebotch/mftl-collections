@@ -38,7 +38,7 @@ public class CreateCollectorCommandHandler(IApplicationDbContext dbContext) : IR
         user.ScopeAssignments.Add(new UserScopeAssignment
         {
             ScopeType = ScopeType.Platform,
-            Role = RoleNameNormalizer.Normalize("Collector")
+            Role = AppRoles.Collector
         });
 
         dbContext.Users.Add(user);

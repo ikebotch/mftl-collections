@@ -48,7 +48,7 @@ public class GetUserByIdQueryHandler(
 
             scopeDtos.Add(new ScopeAssignmentDto(
                 a.Id,
-                RoleNameNormalizer.Normalize(a.Role),
+                AppRoles.Guard(a.Role),
                 a.ScopeType.ToString(),
                 a.TargetId,
                 targetName));
@@ -141,7 +141,7 @@ public class GetUserByIdQueryHandler(
 
                     if (isMatch)
                     {
-                        effectiveRoleKeys.Add(RoleNameNormalizer.Normalize(a.Role));
+                        effectiveRoleKeys.Add(AppRoles.Guard(a.Role));
                     }
                 }
 

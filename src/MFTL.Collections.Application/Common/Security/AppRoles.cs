@@ -43,11 +43,12 @@ public static class AppRoles
 
     public static bool IsValid(string roleKey) => All.Contains(roleKey);
     
-    public static void Guard(string roleKey)
+    public static string Guard(string roleKey)
     {
         if (!IsValid(roleKey))
         {
             throw new System.InvalidOperationException($"Invalid role key '{roleKey}'. Use canonical AppRoles values only.");
         }
+        return roleKey;
     }
 }

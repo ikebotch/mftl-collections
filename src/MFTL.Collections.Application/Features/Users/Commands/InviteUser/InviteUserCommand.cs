@@ -37,12 +37,13 @@ public class InviteUserCommandHandler(IApplicationDbContext dbContext, IEmailSer
         dbContext.Users.Add(user);
 
         var scopeType = Enum.Parse<ScopeType>(request.ScopeType);
+        AppRoles.Guard(request.Role);
         
         var assignment = new UserScopeAssignment
         {
             User = user,
-            Role = RoleNameNormalizer.Normalize(request.Role),
-            ScopeType = Enum.Parse<ScopeType>(request.ScopeType),
+            Role = request.Role,
+            ScopeType = scopeType,
             TargetId = request.TargetId
         };
 

@@ -118,8 +118,8 @@ public class MeEndpointSecurityTests : IDisposable
         var tenant1Id = Guid.NewGuid();
         var tenant2Id = Guid.NewGuid();
         
-        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant1Id, Role = "Admin1" });
-        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant2Id, Role = "Admin2" });
+        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant1Id, Role = AppRoles.Collector });
+        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant2Id, Role = AppRoles.OrganisationAdmin });
         _dbContext.SaveChanges();
 
         _currentUserServiceMock.Setup(u => u.UserId).Returns(auth0Id);
@@ -149,7 +149,7 @@ public class MeEndpointSecurityTests : IDisposable
         var user = CreateUser(auth0Id);
         var tenantId = Guid.NewGuid();
         
-        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenantId, Role = "Admin" });
+        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenantId, Role = AppRoles.OrganisationAdmin });
         _dbContext.SaveChanges();
 
         _currentUserServiceMock.Setup(u => u.UserId).Returns(auth0Id);
@@ -256,8 +256,8 @@ public class MeEndpointSecurityTests : IDisposable
         var tenant1Id = Guid.NewGuid();
         var tenant2Id = Guid.NewGuid();
         
-        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant1Id, Role = "Admin" });
-        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant2Id, Role = "Admin" });
+        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant1Id, Role = AppRoles.OrganisationAdmin });
+        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant2Id, Role = AppRoles.OrganisationAdmin });
         _dbContext.SaveChanges();
 
         _currentUserServiceMock.Setup(u => u.UserId).Returns(auth0Id);

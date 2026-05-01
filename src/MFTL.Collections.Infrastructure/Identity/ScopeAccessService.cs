@@ -201,10 +201,8 @@ public sealed class ScopeAccessService(
 
             var platformRoles = user.ScopeAssignments
                 .Where(s => s.ScopeType == ScopeType.Platform)
-                .Select(s => RoleNameNormalizer.Normalize(s.Role))
+                .Select(s => AppRoles.Guard(s.Role))
                 .ToList();
-
-            foreach (var r in platformRoles) AppRoles.Guard(r);
 
             if (!platformRoles.Any()) return false;
 
@@ -269,10 +267,7 @@ public sealed class ScopeAccessService(
 
             if (isInScope)
             {
-                // Normalize role names for permission lookup using centralized logic
-                var normalizedRole = RoleNameNormalizer.Normalize(assignment.Role);
-                AppRoles.Guard(normalizedRole);
-                roles.Add(normalizedRole);
+                roles.Add(AppRoles.Guard(assignment.Role));
             }
         }
 

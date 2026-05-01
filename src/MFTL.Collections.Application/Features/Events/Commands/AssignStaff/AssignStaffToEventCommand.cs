@@ -21,7 +21,7 @@ public class AssignStaffToEventCommandHandler(IApplicationDbContext dbContext) :
                 a.UserId == userId && 
                 a.ScopeType == ScopeType.Event && 
                 a.TargetId == request.EventId && 
-                a.Role == "Collector", cancellationToken);
+                a.Role == AppRoles.Collector, cancellationToken);
 
             if (!exists)
             {
@@ -30,7 +30,7 @@ public class AssignStaffToEventCommandHandler(IApplicationDbContext dbContext) :
                     UserId = userId,
                     ScopeType = ScopeType.Event,
                     TargetId = request.EventId,
-                    Role = RoleNameNormalizer.Normalize("Collector")
+                    Role = AppRoles.Collector
                 });
             }
         }
