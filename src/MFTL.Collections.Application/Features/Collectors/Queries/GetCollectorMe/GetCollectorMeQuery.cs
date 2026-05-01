@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Domain.Entities;
 
+using MFTL.Collections.Application.Common.Security;
+
 namespace MFTL.Collections.Application.Features.Collectors.Queries.GetCollectorMe;
 
 public sealed record CurrencyTotalDto(string Currency, decimal Amount);
@@ -47,7 +49,7 @@ public class GetCollectorMeQueryHandler(
             throw new KeyNotFoundException("Collector profile not found.");
         }
 
-        var assignments = user.ScopeAssignments.Where(a => a.Role == "Collector").ToList();
+        var assignments = user.ScopeAssignments.Where(a => a.Role == AppRoles.Collector).ToList();
         var eventCount = assignments.Count(a => a.ScopeType == ScopeType.Event);
         var fundCount = assignments.Count(a => a.ScopeType == ScopeType.RecipientFund);
         var hasAssignments = eventCount > 0 || fundCount > 0;

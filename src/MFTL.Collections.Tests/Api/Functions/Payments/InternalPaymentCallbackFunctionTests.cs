@@ -43,7 +43,7 @@ public class InternalPaymentCallbackFunctionTests : IDisposable
         tenantContextMock.Setup(x => x.AllowedTenantIds).Returns(new[] { _tenantId });
         tenantContextMock.Setup(x => x.AllowedBranchIds).Returns(new[] { _branchId });
 
-        _dbContext = new CollectionsDbContext(options, tenantContextMock.Object);
+        _dbContext = new CollectionsDbContext(options, tenantContextMock.Object, Mock.Of<ICurrentUserService>());
 
         var configurationMock = new Mock<IConfiguration>();
         configurationMock.Setup(x => x["Values:Payments:Internal:SharedSecret"]).Returns(_sharedSecret);

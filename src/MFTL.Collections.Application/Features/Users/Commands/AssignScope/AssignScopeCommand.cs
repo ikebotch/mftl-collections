@@ -23,10 +23,13 @@ public class AssignScopeCommandHandler(IApplicationDbContext dbContext) : IReque
 
         foreach (var role in request.Roles)
         {
+            var normalizedRole = RoleNameNormalizer.Normalize(role);
+            AppRoles.Guard(normalizedRole);
+
             var assignment = new UserScopeAssignment
             {
                 User = user,
-                Role = RoleNameNormalizer.Normalize(role),
+                Role = normalizedRole,
                 ScopeType = scopeType,
                 TargetId = request.TargetId
             };

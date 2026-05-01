@@ -28,9 +28,9 @@ public class CollectorPinTests : IDisposable
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
             
-        _tenantContextMock = new Mock<ITenantContext>();
-        _dbContext = new CollectionsDbContext(options, _tenantContextMock.Object);
         _currentUserServiceMock = new Mock<ICurrentUserService>();
+        _tenantContextMock = new Mock<ITenantContext>();
+        _dbContext = new CollectionsDbContext(options, _tenantContextMock.Object, _currentUserServiceMock.Object);
         
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(SetupCollectorPinCommand).Assembly));
         services.AddLogging();

@@ -10,6 +10,7 @@ using MFTL.Collections.Infrastructure.Tenancy;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MFTL.Collections.Application.Common.Security;
 
 namespace MFTL.Collections.Api.Middleware;
 
@@ -51,8 +52,8 @@ public sealed class TenantResolutionMiddleware : IFunctionsWorkerMiddleware
                 
                 // Check for Platform Admin claim
                 isPlatformAdmin = authResult.Principal.HasClaim("extension_is_platform_admin", "true") || 
-                                 authResult.Principal.IsInRole("Platform Admin") ||
-                                 authResult.Principal.Claims.Any(c => c.Type == "https://mftl.com/roles" && c.Value == "Platform Admin");
+                                 authResult.Principal.IsInRole(AppRoles.PlatformAdmin) ||
+                                 authResult.Principal.Claims.Any(c => c.Type == "https://mftl.com/roles" && c.Value == AppRoles.PlatformAdmin);
 
                 auth0Id = authResult.Principal.FindFirstValue(ClaimTypes.NameIdentifier) 
                           ?? authResult.Principal.FindFirstValue("sub");

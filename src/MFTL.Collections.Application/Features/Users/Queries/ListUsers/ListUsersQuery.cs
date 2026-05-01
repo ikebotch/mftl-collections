@@ -2,6 +2,7 @@ using MediatR;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Responses;
 using Microsoft.EntityFrameworkCore;
+using MFTL.Collections.Application.Common.Security;
 
 namespace MFTL.Collections.Application.Features.Users.Queries.ListUsers;
 
@@ -59,9 +60,9 @@ public class ListUsersHandler(
             u.Name,
             u.Email,
             // Show the role relevant to the current tenant if possible
-            u.ScopeAssignments.FirstOrDefault(a => a.TargetId == tenantContext.TenantId)?.Role 
+            AppRoles.GetDisplayName(u.ScopeAssignments.FirstOrDefault(a => a.TargetId == tenantContext.TenantId)?.Role 
                 ?? u.ScopeAssignments.FirstOrDefault()?.Role 
-                ?? (u.IsPlatformAdmin ? "Platform Admin" : "User"),
+                ?? (u.IsPlatformAdmin ? AppRoles.PlatformAdmin : "User")),
             u.IsSuspended ? "Suspended" : (u.IsActive ? "Active" : "Inactive"),
             u.InviteStatus.ToString(),
             u.ScopeAssignments.FirstOrDefault(a => a.TargetId == tenantContext.TenantId)?.ScopeType.ToString() 

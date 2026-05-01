@@ -23,6 +23,7 @@ public record UserDetailDto(
     DateTimeOffset? LastLoginAt,
     IEnumerable<ScopeAssignmentDto> ScopeAssignments,
     string AccessState,
+    IEnumerable<string> EffectiveRoleKeys,
     IEnumerable<string> EffectiveRoles,
     IEnumerable<string> Permissions,
     IEnumerable<string> Auth0Roles,

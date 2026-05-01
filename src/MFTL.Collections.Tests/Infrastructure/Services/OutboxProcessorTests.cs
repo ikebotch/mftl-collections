@@ -34,7 +34,7 @@ public class OutboxProcessorTests
         _tenantContextMock.Setup(x => x.AllowedBranchIds).Returns(Array.Empty<Guid>());
         _tenantContextMock.Setup(x => x.IsPlatformContext).Returns(true);
         
-        _dbContext = new CollectionsDbContext(options, _tenantContextMock.Object);
+        _dbContext = new CollectionsDbContext(options, _tenantContextMock.Object, Mock.Of<ICurrentUserService>());
     }
 
     [Fact]

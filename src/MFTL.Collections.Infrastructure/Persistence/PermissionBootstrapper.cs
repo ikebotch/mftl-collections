@@ -15,19 +15,7 @@ public sealed class PermissionBootstrapper(
     IServiceScopeFactory scopeFactory,
     ILogger<PermissionBootstrapper> logger) : IHostedService
 {
-    private static readonly string[] ManagedRoles =
-    [
-        "Platform Admin",
-        "Tenant Admin",
-        "Organisation Admin",
-        "Tenant Owner",
-        "Branch Admin",
-        "Finance Admin",
-        "Accountant",
-        "Event Manager",
-        "Collector",
-        "Notification Manager",
-    ];
+    private static readonly string[] ManagedRoles = AppRoles.All.ToArray();
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -74,6 +62,7 @@ public sealed class PermissionBootstrapper(
             var addedCount = 0;
             foreach (var (role, permissions) in roleMappings)
             {
+                AppRoles.Guard(role);
                 foreach (var key in permissions)
                 {
                     dbContext.RolePermissions.Add(new RolePermission
@@ -194,140 +183,56 @@ public sealed class PermissionBootstrapper(
 
     private static Dictionary<string, List<string>> BuildRoleMappings()
     {
+        var adminPermissions = new List<string>
+        {
+            Permissions.Dashboard.View,
+            Permissions.Organisations.View,
+            Permissions.Organisations.Update,
+            Permissions.Branches.View,
+            Permissions.Branches.Create,
+            Permissions.Branches.Update,
+            Permissions.Users.View,
+            Permissions.Users.Invite,
+            Permissions.Users.Update,
+            Permissions.Users.Suspend,
+            Permissions.Users.ScopesAssign,
+            Permissions.Users.ScopesRevoke,
+            Permissions.Events.View,
+            Permissions.Events.Create,
+            Permissions.Events.Update,
+            Permissions.Events.Delete,
+            Permissions.Events.AssignStaff,
+            Permissions.RecipientFunds.View,
+            Permissions.RecipientFunds.Create,
+            Permissions.RecipientFunds.Update,
+            Permissions.RecipientFunds.Delete,
+            Permissions.Contributions.View,
+            Permissions.Receipts.View,
+            Permissions.Receipts.Resend,
+            Permissions.Payments.View,
+            Permissions.Payments.RefundsView,
+            Permissions.Settlements.View,
+            Permissions.Reports.View,
+            Permissions.Reports.Export,
+            Permissions.Donors.View,
+            Permissions.Donors.Update,
+            Permissions.NotificationTemplates.View,
+            Permissions.NotificationTemplates.Create,
+            Permissions.NotificationTemplates.Update,
+            Permissions.NotificationTemplates.Test,
+            Permissions.Notifications.View,
+            Permissions.Notifications.Retry,
+            Permissions.Settings.View,
+            Permissions.Settings.Update,
+        };
+
         return new Dictionary<string, List<string>>
         {
-            ["Platform Admin"] = ["*"],
+            [AppRoles.PlatformAdmin] = ["*"],
 
-            ["Tenant Admin"] =
-            [
-                Permissions.Dashboard.View,
-                Permissions.Organisations.View,
-                Permissions.Organisations.Update,
-                Permissions.Branches.View,
-                Permissions.Branches.Create,
-                Permissions.Branches.Update,
-                Permissions.Users.View,
-                Permissions.Users.Invite,
-                Permissions.Users.Update,
-                Permissions.Users.Suspend,
-                Permissions.Users.ScopesAssign,
-                Permissions.Users.ScopesRevoke,
-                Permissions.Events.View,
-                Permissions.Events.Create,
-                Permissions.Events.Update,
-                Permissions.Events.Delete,
-                Permissions.Events.AssignStaff,
-                Permissions.RecipientFunds.View,
-                Permissions.RecipientFunds.Create,
-                Permissions.RecipientFunds.Update,
-                Permissions.RecipientFunds.Delete,
-                Permissions.Contributions.View,
-                Permissions.Receipts.View,
-                Permissions.Receipts.Resend,
-                Permissions.Payments.View,
-                Permissions.Payments.RefundsView,
-                Permissions.Settlements.View,
-                Permissions.Reports.View,
-                Permissions.Reports.Export,
-                Permissions.Donors.View,
-                Permissions.Donors.Update,
-                Permissions.NotificationTemplates.View,
-                Permissions.NotificationTemplates.Create,
-                Permissions.NotificationTemplates.Update,
-                Permissions.NotificationTemplates.Test,
-                Permissions.Notifications.View,
-                Permissions.Notifications.Retry,
-                Permissions.Settings.View,
-                Permissions.Settings.Update,
-            ],
+            [AppRoles.OrganisationAdmin] = adminPermissions,
 
-            ["Organisation Admin"] =
-            [
-                Permissions.Dashboard.View,
-                Permissions.Organisations.View,
-                Permissions.Organisations.Update,
-                Permissions.Branches.View,
-                Permissions.Branches.Create,
-                Permissions.Branches.Update,
-                Permissions.Users.View,
-                Permissions.Users.Invite,
-                Permissions.Users.Update,
-                Permissions.Users.Suspend,
-                Permissions.Users.ScopesAssign,
-                Permissions.Users.ScopesRevoke,
-                Permissions.Events.View,
-                Permissions.Events.Create,
-                Permissions.Events.Update,
-                Permissions.Events.Delete,
-                Permissions.Events.AssignStaff,
-                Permissions.RecipientFunds.View,
-                Permissions.RecipientFunds.Create,
-                Permissions.RecipientFunds.Update,
-                Permissions.RecipientFunds.Delete,
-                Permissions.Contributions.View,
-                Permissions.Receipts.View,
-                Permissions.Receipts.Resend,
-                Permissions.Payments.View,
-                Permissions.Payments.RefundsView,
-                Permissions.Settlements.View,
-                Permissions.Reports.View,
-                Permissions.Reports.Export,
-                Permissions.Donors.View,
-                Permissions.Donors.Update,
-                Permissions.NotificationTemplates.View,
-                Permissions.NotificationTemplates.Create,
-                Permissions.NotificationTemplates.Update,
-                Permissions.NotificationTemplates.Test,
-                Permissions.Notifications.View,
-                Permissions.Notifications.Retry,
-                Permissions.Settings.View,
-                Permissions.Settings.Update,
-            ],
-
-            ["Tenant Owner"] =
-            [
-                Permissions.Dashboard.View,
-                Permissions.Organisations.View,
-                Permissions.Organisations.Update,
-                Permissions.Branches.View,
-                Permissions.Branches.Create,
-                Permissions.Branches.Update,
-                Permissions.Users.View,
-                Permissions.Users.Invite,
-                Permissions.Users.Update,
-                Permissions.Users.Suspend,
-                Permissions.Users.ScopesAssign,
-                Permissions.Users.ScopesRevoke,
-                Permissions.Events.View,
-                Permissions.Events.Create,
-                Permissions.Events.Update,
-                Permissions.Events.Delete,
-                Permissions.Events.AssignStaff,
-                Permissions.RecipientFunds.View,
-                Permissions.RecipientFunds.Create,
-                Permissions.RecipientFunds.Update,
-                Permissions.RecipientFunds.Delete,
-                Permissions.Contributions.View,
-                Permissions.Receipts.View,
-                Permissions.Receipts.Resend,
-                Permissions.Payments.View,
-                Permissions.Payments.RefundsView,
-                Permissions.Settlements.View,
-                Permissions.Reports.View,
-                Permissions.Reports.Export,
-                Permissions.Donors.View,
-                Permissions.Donors.Update,
-                Permissions.NotificationTemplates.View,
-                Permissions.NotificationTemplates.Create,
-                Permissions.NotificationTemplates.Update,
-                Permissions.NotificationTemplates.Test,
-                Permissions.Notifications.View,
-                Permissions.Notifications.Retry,
-                Permissions.Settings.View,
-                Permissions.Settings.Update,
-            ],
-
-            ["Branch Admin"] =
+            [AppRoles.BranchAdmin] =
             [
                 Permissions.Dashboard.View,
                 Permissions.Branches.View,
@@ -353,7 +258,7 @@ public sealed class PermissionBootstrapper(
                 Permissions.Reports.View,
             ],
 
-            ["Finance Admin"] =
+            [AppRoles.FinanceAdmin] =
             [
                 Permissions.Dashboard.View,
                 Permissions.Contributions.View,
@@ -374,21 +279,7 @@ public sealed class PermissionBootstrapper(
                 Permissions.Notifications.View,
             ],
 
-            ["Accountant"] =
-            [
-                Permissions.Dashboard.View,
-                Permissions.Contributions.View,
-                Permissions.Receipts.View,
-                Permissions.Payments.View,
-                Permissions.Payments.Reconcile,
-                Permissions.Payments.RefundsView,
-                Permissions.Settlements.View,
-                Permissions.Settlements.Reconcile,
-                Permissions.Reports.View,
-                Permissions.Reports.Export,
-            ],
-
-            ["Event Manager"] =
+            [AppRoles.EventManager] =
             [
                 Permissions.Dashboard.View,
                 Permissions.Events.View,
@@ -401,7 +292,7 @@ public sealed class PermissionBootstrapper(
                 Permissions.Reports.View,
             ],
 
-            ["Collector"] =
+            [AppRoles.Collector] =
             [
                 Permissions.Dashboard.View,
                 Permissions.Events.View,
@@ -411,7 +302,7 @@ public sealed class PermissionBootstrapper(
                 Permissions.Receipts.View,
             ],
 
-            ["Notification Manager"] =
+            [AppRoles.NotificationManager] =
             [
                 Permissions.Dashboard.View,
                 Permissions.NotificationTemplates.View,
@@ -422,6 +313,15 @@ public sealed class PermissionBootstrapper(
                 Permissions.Notifications.View,
                 Permissions.Notifications.Retry,
             ],
+
+            [AppRoles.Viewer] =
+            [
+                Permissions.Dashboard.View,
+                Permissions.Events.View,
+                Permissions.Contributions.View,
+                Permissions.Receipts.View,
+                Permissions.Reports.View,
+            ]
         };
     }
 }

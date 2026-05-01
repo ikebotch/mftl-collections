@@ -13,6 +13,7 @@ using Xunit;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using MFTL.Collections.Application.Features.Users.Queries.GetUserById;
+using MFTL.Collections.Application.Common.Security;
 
 namespace MFTL.Collections.Tests;
 
@@ -32,10 +33,9 @@ public class MeEndpointSecurityTests : IDisposable
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
             
-        _tenantContextMock = new Mock<ITenantContext>();
-        _dbContext = new CollectionsDbContext(options, _tenantContextMock.Object);
-
         _currentUserServiceMock = new Mock<ICurrentUserService>();
+        _tenantContextMock = new Mock<ITenantContext>();
+        _dbContext = new CollectionsDbContext(options, _tenantContextMock.Object, _currentUserServiceMock.Object);
         
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GetUserByIdQuery).Assembly));
         services.AddAuthentication().AddCookie(); // Add dummy authentication
@@ -83,12 +83,12 @@ public class MeEndpointSecurityTests : IDisposable
             UserId = user.Id, 
             ScopeType = ScopeType.Tenant, 
             TargetId = tenantId, 
-            Role = "TenantAdmin" // Legacy name in DB
+            Role = AppRoles.OrganisationAdmin
         });
         _dbContext.SaveChanges();
 
         // Seed with canonical name
-        _dbContext.RolePermissions.Add(new RolePermission { RoleName = "Tenant Admin", PermissionKey = "tenant.admin.perm" });
+        _dbContext.RolePermissions.Add(new RolePermission { RoleName = AppRoles.OrganisationAdmin, PermissionKey = "tenant.admin.perm" });
         _dbContext.SaveChanges();
 
         _currentUserServiceMock.Setup(u => u.UserId).Returns(auth0Id);
@@ -103,7 +103,8 @@ public class MeEndpointSecurityTests : IDisposable
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
         var apiResponse = Assert.IsType<ApiResponse<UserDetailDto>>(okResult.Value);
-        Assert.Contains("Tenant Admin", apiResponse.Data.EffectiveRoles);
+        Assert.Contains(AppRoles.OrganisationAdmin, apiResponse.Data.EffectiveRoleKeys);
+        Assert.Contains("Organisation Admin", apiResponse.Data.EffectiveRoles);
         Assert.Contains("tenant.admin.perm", apiResponse.Data.Permissions);
         Assert.Equal(tenantId, apiResponse.Data.ActiveTenantId);
     }
@@ -185,11 +186,11 @@ public class MeEndpointSecurityTests : IDisposable
             UserId = user.Id, 
             ScopeType = ScopeType.Event, 
             TargetId = eventId, 
-            Role = "Collector" 
+            Role = AppRoles.Collector 
         });
         _dbContext.SaveChanges();
 
-        _dbContext.RolePermissions.Add(new RolePermission { RoleName = "Collector", PermissionKey = "collector.perm" });
+        _dbContext.RolePermissions.Add(new RolePermission { RoleName = AppRoles.Collector, PermissionKey = "collector.perm" });
         _dbContext.SaveChanges();
 
         _currentUserServiceMock.Setup(u => u.UserId).Returns(auth0Id);
@@ -204,6 +205,7 @@ public class MeEndpointSecurityTests : IDisposable
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
         var apiResponse = Assert.IsType<ApiResponse<UserDetailDto>>(okResult.Value);
+        Assert.Contains(AppRoles.Collector, apiResponse.Data.EffectiveRoleKeys);
         Assert.Contains("Collector", apiResponse.Data.EffectiveRoles);
         Assert.Contains("collector.perm", apiResponse.Data.Permissions);
         Assert.Equal(tenantId, apiResponse.Data.ActiveTenantId);
@@ -218,12 +220,12 @@ public class MeEndpointSecurityTests : IDisposable
         var tenant1Id = Guid.NewGuid();
         var tenant2Id = Guid.NewGuid();
         
-        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant1Id, Role = "Collector" });
-        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant2Id, Role = "Tenant Admin" });
+        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant1Id, Role = AppRoles.Collector });
+        _dbContext.UserScopeAssignments.Add(new UserScopeAssignment { UserId = user.Id, ScopeType = ScopeType.Tenant, TargetId = tenant2Id, Role = AppRoles.OrganisationAdmin });
         _dbContext.SaveChanges();
 
-        _dbContext.RolePermissions.Add(new RolePermission { RoleName = "Collector", PermissionKey = "collector.perm" });
-        _dbContext.RolePermissions.Add(new RolePermission { RoleName = "Tenant Admin", PermissionKey = "admin.perm" });
+        _dbContext.RolePermissions.Add(new RolePermission { RoleName = AppRoles.Collector, PermissionKey = "collector.perm" });
+        _dbContext.RolePermissions.Add(new RolePermission { RoleName = AppRoles.OrganisationAdmin, PermissionKey = "admin.perm" });
         _dbContext.SaveChanges();
 
         _currentUserServiceMock.Setup(u => u.UserId).Returns(auth0Id);
@@ -239,8 +241,8 @@ public class MeEndpointSecurityTests : IDisposable
         var okResult = Assert.IsType<OkObjectResult>(result);
         var apiResponse = Assert.IsType<ApiResponse<UserDetailDto>>(okResult.Value);
         Assert.Equal(tenant2Id, apiResponse.Data.ActiveTenantId);
-        Assert.Contains("Tenant Admin", apiResponse.Data.EffectiveRoles);
-        Assert.DoesNotContain("Collector", apiResponse.Data.EffectiveRoles);
+        Assert.Contains(AppRoles.OrganisationAdmin, apiResponse.Data.EffectiveRoleKeys);
+        Assert.DoesNotContain(AppRoles.Collector, apiResponse.Data.EffectiveRoleKeys);
         Assert.Contains("admin.perm", apiResponse.Data.Permissions);
         Assert.DoesNotContain("collector.perm", apiResponse.Data.Permissions);
     }

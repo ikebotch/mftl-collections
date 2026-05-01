@@ -15,6 +15,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using MFTL.Collections.Infrastructure.Configuration;
+using MFTL.Collections.Application.Common.Security;
 
 namespace MFTL.Collections.Tests;
 
@@ -34,7 +35,7 @@ public class TenantFallbackTests : IDisposable
             .Options;
             
         _tenantContextMock = new Mock<ITenantContext>();
-        _dbContext = new CollectionsDbContext(options, _tenantContextMock.Object);
+        _dbContext = new CollectionsDbContext(options, _tenantContextMock.Object, Mock.Of<ICurrentUserService>());
 
         _requestAccessor = new FunctionHttpRequestAccessor();
         
@@ -162,19 +163,19 @@ public class TenantFallbackTests : IDisposable
             UserId = user.Id, 
             ScopeType = ScopeType.Tenant, 
             TargetId = tenantA, 
-            Role = "Tenant Admin" 
+            Role = AppRoles.OrganisationAdmin 
         });
         _dbContext.UserScopeAssignments.Add(new UserScopeAssignment 
         { 
             UserId = user.Id, 
             ScopeType = ScopeType.Tenant, 
             TargetId = tenantB, 
-            Role = "Viewer" 
+            Role = AppRoles.Viewer 
         });
         
         // Tenant Admin has the permission, Viewer does not
-        _dbContext.RolePermissions.Add(new RolePermission { RoleName = "Tenant Admin", PermissionKey = permission });
-        _dbContext.RolePermissions.Add(new RolePermission { RoleName = "Viewer", PermissionKey = "other.permission" });
+        _dbContext.RolePermissions.Add(new RolePermission { RoleName = AppRoles.OrganisationAdmin, PermissionKey = permission });
+        _dbContext.RolePermissions.Add(new RolePermission { RoleName = AppRoles.Viewer, PermissionKey = "other.permission" });
         
         await _dbContext.SaveChangesAsync();
         

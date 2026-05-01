@@ -204,6 +204,8 @@ public sealed class ScopeAccessService(
                 .Select(s => RoleNameNormalizer.Normalize(s.Role))
                 .ToList();
 
+            foreach (var r in platformRoles) AppRoles.Guard(r);
+
             if (!platformRoles.Any()) return false;
 
             return await dbContext.RolePermissions
@@ -269,6 +271,7 @@ public sealed class ScopeAccessService(
             {
                 // Normalize role names for permission lookup using centralized logic
                 var normalizedRole = RoleNameNormalizer.Normalize(assignment.Role);
+                AppRoles.Guard(normalizedRole);
                 roles.Add(normalizedRole);
             }
         }

@@ -55,13 +55,13 @@ public class GetUserByIdQueryHandler(
         }
 
         // Determine effective roles scoped to the active tenant context.
-        var effectiveRoles = new List<string>();
+        var effectiveRoleKeys = new List<string>();
         var permissions = new List<string>();
         Guid? activeTenantId = tenantContext.TenantId;
 
         if (user.IsPlatformAdmin)
         {
-            effectiveRoles.Add("Platform Admin");
+            effectiveRoleKeys.Add(AppRoles.PlatformAdmin);
             permissions.Add("*");
         }
         else
@@ -102,7 +102,6 @@ public class GetUserByIdQueryHandler(
             }
 
             // Bootstrap Logic: If no tenant is active but user has assignments for exactly one unique tenant, use it.
-            // Note: If activeTenantId is Guid.Empty, it means a tenant was explicitly requested but rejected.
             if (activeTenantId == null && availableTenants.Count == 1)
             {
                 activeTenantId = availableTenants.First();
@@ -111,19 +110,20 @@ public class GetUserByIdQueryHandler(
             if (activeTenantId.HasValue && activeTenantId.Value != Guid.Empty)
             {
                 // Scoped: only include roles from assignments matching the active tenant
-                // 1. Tenant-level roles for the active tenant
-                var tenantRoles = user.ScopeAssignments
-                    .Where(a => a.ScopeType == Domain.Entities.ScopeType.Tenant && a.TargetId == activeTenantId.Value)
-                    .Select(a => a.Role)
+                var candidateRoles = user.ScopeAssignments
+                    .Where(a => 
+                        (a.ScopeType == Domain.Entities.ScopeType.Tenant && a.TargetId == activeTenantId.Value) ||
+                        (a.TargetId.HasValue)) // Child assignments need async check below
                     .ToList();
 
-                // 2. Child-level roles (Branch/Event/Fund) that belong to this tenant
-                var childRoles = new List<string>();
-                
-                foreach (var a in user.ScopeAssignments.Where(a => a.TargetId.HasValue))
+                foreach (var a in candidateRoles)
                 {
                     bool isMatch = false;
-                    if (a.ScopeType == Domain.Entities.ScopeType.Branch)
+                    if (a.ScopeType == Domain.Entities.ScopeType.Tenant)
+                    {
+                        isMatch = a.TargetId == activeTenantId.Value;
+                    }
+                    else if (a.ScopeType == Domain.Entities.ScopeType.Branch)
                     {
                         isMatch = await dbContext.Branches.IgnoreQueryFilters()
                             .AnyAsync(b => b.Id == a.TargetId && b.TenantId == activeTenantId.Value, cancellationToken);
@@ -139,24 +139,20 @@ public class GetUserByIdQueryHandler(
                             .AnyAsync(f => f.Id == a.TargetId && f.Event.TenantId == activeTenantId.Value, cancellationToken);
                     }
 
-                    if (isMatch) childRoles.Add(a.Role);
+                    if (isMatch)
+                    {
+                        effectiveRoleKeys.Add(RoleNameNormalizer.Normalize(a.Role));
+                    }
                 }
 
-                effectiveRoles.AddRange(tenantRoles);
-                effectiveRoles.AddRange(childRoles);
-
-                // Normalise role names for permission lookup using centralized logic
-                effectiveRoles = effectiveRoles
-                    .Select(RoleNameNormalizer.Normalize)
-                    .Distinct()
-                    .ToList();
+                effectiveRoleKeys = effectiveRoleKeys.Distinct().ToList();
 
                 // Fetch permissions for the effective roles
-                if (effectiveRoles.Count > 0)
+                if (effectiveRoleKeys.Count > 0)
                 {
                     var rolePermissions = await dbContext.RolePermissions
                         .IgnoreQueryFilters()
-                        .Where(rp => effectiveRoles.Contains(rp.RoleName))
+                        .Where(rp => effectiveRoleKeys.Contains(rp.RoleName))
                         .Select(rp => rp.PermissionKey)
                         .ToListAsync(cancellationToken);
 
@@ -165,6 +161,7 @@ public class GetUserByIdQueryHandler(
             }
         }
 
+        var effectiveRoles = effectiveRoleKeys.Select(AppRoles.GetDisplayName).ToList();
         permissions = permissions.Distinct().ToList();
 
         return new UserDetailDto(
@@ -179,6 +176,7 @@ public class GetUserByIdQueryHandler(
             user.LastLoginAt,
             scopeDtos,
             user.IsSuspended ? "suspended" : (user.IsActive ? "active" : "inactive"),
+            effectiveRoleKeys,
             effectiveRoles,
             permissions,
             new List<string>(), // Auth0Roles placeholder

@@ -31,7 +31,7 @@ public class ContributionSettlementServiceTests
         _tenantContextMock.Setup(x => x.AllowedTenantIds).Returns(new[] { tenantId });
         _tenantContextMock.Setup(x => x.AllowedBranchIds).Returns(Array.Empty<Guid>());
 
-        _dbContext = new CollectionsDbContext(options, _tenantContextMock.Object);
+        _dbContext = new CollectionsDbContext(options, _tenantContextMock.Object, _currentUserServiceMock.Object);
         _receiptNumberGeneratorMock.Setup(x => x.Generate()).Returns("RCT-123");
     }
 

@@ -81,11 +81,11 @@ public class AuthorizationTests
         // Arrange
         SetupUser("auth0|user", false, new List<UserScopeAssignment> 
         { 
-            new() { Role = "Manager", ScopeType = ScopeType.Platform } 
+            new() { Role = AppRoles.BranchAdmin, ScopeType = ScopeType.Platform } 
         });
         SetupPermissions(new List<RolePermission> 
         { 
-            new() { RoleName = "Manager", PermissionKey = Permissions.Donors.View } 
+            new() { RoleName = AppRoles.BranchAdmin, PermissionKey = Permissions.Donors.View } 
         });
 
         // Act
@@ -101,11 +101,11 @@ public class AuthorizationTests
         // Arrange
         SetupUser("auth0|user", false, new List<UserScopeAssignment> 
         { 
-            new() { Role = "Admin", ScopeType = ScopeType.Platform } 
+            new() { Role = AppRoles.PlatformAdmin, ScopeType = ScopeType.Platform } 
         });
         SetupPermissions(new List<RolePermission> 
         { 
-            new() { RoleName = "Admin", PermissionKey = Permissions.All } 
+            new() { RoleName = AppRoles.PlatformAdmin, PermissionKey = Permissions.All } 
         });
 
         // Act
@@ -121,11 +121,11 @@ public class AuthorizationTests
         // Arrange
         SetupUser("auth0|user", false, new List<UserScopeAssignment> 
         { 
-            new() { Role = "Collector", ScopeType = ScopeType.Platform } 
+            new() { Role = AppRoles.Collector, ScopeType = ScopeType.Platform } 
         });
         SetupPermissions(new List<RolePermission> 
         { 
-            new() { RoleName = "Collector", PermissionKey = "contributions.*" } 
+            new() { RoleName = AppRoles.Collector, PermissionKey = "contributions.*" } 
         });
 
         // Act
@@ -141,11 +141,11 @@ public class AuthorizationTests
         // Arrange
         SetupUser("auth0|user", false, new List<UserScopeAssignment> 
         { 
-            new() { Role = "Viewer", ScopeType = ScopeType.Platform } 
+            new() { Role = AppRoles.Viewer, ScopeType = ScopeType.Platform } 
         });
         SetupPermissions(new List<RolePermission> 
         { 
-            new() { RoleName = "Viewer", PermissionKey = Permissions.Donors.View } 
+            new() { RoleName = AppRoles.Viewer, PermissionKey = Permissions.Donors.View } 
         });
 
         // Act
@@ -162,13 +162,13 @@ public class AuthorizationTests
         var tenantA = Guid.NewGuid();
         SetupUser("auth0|orgadmin", false, new List<UserScopeAssignment> 
         { 
-            new() { Role = "Organisation Admin", ScopeType = ScopeType.Tenant, TargetId = tenantA } 
+            new() { Role = AppRoles.OrganisationAdmin, ScopeType = ScopeType.Tenant, TargetId = tenantA } 
         });
         SetupPermissions(new List<RolePermission> 
         { 
-            new() { RoleName = "Organisation Admin", PermissionKey = Permissions.Branches.View },
-            new() { RoleName = "Organisation Admin", PermissionKey = Permissions.Contributions.View },
-            new() { RoleName = "Organisation Admin", PermissionKey = Permissions.Dashboard.View }
+            new() { RoleName = AppRoles.OrganisationAdmin, PermissionKey = Permissions.Branches.View },
+            new() { RoleName = AppRoles.OrganisationAdmin, PermissionKey = Permissions.Contributions.View },
+            new() { RoleName = AppRoles.OrganisationAdmin, PermissionKey = Permissions.Dashboard.View }
         });
 
         // Act & Assert
@@ -185,11 +185,11 @@ public class AuthorizationTests
         var tenantB = Guid.NewGuid();
         SetupUser("auth0|orgadmin", false, new List<UserScopeAssignment> 
         { 
-            new() { Role = "Organisation Admin", ScopeType = ScopeType.Tenant, TargetId = tenantA } 
+            new() { Role = AppRoles.OrganisationAdmin, ScopeType = ScopeType.Tenant, TargetId = tenantA } 
         });
         SetupPermissions(new List<RolePermission> 
         { 
-            new() { RoleName = "Organisation Admin", PermissionKey = Permissions.Branches.View }
+            new() { RoleName = AppRoles.OrganisationAdmin, PermissionKey = Permissions.Branches.View }
         });
 
         // Act
@@ -207,13 +207,13 @@ public class AuthorizationTests
         var auth0Id = "google-oauth2|116477927979198470992";
         SetupUser(auth0Id, false, new List<UserScopeAssignment> 
         { 
-            new() { Role = "Organisation Admin", ScopeType = ScopeType.Tenant, TargetId = tenantA } 
+            new() { Role = AppRoles.OrganisationAdmin, ScopeType = ScopeType.Tenant, TargetId = tenantA } 
         });
         SetupPermissions(new List<RolePermission> 
         { 
-            new() { RoleName = "Organisation Admin", PermissionKey = Permissions.Branches.View },
-            new() { RoleName = "Organisation Admin", PermissionKey = Permissions.Contributions.View },
-            new() { RoleName = "Organisation Admin", PermissionKey = Permissions.Dashboard.View }
+            new() { RoleName = AppRoles.OrganisationAdmin, PermissionKey = Permissions.Branches.View },
+            new() { RoleName = AppRoles.OrganisationAdmin, PermissionKey = Permissions.Contributions.View },
+            new() { RoleName = AppRoles.OrganisationAdmin, PermissionKey = Permissions.Dashboard.View }
         });
 
         // Act & Assert
