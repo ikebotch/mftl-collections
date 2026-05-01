@@ -69,8 +69,10 @@ public class InitiateContributionPaymentCommandHandler(
 
         dbContext.Payments.Add(payment);
         await dbContext.SaveChangesAsync(cancellationToken);
+        Console.WriteLine($"[DEBUG] InitiateContributionPayment: Created Payment row {payment.Id} in Collections for Contribution {contribution.Id}");
 
         var result = await orchestrator.InitiatePaymentAsync(contribution.Id, contribution.Amount, request.Method, request.Metadata, cancellationToken);
+        Console.WriteLine($"[DEBUG] InitiateContributionPayment: Orchestrator Result. Success={result.Success}, ProviderReference={result.ProviderReference}, Error={result.Error}");
 
         payment.ProviderReference = result.ProviderReference;
         payment.Status = result.Success ? PaymentStatus.Initiated : PaymentStatus.Failed;

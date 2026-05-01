@@ -59,6 +59,7 @@ public static class ApiRoutes
         public const string Initiate = Base + "/initiate";
         public const string GetById = Base + "/{id:guid}";
         public const string Webhook = "v1/webhooks/payments";
+        public const string InternalCallback = Base + "/internal-callback";
     }
 
     public static class Receipts

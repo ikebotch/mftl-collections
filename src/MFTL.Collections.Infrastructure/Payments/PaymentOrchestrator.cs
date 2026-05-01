@@ -67,6 +67,9 @@ public sealed class PaymentOrchestrator(
             Metadata = requestMetadata
         };
 
+        var json = JsonSerializer.Serialize(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        logger.LogInformation("[DEBUG] PaymentOrchestrator: Outgoing request to Payment Service. Payload={Payload}", json);
+
         try
         {
             if (string.IsNullOrWhiteSpace(_options.BaseUrl))
@@ -78,7 +81,6 @@ public sealed class PaymentOrchestrator(
             logger.LogInformation("Payment service configured BaseUrl={BaseUrl} ClientApp={ClientApp} HasSecret={HasSecret}", 
                 _options.BaseUrl, _options.ClientApp, !string.IsNullOrEmpty(_options.SharedSecret));
 
-            var json = JsonSerializer.Serialize(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
             var signature = ComputeSignature(_options.SharedSecret ?? string.Empty, timestamp, json);
 
@@ -95,6 +97,7 @@ public sealed class PaymentOrchestrator(
 
             using var response = await httpClient.SendAsync(httpRequest, cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            logger.LogInformation("[DEBUG] PaymentOrchestrator: Received response from Payment Service. Status={Status}, Body={Body}", response.StatusCode, body);
 
             if (!response.IsSuccessStatusCode)
             {

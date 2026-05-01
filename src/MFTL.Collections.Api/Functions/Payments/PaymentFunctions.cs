@@ -40,7 +40,7 @@ public class PaymentFunctions(
         if (request == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body.", CorrelationId: req.GetOrCreateCorrelationId()));
 
         var result = await mediator.Send(new InitiateContributionPaymentCommand(request.ContributionId, request.PaymentMethod, request.Metadata));
-        return new OkObjectResult(new ApiResponse<PaymentResult>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
+        return new OkObjectResult(new ApiResponse<PaymentResult>(result.Success, Message: result.Error, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
     [Function("ListPayments")]

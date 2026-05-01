@@ -26,8 +26,10 @@ public class InternalPaymentCallbackFunction(
 
     [Function("InternalPaymentCallback")]
     public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "internal/payments/callbacks")] HttpRequest req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Payments.InternalCallback)] HttpRequest req)
     {
+        logger.LogInformation("InternalPaymentCallbackFunction invoked: {Method} {Path}", req.Method, req.Path);
+
         if (tenantContext is TenantContext tc)
         {
             tc.SetSystemContext();
@@ -169,8 +171,14 @@ public class InternalPaymentCallbackFunction(
 
                 if (contribution.Status != ContributionStatus.Completed)
                 {
+                    logger.LogInformation("Settling contribution: Id={ContributionId}, Reference={ExternalReference}, TenantId={TenantId}, Amount={Amount} {Currency}", 
+                        contribution.Id, payload.ExternalReference, contribution.TenantId, payload.Amount, payload.Currency);
+                    
                     await settlementService.SettleContributionAsync(contribution, localPayment?.Id, null, default);
-                    logger.LogInformation("Successfully settled contribution {ContributionId} from internal callback {CallbackEventId}.", contribution.Id, payload.CallbackEventId);
+                    
+                    var receiptId = contribution.Receipt?.Id.ToString() ?? "N/A";
+                    logger.LogInformation("Successfully settled contribution {ContributionId} from internal callback {CallbackEventId}. Status={Status}, ReceiptId={ReceiptId}", 
+                        contribution.Id, payload.CallbackEventId, contribution.Status, receiptId);
                 }
 
                 processedRecord.Status = "Processed";
