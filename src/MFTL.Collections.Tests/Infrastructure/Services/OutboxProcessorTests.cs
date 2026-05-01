@@ -106,7 +106,7 @@ public class OutboxProcessorTests
         _emailServiceMock.Setup(x => x.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync(true);
 
-        var processor = new OutboxProcessor(_dbContext, _templateResolverMock.Object, _templateRendererMock.Object, _emailServiceMock.Object, _smsServiceMock.Object, _loggerMock.Object);
+        var processor = new OutboxProcessor(_dbContext, _templateResolverMock.Object, _templateRendererMock.Object, _emailServiceMock.Object, _smsServiceMock.Object, _tenantContextMock.Object, _loggerMock.Object);
 
         // Act
         await processor.ProcessMessagesAsync();
@@ -133,7 +133,7 @@ public class OutboxProcessorTests
         _dbContext.OutboxMessages.Add(message);
         await _dbContext.SaveChangesAsync();
 
-        var processor = new OutboxProcessor(_dbContext, _templateResolverMock.Object, _templateRendererMock.Object, _emailServiceMock.Object, _smsServiceMock.Object, _loggerMock.Object);
+        var processor = new OutboxProcessor(_dbContext, _templateResolverMock.Object, _templateRendererMock.Object, _emailServiceMock.Object, _smsServiceMock.Object, _tenantContextMock.Object, _loggerMock.Object);
 
         // Act
         await processor.ProcessMessagesAsync(batchSize: 0); 

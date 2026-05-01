@@ -41,5 +41,6 @@ public class CollectionsDbContextFactory : IDesignTimeDbContextFactory<Collectio
         public bool IsSystemContext => false;
         public IEnumerable<Guid> AllowedTenantIds => [];
         public IEnumerable<Guid> AllowedBranchIds => [];
+        public void SetSystemContext() { }
     }
 }

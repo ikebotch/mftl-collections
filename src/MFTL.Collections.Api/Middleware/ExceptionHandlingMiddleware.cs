@@ -15,7 +15,7 @@ namespace MFTL.Collections.Api.Middleware;
 public sealed class ExceptionHandlingMiddleware(
     ILogger<ExceptionHandlingMiddleware> logger, 
     IConfiguration configuration,
-    IHostingEnvironment environment) : IFunctionsWorkerMiddleware
+    IHostEnvironment environment) : IFunctionsWorkerMiddleware
 {
     public async Task Invoke(FunctionContext context, FunctionExecutionDelegate next)
     {

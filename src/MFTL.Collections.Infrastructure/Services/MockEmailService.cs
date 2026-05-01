@@ -13,11 +13,11 @@ public class MockEmailService(ILogger<MockEmailService> logger) : IEmailService
             email, name, role);
     }
 
-    public Task<bool> SendAsync(string toEmail, string toName, string subject, string htmlBody)
+    public Task<bool> SendAsync(string toEmail, string toName, string subject, string htmlBody, string? plainTextBody = null, bool useDefaultWrapper = true)
     {
         logger.LogInformation(
-            "[MOCK EMAIL] {Subject} → {ToEmail} ({ToName})",
-            subject, toEmail, toName);
+            "[MOCK EMAIL] {Subject} → {ToEmail} ({ToName}). Wrapper: {UseWrapper}",
+            subject, toEmail, toName, useDefaultWrapper);
         return Task.FromResult(true);
     }
 }

@@ -40,7 +40,7 @@ public class SendGridEmailService(
         }
     }
 
-    public async Task<bool> SendAsync(string toEmail, string toName, string subject, string htmlBody)
+    public async Task<bool> SendAsync(string toEmail, string toName, string subject, string htmlBody, string? plainTextBody = null, bool useDefaultWrapper = true)
     {
         if (!_opts.IsConfigured)
         {
@@ -49,20 +49,29 @@ public class SendGridEmailService(
             return false;
         }
 
+        logger.LogInformation("Sending email from: {FromEmail}", _opts.FromEmail);
+
         var client = new SendGridClient(_opts.ApiKey);
         var from = new EmailAddress(_opts.FromEmail, _opts.FromName);
         var to = new EmailAddress(toEmail, toName);
 
         SendGridMessage message;
+        var finalPlainText = plainTextBody ?? HtmlToPlainText(htmlBody);
 
-        if (!string.IsNullOrWhiteSpace(_opts.DefaultTemplateId))
+        // More robust full HTML detection: trim and look for doctype or html tag
+        var trimmedBody = htmlBody.Trim();
+        bool isFullHtml = trimmedBody.StartsWith("<!doctype", StringComparison.OrdinalIgnoreCase) || 
+                          trimmedBody.StartsWith("<html", StringComparison.OrdinalIgnoreCase);
+
+
+        if (!string.IsNullOrWhiteSpace(_opts.DefaultTemplateId) && useDefaultWrapper && !isFullHtml)
         {
             // Use SendGrid Dynamic Template — pass rendered content as template data.
-            // The SendGrid template surfaces these via Handlebars: {{subject}}, {{messageBody}}, etc.
             message = new SendGridMessage
             {
                 From = from,
                 TemplateId = _opts.DefaultTemplateId,
+                PlainTextContent = finalPlainText
             };
             message.AddTo(to);
             message.SetTemplateData(new
@@ -76,8 +85,8 @@ public class SendGridEmailService(
         }
         else
         {
-            // Plain HTML send — no template wrapper
-            message = MailHelper.CreateSingleEmail(from, to, subject, null, htmlBody);
+            // Single send with both text and html parts
+            message = MailHelper.CreateSingleEmail(from, to, subject, finalPlainText, htmlBody);
         }
 
         try
@@ -108,5 +117,25 @@ public class SendGridEmailService(
                 subject, toEmail);
             return false;
         }
+    }
+
+    private static string HtmlToPlainText(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return string.Empty;
+
+        // Simple HTML to plain text conversion:
+        // 1. Replace <br/>, <p>, <div> with newlines
+        // 2. Strip all remaining tags
+        // 3. Decode common entities
+
+        var text = html;
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"<(br|p|div)[^>]*>", "\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"<[^>]*>", string.Empty);
+        text = System.Net.WebUtility.HtmlDecode(text);
+        
+        // Cleanup multiple newlines
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\n\s*\n", "\n\n");
+        
+        return text.Trim();
     }
 }

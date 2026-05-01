@@ -14,6 +14,7 @@ public sealed class OutboxProcessor(
     ITemplateRenderer templateRenderer,
     IEmailService emailService,
     ISmsService smsService,
+    ITenantContext tenantContext,
     ILogger<OutboxProcessor> logger) : IOutboxProcessor
 {
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMinutes(2);
@@ -22,6 +23,7 @@ public sealed class OutboxProcessor(
 
     public async Task<int> ProcessMessagesAsync(int batchSize = 20, CancellationToken cancellationToken = default)
     {
+        tenantContext.SetSystemContext();
         try 
         {
             await RecoverAbandonedMessagesAsync(cancellationToken);
@@ -124,15 +126,30 @@ public sealed class OutboxProcessor(
             .FirstOrDefaultAsync(r => r.Id == payload.ReceiptId, cancellationToken)
             ?? throw new KeyNotFoundException($"Receipt {payload.ReceiptId} not found.");
 
+        var tenant = await dbContext.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == receipt.TenantId, cancellationToken);
+
         var variables = new Dictionary<string, object?>
         {
             ["donorName"] = receipt.Contribution.ContributorName,
+            ["ContributorName"] = receipt.Contribution.ContributorName,
             ["receiptNumber"] = receipt.ReceiptNumber,
+            ["ReceiptNumber"] = receipt.ReceiptNumber,
             ["currency"] = receipt.Contribution.Currency,
+            ["Currency"] = receipt.Contribution.Currency,
             ["amount"] = receipt.Contribution.Amount,
+            ["Amount"] = receipt.Contribution.Amount,
             ["eventName"] = receipt.Event.Title,
+            ["EventTitle"] = receipt.Event.Title,
             ["fundName"] = receipt.RecipientFund.Name,
-            ["collectorName"] = receipt.RecordedByUser?.Name ?? "Collector"
+            ["FundName"] = receipt.RecipientFund.Name,
+            ["collectorName"] = receipt.RecordedByUser?.Name ?? "Collector",
+            ["CollectorName"] = receipt.RecordedByUser?.Name ?? "Collector",
+            ["ContributionReference"] = string.IsNullOrWhiteSpace(receipt.Contribution.Reference) ? "-" : receipt.Contribution.Reference,
+            ["IssuedAt"] = receipt.IssuedAt.ToString("f"),
+            ["TenantName"] = tenant?.Name ?? "Our Organization",
+            ["OrganizationName"] = tenant?.Name ?? "Our Organization"
         };
 
         await DispatchNotificationAsync(
@@ -200,73 +217,89 @@ public sealed class OutboxProcessor(
         CancellationToken cancellationToken)
     {
         var anySendAttempted = false;
+        var totalChannels = 0;
+        var failedChannels = 0;
 
         foreach (var channel in new[] { NotificationChannel.Sms, NotificationChannel.Email })
         {
-            var template = await templateResolver.ResolveAsync(tenantId, branchId, templateKey, channel, cancellationToken);
-            if (template == null)
+            totalChannels++;
+            try
             {
-                await CreateSkippedNotificationAsync(message, tenantId, branchId, aggregateId, channel, templateKey, "Template not found.", cancellationToken);
-                continue;
-            }
+                var template = await templateResolver.ResolveAsync(tenantId, branchId, templateKey, channel, cancellationToken);
+                if (template == null)
+                {
+                    await CreateSkippedNotificationAsync(message, tenantId, branchId, aggregateId, channel, templateKey, "Template not found.", cancellationToken);
+                    continue;
+                }
 
-            if (channel == NotificationChannel.Sms && string.IsNullOrWhiteSpace(phone))
-            {
-                await CreateSkippedNotificationAsync(message, tenantId, branchId, aggregateId, channel, templateKey, "Recipient phone is missing.", cancellationToken);
-                continue;
-            }
+                if (channel == NotificationChannel.Sms && string.IsNullOrWhiteSpace(phone))
+                {
+                    await CreateSkippedNotificationAsync(message, tenantId, branchId, aggregateId, channel, templateKey, "Recipient phone is missing.", cancellationToken);
+                    continue;
+                }
 
-            if (channel == NotificationChannel.Email && string.IsNullOrWhiteSpace(email))
-            {
-                await CreateSkippedNotificationAsync(message, tenantId, branchId, aggregateId, channel, templateKey, "Recipient email is missing.", cancellationToken);
-                continue;
-            }
+                if (channel == NotificationChannel.Email && string.IsNullOrWhiteSpace(email))
+                {
+                    await CreateSkippedNotificationAsync(message, tenantId, branchId, aggregateId, channel, templateKey, "Recipient email is missing.", cancellationToken);
+                    continue;
+                }
 
-            var subject = string.IsNullOrWhiteSpace(template.Subject)
-                ? null
-                : templateRenderer.Render(template.Subject, variables).Value;
-            var body = templateRenderer.Render(template.Body, variables).Value;
+                var subject = string.IsNullOrWhiteSpace(template.Subject)
+                    ? null
+                    : templateRenderer.Render(template.Subject, variables).Value;
+                
+                var body = templateRenderer.Render(template.Body, variables).Value;
 
-            var notification = new Notification
-            {
-                TenantId = tenantId,
-                BranchId = branchId,
-                OutboxMessageId = message.Id,
-                ReceiptId = message.EventType.StartsWith("Receipt", StringComparison.OrdinalIgnoreCase) ? aggregateId : null,
-                PaymentId = message.EventType == "PaymentFailedEvent" ? aggregateId : null,
-                ContributionId = message.EventType == "PaymentFailedEvent" ? aggregateId : null,
-                Channel = channel,
-                Status = NotificationStatus.Pending,
-                TemplateKey = templateKey,
-                Recipient = channel == NotificationChannel.Sms ? phone! : email!,
-                RecipientPhone = phone,
-                RecipientEmail = email,
-                Subject = subject,
-                Body = body
-            };
+                var notification = new Notification
+                {
+                    TenantId = tenantId,
+                    BranchId = branchId,
+                    OutboxMessageId = message.Id,
+                    ReceiptId = message.EventType.StartsWith("Receipt", StringComparison.OrdinalIgnoreCase) ? aggregateId : null,
+                    PaymentId = message.EventType == "PaymentFailedEvent" ? aggregateId : null,
+                    ContributionId = message.EventType == "PaymentFailedEvent" ? aggregateId : null,
+                    Channel = channel,
+                    Status = NotificationStatus.Pending,
+                    TemplateKey = templateKey,
+                    Recipient = channel == NotificationChannel.Sms ? phone! : email!,
+                    RecipientPhone = phone,
+                    RecipientEmail = email,
+                    Subject = subject,
+                    Body = body
+                };
 
-            dbContext.Notifications.Add(notification);
-            await dbContext.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("Created notification {NotificationId}", notification.Id);
+                dbContext.Notifications.Add(notification);
+                await dbContext.SaveChangesAsync(cancellationToken);
+                logger.LogInformation("Created notification {NotificationId}", notification.Id);
 
-            anySendAttempted = true;
+                anySendAttempted = true;
 
-            try 
-            {
                 if (channel == NotificationChannel.Email)
                 {
+                    // For receipts, we bypass the default dynamic template wrapper to avoid escaping/double-wrapping
+                    bool useDefaultWrapper = !templateKey.Equals("receipt.issued", StringComparison.OrdinalIgnoreCase);
+                    
                     var accepted = await emailService.SendAsync(
                         email!, 
                         variables.TryGetValue("donorName", out var name) ? Convert.ToString(name) ?? string.Empty : string.Empty, 
                         subject ?? template.Name, 
-                        body);
+                        body,
+                        useDefaultWrapper: useDefaultWrapper);
 
                     if (!accepted)
                     {
                         notification.Status = NotificationStatus.Failed;
                         notification.Error = "Email provider rejected the notification.";
                         await dbContext.SaveChangesAsync(cancellationToken);
-                        throw new InvalidOperationException(notification.Error);
+                        failedChannels++;
+                    }
+                    else
+                    {
+                        notification.Status = NotificationStatus.Sent;
+                        notification.SentAt = DateTimeOffset.UtcNow;
+                        notification.Error = null;
+                        await dbContext.SaveChangesAsync(cancellationToken);
+                        logger.LogInformation("Successfully sent notification {NotificationId} via Email", notification.Id);
                     }
                 }
                 else
@@ -277,26 +310,29 @@ public sealed class OutboxProcessor(
                         notification.Status = NotificationStatus.Failed;
                         notification.Error = smsResult.Error ?? "SMS provider rejected the notification.";
                         await dbContext.SaveChangesAsync(cancellationToken);
-                        throw new InvalidOperationException(notification.Error);
+                        failedChannels++;
                     }
-
-                    notification.ProviderMessageId = smsResult.ProviderMessageId;
+                    else
+                    {
+                        notification.Status = NotificationStatus.Sent;
+                        notification.SentAt = DateTimeOffset.UtcNow;
+                        notification.Error = null;
+                        notification.ProviderMessageId = smsResult.ProviderMessageId;
+                        await dbContext.SaveChangesAsync(cancellationToken);
+                        logger.LogInformation("Successfully sent notification {NotificationId} via SMS", notification.Id);
+                    }
                 }
-
-                notification.Status = NotificationStatus.Sent;
-                notification.SentAt = DateTimeOffset.UtcNow;
-                notification.Error = null;
-                await dbContext.SaveChangesAsync(cancellationToken);
-                logger.LogInformation("Successfully sent notification {NotificationId} via {Channel}", notification.Id, channel);
             }
-            catch (Exception ex) when (ex is not InvalidOperationException)
+            catch (Exception ex)
             {
-                notification.Status = NotificationStatus.Failed;
-                notification.Error = ex.Message;
-                await dbContext.SaveChangesAsync(cancellationToken);
-                logger.LogError(ex, "Unexpected error sending notification {NotificationId}", notification.Id);
-                throw;
+                logger.LogError(ex, "Error processing notification channel {Channel} for outbox {MessageId}", channel, message.Id);
+                failedChannels++;
             }
+        }
+
+        if (failedChannels == totalChannels && totalChannels > 0)
+        {
+            throw new InvalidOperationException($"All notification channels failed for outbox {message.Id}.");
         }
 
         if (!anySendAttempted)
@@ -383,17 +419,17 @@ public sealed class OutboxProcessor(
             RETURNING "Id";
             """;
 
-        await using var connection = dbContext.Database.GetDbConnection();
+        var connection = dbContext.Database.GetDbConnection();
         if (connection.State != System.Data.ConnectionState.Open)
         {
             await connection.OpenAsync(cancellationToken);
         }
 
-        await using var command = connection.CreateCommand();
+        using var command = connection.CreateCommand();
         command.CommandText = sql;
         
         var ids = new List<Guid>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
             ids.Add(reader.GetGuid(0));

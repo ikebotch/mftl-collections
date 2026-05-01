@@ -9,6 +9,7 @@ public interface ITenantContext
     bool IsSystemContext { get; }
     IEnumerable<Guid> AllowedTenantIds { get; }
     IEnumerable<Guid> AllowedBranchIds { get; }
+    void SetSystemContext();
 }
 
 public interface ITenantResolver
