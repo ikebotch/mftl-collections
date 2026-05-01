@@ -142,8 +142,9 @@ public class SecurityHardeningTests
         public Guid? BranchId { get; init; }
         public string? TenantIdentifier { get; init; }
         public bool IsPlatformContext { get; init; }
-        public bool IsSystemContext { get; init; }
+        public bool IsSystemContext { get; set; }
         public IEnumerable<Guid> AllowedTenantIds => TenantId.HasValue ? new[] { TenantId.Value } : [];
         public IEnumerable<Guid> AllowedBranchIds => BranchId.HasValue ? new[] { BranchId.Value } : [];
+        public void SetSystemContext() => IsSystemContext = true;
     }
 }

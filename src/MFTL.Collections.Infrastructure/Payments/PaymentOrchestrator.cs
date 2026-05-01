@@ -17,7 +17,7 @@ public sealed class PaymentOrchestrator(
 {
     private readonly PaymentOptions _options = options.Value;
 
-    public async Task<PaymentResult> InitiatePaymentAsync(Guid contributionId, decimal amount, string method, CancellationToken cancellationToken = default)
+    public async Task<PaymentResult> InitiatePaymentAsync(Guid contributionId, decimal amount, string method, IDictionary<string, string>? metadata = null, CancellationToken cancellationToken = default)
     {
         var contribution = await dbContext.Contributions
             .Include(c => c.Contributor)
@@ -29,6 +29,20 @@ public sealed class PaymentOrchestrator(
         }
 
         var provider = method.Equals("paystack", StringComparison.OrdinalIgnoreCase) ? 2 : 1; // 1 = Stripe, 2 = Paystack
+
+        var requestMetadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["contributionId"] = contribution.Id.ToString(),
+            ["tenantId"] = contribution.TenantId.ToString()
+        };
+
+        if (metadata != null)
+        {
+            foreach (var kvp in metadata)
+            {
+                requestMetadata[kvp.Key] = kvp.Value;
+            }
+        }
 
         var request = new
         {
@@ -42,11 +56,7 @@ public sealed class PaymentOrchestrator(
             Description = $"Contribution for {contribution.ContributorName}",
             TenantId = contribution.TenantId,
             ContributionId = contribution.Id,
-            Metadata = new Dictionary<string, string>
-            {
-                ["contributionId"] = contribution.Id.ToString(),
-                ["tenantId"] = contribution.TenantId.ToString()
-            }
+            Metadata = requestMetadata
         };
 
         try

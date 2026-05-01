@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using System.Security.Claims;
 using MFTL.Collections.Application.Common.Interfaces;
 
 namespace MFTL.Collections.Infrastructure.Persistence;
@@ -29,7 +30,7 @@ public class CollectionsDbContextFactory : IDesignTimeDbContextFactory<Collectio
         var optionsBuilder = new DbContextOptionsBuilder<CollectionsDbContext>();
         optionsBuilder.UseNpgsql(connectionString);
 
-        return new CollectionsDbContext(optionsBuilder.Options, new DesignTimeTenantContext());
+        return new CollectionsDbContext(optionsBuilder.Options, new DesignTimeTenantContext(), new DesignTimeCurrentUserService());
     }
 
     private class DesignTimeTenantContext : ITenantContext
@@ -42,5 +43,13 @@ public class CollectionsDbContextFactory : IDesignTimeDbContextFactory<Collectio
         public IEnumerable<Guid> AllowedTenantIds => [];
         public IEnumerable<Guid> AllowedBranchIds => [];
         public void SetSystemContext() { }
+    }
+
+    private class DesignTimeCurrentUserService : ICurrentUserService
+    {
+        public string? UserId => null;
+        public string? Email => null;
+        public ClaimsPrincipal? User => null;
+        public bool IsAuthenticated => false;
     }
 }

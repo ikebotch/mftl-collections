@@ -402,6 +402,7 @@ public sealed class PermissionBootstrapper(
                 Permissions.Events.View,
                 Permissions.RecipientFunds.View,
                 Permissions.Contributions.Create,
+                Permissions.Payments.Initiate,
                 Permissions.Receipts.View,
             ],
 

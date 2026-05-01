@@ -4,6 +4,7 @@ using MFTL.Collections.Infrastructure.Persistence;
 using MFTL.Collections.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace MFTL.Collections.Infrastructure.Tests.Identity;
@@ -50,7 +51,7 @@ public class BranchIsolationTests
             });
             await context.SaveChangesAsync();
 
-            var service = new ScopeAccessService(context, currentUserServiceMock.Object, new Mock<ITenantContext>().Object);
+            var service = new ScopeAccessService(context, currentUserServiceMock.Object, new Mock<ITenantContext>().Object, NullLogger<ScopeAccessService>.Instance);
 
             // Act
             var result = await service.HasAccessToEventAsync(eventId);
@@ -94,7 +95,7 @@ public class BranchIsolationTests
             });
             await context.SaveChangesAsync();
 
-            var service = new ScopeAccessService(context, currentUserServiceMock.Object, new Mock<ITenantContext>().Object);
+            var service = new ScopeAccessService(context, currentUserServiceMock.Object, new Mock<ITenantContext>().Object, NullLogger<ScopeAccessService>.Instance);
 
             // Act
             var result = await service.HasAccessToEventAsync(eventId);
@@ -133,7 +134,7 @@ public class BranchIsolationTests
             context.Events.Add(new Event { Id = Guid.NewGuid(), TenantId = tenantId, BranchId = branch2Id, Title = "B2 Event", Slug = "b2-e1" });
             await context.SaveChangesAsync();
 
-            var service = new ScopeAccessService(context, currentUserServiceMock.Object, new Mock<ITenantContext>().Object);
+            var service = new ScopeAccessService(context, currentUserServiceMock.Object, new Mock<ITenantContext>().Object, NullLogger<ScopeAccessService>.Instance);
 
             // Act
             var result = await service.GetAccessibleEventIdsAsync(tenantId);

@@ -118,7 +118,7 @@ public class TenantIsolationTests
                 "collector@example.com",
                 false,
                 "cash",
-                "Live verification",
+                "Live verification", "REF-LIVE",
                 collectorAuth0Id),
             CancellationToken.None);
 
@@ -215,7 +215,7 @@ public class TenantIsolationTests
                 null,
                 false,
                 "cash",
-                "Blocked",
+                "Blocked", "REF-BLOCKED",
                 collectorAuth0Id),
             CancellationToken.None);
 
@@ -258,7 +258,7 @@ public class TenantIsolationTests
                 null,
                 false,
                 "cash",
-                "Blocked",
+                "Blocked", "REF-BLOCKED",
                 collectorAuth0Id),
             CancellationToken.None);
 
@@ -310,6 +310,7 @@ public class TenantIsolationTests
             false,
             "cash",
             null,
+            "REF-ONE",
             "collector-one"), CancellationToken.None);
 
         await handlerTwo.Handle(new RecordCashContributionCommand(
@@ -323,6 +324,7 @@ public class TenantIsolationTests
             false,
             "cash",
             null,
+            "REF-TWO",
             "collector-two"), CancellationToken.None);
 
         var history = await new ListCollectorHistoryQueryHandler(dbContext, new TestCurrentUserService("collector-one"))
@@ -353,9 +355,10 @@ public class TenantIsolationTests
         public Guid? BranchId { get; init; }
         public string? TenantIdentifier { get; init; }
         public bool IsPlatformContext { get; init; }
-        public bool IsSystemContext => false;
+        public bool IsSystemContext { get; private set; }
         public IEnumerable<Guid> AllowedTenantIds => TenantId.HasValue ? new[] { TenantId.Value } : [];
         public IEnumerable<Guid> AllowedBranchIds => BranchId.HasValue ? new[] { BranchId.Value } : [];
+        public void SetSystemContext() => IsSystemContext = true;
     }
 
     private sealed class TestCurrentUserService(string? userId = null, string? email = null) : ICurrentUserService
@@ -403,6 +406,7 @@ public class TenantIsolationTests
                 false,
                 "cash",
                 "Receipt note",
+                "REF-TEST",
                 collectorAuth0Id),
             CancellationToken.None);
 

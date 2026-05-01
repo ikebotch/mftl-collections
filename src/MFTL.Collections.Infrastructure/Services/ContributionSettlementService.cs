@@ -98,7 +98,7 @@ public sealed class ContributionSettlementService(
                 RecipientFundId = contribution.RecipientFundId,
                 ContributionId = contribution.Id,
                 PaymentId = payment?.Id,
-                RecordedByUserId = recordedByUserId ?? await ResolveRecordedByUserIdAsync(cancellationToken),
+                RecordedByUserId = recordedByUserId ?? await ResolveRecordedByUserIdAsync(contribution, cancellationToken),
                 ReceiptNumber = await GenerateUniqueReceiptNumberAsync(cancellationToken),
                 IssuedAt = DateTimeOffset.UtcNow,
                 Status = ReceiptStatus.Issued,
@@ -144,15 +144,17 @@ public sealed class ContributionSettlementService(
         }
     }
 
-    private async Task<Guid?> ResolveRecordedByUserIdAsync(CancellationToken cancellationToken)
+    private async Task<Guid?> ResolveRecordedByUserIdAsync(Contribution contribution, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(currentUserService.UserId))
+        var auth0Id = currentUserService.UserId ?? contribution.CreatedBy;
+        
+        if (string.IsNullOrWhiteSpace(auth0Id))
         {
             return null;
         }
 
         return await dbContext.Users
-            .Where(user => user.Auth0Id == currentUserService.UserId)
+            .Where(user => user.Auth0Id == auth0Id)
             .Select(user => (Guid?)user.Id)
             .FirstOrDefaultAsync(cancellationToken);
     }

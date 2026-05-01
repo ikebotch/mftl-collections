@@ -25,3 +25,11 @@ _remote_packages/
 # Temp
 temp/
 tmp/
+
+# Azurite
+.azurite/
+AzuriteConfig
+__azurite_db_*
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/

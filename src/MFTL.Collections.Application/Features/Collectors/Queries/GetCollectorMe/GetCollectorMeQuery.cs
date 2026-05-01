@@ -5,6 +5,8 @@ using MFTL.Collections.Domain.Entities;
 
 namespace MFTL.Collections.Application.Features.Collectors.Queries.GetCollectorMe;
 
+public sealed record CurrencyTotalDto(string Currency, decimal Amount);
+
 public sealed record CollectorMeDto(
     Guid Id,
     string Name,
@@ -19,7 +21,8 @@ public sealed record CollectorMeDto(
     string? BlockedReason,
     string? PhoneNumber = null,
     IEnumerable<Guid>? EventIds = null,
-    IEnumerable<Guid>? FundIds = null);
+    IEnumerable<Guid>? FundIds = null,
+    IEnumerable<CurrencyTotalDto>? TotalsPerCurrency = null);
 
 public record GetCollectorMeQuery() : IRequest<CollectorMeDto>;
 
@@ -61,6 +64,16 @@ public class GetCollectorMeQueryHandler(
             .Select(r => (DateTimeOffset?)r.IssuedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+        var totalsPerCurrency = receiptsToday
+            .Where(r => r.Contribution != null)
+            .GroupBy(r => r.Contribution!.Currency)
+            .Select(g => new CurrencyTotalDto(g.Key, g.Sum(r => r.Contribution!.Amount)))
+            .ToList();
+
+        // For the legacy single total, we'll sum everything (assuming base currency is GHS for now, 
+        // but grouped is preferred by mobile)
+        var totalAmount = receiptsToday.Sum(r => r.Contribution?.Amount ?? 0);
+
         return new CollectorMeDto(
             user.Id,
             user.Name,
@@ -68,7 +81,7 @@ public class GetCollectorMeQueryHandler(
             user.IsActive ? "Active" : "Inactive",
             eventCount,
             fundCount,
-            receiptsToday.Sum(r => r.Contribution?.Amount ?? 0),
+            totalAmount,
             receiptsToday.Count,
             lastActive,
             hasAssignments,
@@ -77,6 +90,7 @@ public class GetCollectorMeQueryHandler(
                 : "Collector is inactive.",
             user.PhoneNumber,
             assignments.Where(a => a.ScopeType == ScopeType.Event).Select(a => a.TargetId ?? Guid.Empty),
-            assignments.Where(a => a.ScopeType == ScopeType.RecipientFund).Select(a => a.TargetId ?? Guid.Empty));
+            assignments.Where(a => a.ScopeType == ScopeType.RecipientFund).Select(a => a.TargetId ?? Guid.Empty),
+            totalsPerCurrency);
     }
 }

@@ -3,6 +3,7 @@ using MFTL.Collections.Infrastructure.Identity;
 using MFTL.Collections.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace MFTL.Collections.Infrastructure.Tests.Identity;
@@ -31,7 +32,7 @@ public class ScopedAccessTests
             });
             await context.SaveChangesAsync();
 
-            var service = new ScopeAccessService(context, currentUserServiceMock.Object, new Mock<ITenantContext>().Object);
+            var service = new ScopeAccessService(context, currentUserServiceMock.Object, new Mock<ITenantContext>().Object, NullLogger<ScopeAccessService>.Instance);
 
             // Act
             var result = await service.HasAccessToTenantAsync(Guid.NewGuid());

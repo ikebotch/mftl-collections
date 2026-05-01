@@ -6,9 +6,13 @@ using System.Linq.Expressions;
 
 namespace MFTL.Collections.Infrastructure.Persistence;
 
-public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> options, ITenantContext tenantContext) : DbContext(options), IApplicationDbContext
+public sealed class CollectionsDbContext(
+    DbContextOptions<CollectionsDbContext> options, 
+    ITenantContext tenantContext,
+    ICurrentUserService currentUserService) : DbContext(options), IApplicationDbContext
 {
     private readonly ITenantContext _tenantContext = tenantContext;
+    private readonly ICurrentUserService _currentUserService = currentUserService;
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Branch> Branches => Set<Branch>();
@@ -197,6 +201,7 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
             {
                 case EntityState.Added:
                     entry.Entity.CreatedAt = DateTimeOffset.UtcNow;
+                    entry.Entity.CreatedBy = _currentUserService.UserId;
                     if (entry.Entity is BaseTenantEntity tenantEntity)
                     {
                         if (_tenantContext.IsSystemContext || _tenantContext.IsPlatformContext)
@@ -239,6 +244,7 @@ public sealed class CollectionsDbContext(DbContextOptions<CollectionsDbContext> 
                     break;
                 case EntityState.Modified:
                     entry.Entity.ModifiedAt = DateTimeOffset.UtcNow;
+                    entry.Entity.ModifiedBy = _currentUserService.UserId;
                     break;
             }
         }

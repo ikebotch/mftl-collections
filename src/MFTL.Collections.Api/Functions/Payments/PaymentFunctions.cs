@@ -17,24 +17,29 @@ namespace MFTL.Collections.Api.Functions.Payments;
 public class PaymentFunctions(
     IMediator mediator,
     IScopeAccessService scopeService,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    ICurrentUserService currentUserService)
 {
     [Function("InitiateContributionPayment")]
     public async Task<IActionResult> Initiate(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Payments.Initiate)] HttpRequest req)
     {
-        // Public/Storefront can initiate payments, but we check if they have the initiate permission.
-        // Usually, collectors or donors initiate. For storefront, we might need a bypass or specific permission.
-        // Given the requirement "No resource bleed", we check if they have initiate permission in the tenant context.
-        var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.Payments.Initiate, req);
-        if (deny != null) return deny;
+        // Public/Storefront can initiate payments.
+        // If the user is authenticated (Collector/Admin), we enforce the initiate permission.
+        // If they are anonymous, we allow it (matching CreateContribution behavior).
+        var auth0Id = currentUserService.UserId;
+        if (!string.IsNullOrEmpty(auth0Id))
+        {
+            var deny = await scopeService.RequirePermissionAsync(tenantContext, Permissions.Payments.Initiate, req);
+            if (deny != null) return deny;
+        }
 
         var body = await new StreamReader(req.Body).ReadToEndAsync();
         var request = JsonSerializer.Deserialize<InitiatePaymentRequest>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         
         if (request == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body.", CorrelationId: req.GetOrCreateCorrelationId()));
 
-        var result = await mediator.Send(new InitiateContributionPaymentCommand(request.ContributionId, request.PaymentMethod));
+        var result = await mediator.Send(new InitiateContributionPaymentCommand(request.ContributionId, request.PaymentMethod, request.Metadata));
         return new OkObjectResult(new ApiResponse<PaymentResult>(true, Data: result, CorrelationId: req.GetOrCreateCorrelationId()));
     }
 
@@ -62,4 +67,4 @@ public class PaymentFunctions(
     }
 }
 
-public record InitiatePaymentRequest(Guid ContributionId, string PaymentMethod);
+public record InitiatePaymentRequest(Guid ContributionId, string PaymentMethod, IDictionary<string, string>? Metadata = null);
