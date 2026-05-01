@@ -32,6 +32,7 @@ public static class TenantRequestPolicy
         "GetCollectorMe",
         "GetCollectorAssignments",
         "ListTenants",
+        "CreateContribution",
     };
 
     public static bool RequiresTenant(string functionName) => !PlatformFunctionNames.Contains(functionName);

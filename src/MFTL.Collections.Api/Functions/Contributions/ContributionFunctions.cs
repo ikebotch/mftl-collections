@@ -13,6 +13,8 @@ using MFTL.Collections.Contracts.Common;
 using MFTL.Collections.Contracts.Responses;
 using System.Text.Json;
 
+using MFTL.Collections.Application.Features.Contributions.Commands.CreateContribution;
+
 namespace MFTL.Collections.Api.Functions.Contributions;
 
 public class ContributionFunctions(
@@ -20,6 +22,21 @@ public class ContributionFunctions(
     IScopeAccessService scopeService,
     ITenantContext tenantContext)
 {
+    [Function("CreateContribution")]
+    public async Task<IActionResult> Create(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Contributions.Base)] HttpRequest req)
+    {
+        // Public endpoint for donors to create a pending contribution.
+        // No scope check required as the handler validates event/fund/tenant.
+        var body = await new StreamReader(req.Body).ReadToEndAsync();
+        var command = JsonSerializer.Deserialize<CreateContributionCommand>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        
+        if (command == null) return new BadRequestObjectResult(new ApiResponse(false, "Invalid body.", CorrelationId: req.GetOrCreateCorrelationId()));
+
+        var result = await mediator.Send(command);
+        return new OkObjectResult(new ApiResponse<ContributionDto>(true, "Contribution initiated.", result, CorrelationId: req.GetOrCreateCorrelationId()));
+    }
+
     [Function("RecordCashContribution")]
     public async Task<IActionResult> RecordCash(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = ApiRoutes.Contributions.RecordCash)] HttpRequest req)

@@ -22,6 +22,9 @@ public static class DependencyInjection
         services.Configure<OpenApiOptions>(configuration.GetSection(OpenApiOptions.SectionName));
         services.Configure<ScalarOptions>(configuration.GetSection(ScalarOptions.SectionName));
         services.Configure<TenantResolutionOptions>(configuration.GetSection(TenantResolutionOptions.SectionName));
+        services.Configure<PaymentOptions>(configuration.GetSection(PaymentOptions.SectionName));
+
+        services.AddHttpClient<IPaymentOrchestrator, PaymentOrchestrator>();
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -32,7 +35,6 @@ public static class DependencyInjection
         services.AddScoped<TenantContext>();
         services.AddScoped<ITenantContext, TenantContext>();
         
-        services.AddScoped<IPaymentOrchestrator, PaymentOrchestrator>();
         services.AddScoped<IPaymentWebhookProcessor, PaymentWebhookProcessor>();
         services.AddScoped<IContributionSettlementService, ContributionSettlementService>();
         services.AddScoped<IReceiptNumberGenerator, ReceiptNumberGenerator>();
