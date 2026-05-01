@@ -55,7 +55,9 @@ public sealed class PermissionBootstrapper(
             await dbContext.SaveChangesAsync(cancellationToken);
 
             // ── 2. Idempotent role mapping ────────────────────────────────────────
+            logger.LogInformation("Cleaning up stale permissions for managed roles...");
             var stale = await dbContext.RolePermissions
+                .IgnoreQueryFilters()
                 .Where(rp => ManagedRoles.Contains(rp.RoleName))
                 .ToListAsync(cancellationToken);
 
@@ -65,9 +67,11 @@ public sealed class PermissionBootstrapper(
             }
 
             await dbContext.SaveChangesAsync(cancellationToken);
+            logger.LogInformation("Removed {Count} stale role-permission mappings.", stale.Count);
 
             // ── 3. Seed granular role mappings ────────────────────────────────────
             var roleMappings = BuildRoleMappings();
+            var addedCount = 0;
             foreach (var (role, permissions) in roleMappings)
             {
                 foreach (var key in permissions)
@@ -77,15 +81,16 @@ public sealed class PermissionBootstrapper(
                         RoleName = role,
                         PermissionKey = key,
                     });
+                    addedCount++;
                 }
             }
 
             await dbContext.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("Permission bootstrap completed. Managed roles: {Roles}", string.Join(", ", ManagedRoles));
+            logger.LogInformation("Permission bootstrap completed. Added {Count} mappings across {RolesCount} roles.", addedCount, roleMappings.Count);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Permission bootstrap failed. Continuing startup...");
+            logger.LogError(ex, "Permission bootstrap failed at step: {Message}", ex.Message);
         }
     }
 
