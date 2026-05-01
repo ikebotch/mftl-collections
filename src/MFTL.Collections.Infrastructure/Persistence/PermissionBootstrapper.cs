@@ -15,7 +15,10 @@ public sealed class PermissionBootstrapper(
     IServiceScopeFactory scopeFactory,
     ILogger<PermissionBootstrapper> logger) : IHostedService
 {
-    private static readonly string[] ManagedRoles = AppRoles.All.ToArray();
+    private static readonly string[] ManagedRoles = AppRoles.All
+        .Concat(["Organisation Admin", "Platform Admin", "Branch Admin", "Finance Admin", "Event Manager", "Collector", "Viewer", "Tenant Admin", "Org Admin"])
+        .Distinct()
+        .ToArray();
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -30,56 +33,77 @@ public sealed class PermissionBootstrapper(
             var existingKeys = await dbContext.Permissions
                 .Select(p => p.Key)
                 .ToListAsync(cancellationToken);
+            
+            logger.LogInformation("Found {Count} existing permissions in catalogue.", existingKeys.Count);
 
             var catalogue = BuildPermissionCatalogue();
+            var addedPerms = 0;
             foreach (var perm in catalogue)
             {
                 if (!existingKeys.Contains(perm.Key))
                 {
                     dbContext.Permissions.Add(perm);
+                    addedPerms++;
                 }
             }
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+            if (addedPerms > 0)
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+                logger.LogInformation("Added {Count} new permissions to catalogue.", addedPerms);
+            }
 
             // ── 2. Idempotent role mapping ────────────────────────────────────────
-            logger.LogInformation("Cleaning up stale permissions for managed roles...");
-            var stale = await dbContext.RolePermissions
-                .IgnoreQueryFilters()
-                .Where(rp => ManagedRoles.Contains(rp.RoleName))
-                .ToListAsync(cancellationToken);
-
-            foreach (var row in stale)
-            {
-                dbContext.RolePermissions.Remove(row);
-            }
-
-            await dbContext.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("Removed {Count} stale role-permission mappings.", stale.Count);
-
-            // ── 3. Seed granular role mappings ────────────────────────────────────
             var roleMappings = BuildRoleMappings();
+            logger.LogInformation("Seeding granular role mappings for {Count} roles...", roleMappings.Count);
+            
             var addedCount = 0;
+            var skippedCount = 0;
+
             foreach (var (role, permissions) in roleMappings)
             {
-                AppRoles.Guard(role);
-                foreach (var key in permissions)
+                var canonicalRole = AppRoles.Guard(role);
+                
+                // Get existing permissions for this role to avoid duplicates
+                var existingForRole = await dbContext.RolePermissions
+                    .IgnoreQueryFilters()
+                    .Where(rp => rp.RoleName == canonicalRole)
+                    .Select(rp => rp.PermissionKey)
+                    .ToListAsync(cancellationToken);
+
+                logger.LogDebug("Role {Role}: Found {Count} existing permissions.", canonicalRole, existingForRole.Count);
+
+                foreach (var key in permissions.Distinct())
                 {
-                    dbContext.RolePermissions.Add(new RolePermission
+                    if (!existingForRole.Contains(key))
                     {
-                        RoleName = role,
-                        PermissionKey = key,
-                    });
-                    addedCount++;
+                        dbContext.RolePermissions.Add(new RolePermission
+                        {
+                            RoleName = canonicalRole,
+                            PermissionKey = key,
+                        });
+                        addedCount++;
+                    }
+                    else 
+                    {
+                        skippedCount++;
+                    }
                 }
             }
 
-            await dbContext.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("Permission bootstrap completed. Added {Count} mappings across {RolesCount} roles.", addedCount, roleMappings.Count);
+            if (addedCount > 0)
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+                logger.LogInformation("Permission bootstrap completed. Added {Count} new mappings, skipped {Skipped} existing.", addedCount, skippedCount);
+            }
+            else 
+            {
+                logger.LogInformation("No new permission mappings were needed.");
+            }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Permission bootstrap failed at step: {Message}", ex.Message);
+            logger.LogError(ex, "Permission bootstrap failed: {Message}", ex.Message);
         }
     }
 
