@@ -216,6 +216,47 @@ public class InternalPaymentCallbackFunctionTests : IDisposable
         Assert.Equal(1, await _dbContext.Receipts.CountAsync(r => r.ContributionId == _contributionId));
     }
 
+    [Fact]
+    public async Task Run_GoCardlessSignedSuccess_UsesExistingSettlementPath()
+    {
+        var body = CreatePayloadJson("evt-gocardless-success", "PaymentSucceeded", provider: "GoCardless", currency: "GHS");
+        var request = SignedRequest(body);
+
+        var result = await _function.Run(request);
+
+        Assert.IsType<OkResult>(result);
+        Assert.Equal(ContributionStatus.Completed, (await _dbContext.Contributions.SingleAsync(c => c.Id == _contributionId)).Status);
+        Assert.Equal(PaymentStatus.Succeeded, (await _dbContext.Payments.SingleAsync(p => p.Id == _paymentId)).Status);
+        Assert.Equal(1, await _dbContext.Receipts.CountAsync(r => r.ContributionId == _contributionId));
+    }
+
+    [Fact]
+    public async Task Run_MollieSignedSuccess_UsesExistingSettlementPath()
+    {
+        var body = CreatePayloadJson("evt-mollie-success", "PaymentSucceeded", provider: "Mollie");
+        var request = SignedRequest(body);
+
+        var result = await _function.Run(request);
+
+        Assert.IsType<OkResult>(result);
+        Assert.Equal(ContributionStatus.Completed, (await _dbContext.Contributions.SingleAsync(c => c.Id == _contributionId)).Status);
+        Assert.Equal(PaymentStatus.Succeeded, (await _dbContext.Payments.SingleAsync(p => p.Id == _paymentId)).Status);
+        Assert.Equal(1, await _dbContext.Receipts.CountAsync(r => r.ContributionId == _contributionId));
+    }
+
+    [Fact]
+    public async Task Run_MollieFailedOrCancelledCallback_DoesNotCreateReceipt()
+    {
+        var body = CreatePayloadJson("evt-mollie-cancelled", "PaymentFailed", status: "Cancelled", provider: "Mollie");
+        var request = SignedRequest(body);
+
+        var result = await _function.Run(request);
+
+        Assert.IsType<OkResult>(result);
+        Assert.NotEqual(ContributionStatus.Completed, (await _dbContext.Contributions.SingleAsync(c => c.Id == _contributionId)).Status);
+        Assert.Empty(_dbContext.Receipts);
+    }
+
     private void SeedDatabase()
     {
         _dbContext.Branches.Add(new Branch { Id = _branchId, TenantId = _tenantId, Name = "Main", Identifier = "main" });
@@ -290,7 +331,8 @@ public class InternalPaymentCallbackFunctionTests : IDisposable
         bool includeContributionId = true,
         decimal amount = 100m,
         string currency = "GHS",
-        string status = "Succeeded")
+        string status = "Succeeded",
+        string provider = "Stripe")
     {
         var effectiveTenantId = tenantId == default ? _tenantId : tenantId;
         var effectiveContributionId = contributionId == default ? _contributionId : contributionId;
@@ -302,7 +344,7 @@ public class InternalPaymentCallbackFunctionTests : IDisposable
             paymentServicePaymentId = _paymentId.ToString(),
             tenantId = includeTenantId ? effectiveTenantId : null,
             contributionId = includeContributionId ? effectiveContributionId : null,
-            provider = "Stripe",
+            provider,
             providerReference = "provider-ref",
             providerTransactionId = "txn-123",
             clientApp = "mftl-collections",

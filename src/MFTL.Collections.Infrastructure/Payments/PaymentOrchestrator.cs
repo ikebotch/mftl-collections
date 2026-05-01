@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Contracts.Responses;
 using MFTL.Collections.Infrastructure.Configuration;
@@ -16,6 +17,7 @@ public sealed class PaymentOrchestrator(
     HttpClient httpClient,
     IOptions<PaymentOptions> options,
     IApplicationDbContext dbContext,
+    IConfiguration configuration,
     ILogger<PaymentOrchestrator> logger) : IPaymentOrchestrator
 {
     private readonly PaymentOptions _options = options.Value;
@@ -31,13 +33,10 @@ public sealed class PaymentOrchestrator(
             return new PaymentResult(false, null, null, null, null, "Contribution not found.");
         }
 
-        var provider = method.ToLowerInvariant() switch
+        if (!TryResolveProvider(method, out var provider))
         {
-            "paystack" => 2,
-            "moolre" => 3,
-            "momo" => 3,
-            _ => 1 // Stripe
-        };
+            return new PaymentResult(false, null, null, null, null, $"Unsupported payment method: {method}.");
+        }
 
         var requestMetadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -116,6 +115,46 @@ public sealed class PaymentOrchestrator(
             logger.LogError(ex, "Error calling payment service at {Url}", _options.BaseUrl);
             return new PaymentResult(false, null, null, null, null, $"Internal error: {ex.Message}");
         }
+    }
+
+    private bool TryResolveProvider(string method, out int provider)
+    {
+        if (string.IsNullOrWhiteSpace(method))
+        {
+            provider = 0;
+            return false;
+        }
+
+        provider = method.Trim().ToLowerInvariant() switch
+        {
+            "stripe" => 1,
+            "paystack" => 2,
+            "moolre" => 3,
+            "momo" => 3,
+            "gocardless" => 4,
+            "bank" => 4,
+            "bank_debit" => 4,
+            "direct-debit" => 4,
+            "direct_debit" => 4,
+            "mollie" => 5,
+            "card" => ResolveCardProvider(),
+            _ => 0
+        };
+
+        return provider != 0;
+    }
+
+    private int ResolveCardProvider()
+    {
+        var cardProvider = (_options.CardProvider ?? string.Empty).Trim();
+        var mollieEnabled = configuration.GetValue<bool>("PaymentProviders:Mollie:Enabled");
+        if (cardProvider.Equals("Mollie", StringComparison.OrdinalIgnoreCase) && mollieEnabled)
+            return 5;
+
+        if (cardProvider.Equals("Stripe", StringComparison.OrdinalIgnoreCase) || _options.AllowStripeCardFallback)
+            return 1;
+
+        return 0;
     }
 
     private static string ComputeSignature(string secret, string timestamp, string payload)
