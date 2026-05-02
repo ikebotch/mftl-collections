@@ -1,0 +1,9 @@
+{
+    "IsEncrypted": false,
+    "Values": {
+        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+        "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+        "Database:ConnectionString": "Host=127.0.0.1;Port=5432;Database=mftl-collections;Username=YOUR_DB_USER;Password=YOUR_DB_PASSWORD",
+        "SendGrid:ApiKey": "YOUR_SENDGRID_KEY"
+    }
+}

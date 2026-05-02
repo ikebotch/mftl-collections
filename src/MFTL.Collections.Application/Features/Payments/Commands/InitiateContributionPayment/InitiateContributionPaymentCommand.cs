@@ -22,6 +22,7 @@ public class InitiateContributionPaymentCommandHandler(
         var contribution = await dbContext.Contributions
             .Include(c => c.Payment)
             .Include(c => c.Event)
+            .Include(c => c.Contributor)
             .FirstOrDefaultAsync(c => c.Id == request.ContributionId, cancellationToken);
 
         if (contribution == null)

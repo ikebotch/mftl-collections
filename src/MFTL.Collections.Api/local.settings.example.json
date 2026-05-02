@@ -4,19 +4,18 @@
         "AzureWebJobsStorage": "UseDevelopmentStorage=true",
         "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
         "AzureFunctionsJobHost__extensions__http__routePrefix": "api",
-        "Database:ConnectionString": "Host=localhost;Port=5432;Database=mftl-collections;Username=your_user;Password=your_password",
-        "Auth0:Domain": "your-auth0-domain",
-        "Auth0:Audience": "your-api-audience",
-        "ApiVersion:DefaultVersion": "1.0",
-        "Scalar:Route": "scalar",
-        "Scalar:Title": "MFTL Collections API",
-        "Scalar:OpenApiUrl": "/api/swagger/v1/swagger.json",
-        "TenantResolution:DefaultTenantId": "00000000-0000-0000-0000-000000000000",
-        "Api:ExposeDetailedErrors": "false"
+        "Database:ConnectionString": "Host=127.0.0.1;Port=5432;Database=mftl-collections;Username=YOUR_DB_USER;Password=YOUR_DB_PASSWORD;Include Error Detail=true",
+        "Auth0:Domain": "YOUR_AUTH0_DOMAIN",
+        "Auth0:Audience": "YOUR_AUTH0_AUDIENCE",
+        "AUTH0_MANAGEMENT_CLIENT_ID": "YOUR_CLIENT_ID",
+        "AUTH0_MANAGEMENT_CLIENT_SECRET": "YOUR_CLIENT_SECRET",
+        "SendGrid:ApiKey": "YOUR_SENDGRID_KEY",
+        "SendGrid:FromEmail": "noreply@example.com",
+        "Payments:Internal:SharedSecret": "YOUR_SHARED_SECRET",
+        "Payments:BaseUrl": "http://localhost:5005/api/v1",
+        "Payments:ClientApp": "mftl-collections"
     },
     "Host": {
-        "LocalHttpPort": 7072,
-        "CORS": "*",
-        "CORSCredentials": true
+        "LocalHttpPort": 7072
     }
 }
