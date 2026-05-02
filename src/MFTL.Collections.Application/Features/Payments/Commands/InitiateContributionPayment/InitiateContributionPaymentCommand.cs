@@ -5,6 +5,7 @@ using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Domain.Enums;
 using MFTL.Collections.Application.Common.Security;
+using System.Text.Json;
 
 namespace MFTL.Collections.Application.Features.Payments.Commands.InitiateContributionPayment;
 
@@ -75,12 +76,34 @@ public class InitiateContributionPaymentCommandHandler(
         Console.WriteLine($"[DEBUG] InitiateContributionPayment: Orchestrator Result. Success={result.Success}, ProviderReference={result.ProviderReference}, Error={result.Error}");
 
         payment.ProviderReference = result.ProviderReference;
+        payment.CheckoutUrl = result.RedirectUrl;
         payment.Status = result.Success ? PaymentStatus.Initiated : PaymentStatus.Failed;
         payment.ProcessedAt = result.Success ? null : DateTimeOffset.UtcNow;
 
         if (result.Success)
         {
             contribution.Status = ContributionStatus.AwaitingPayment;
+
+            // Queue notification if we have a checkout URL and a customer email
+            if (!string.IsNullOrWhiteSpace(result.RedirectUrl) && !string.IsNullOrWhiteSpace(contribution.Contributor?.Email))
+            {
+                var alreadyQueued = await dbContext.OutboxMessages
+                    .AnyAsync(m => m.AggregateId == payment.Id && m.EventType == "PaymentAuthorisationRequestedEvent", cancellationToken);
+
+                if (!alreadyQueued)
+                {
+                    dbContext.OutboxMessages.Add(new OutboxMessage
+                    {
+                        TenantId = payment.TenantId,
+                        BranchId = contribution.BranchId,
+                        AggregateId = payment.Id,
+                        AggregateType = "Payment",
+                        EventType = "PaymentAuthorisationRequestedEvent",
+                        Payload = JsonSerializer.Serialize(new { PaymentId = payment.Id, ContributionId = contribution.Id, CheckoutUrl = result.RedirectUrl }),
+                        Priority = 10
+                    });
+                }
+            }
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

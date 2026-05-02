@@ -17,5 +17,6 @@ public record PaymentDto(
     string Method,
     string Status,
     string? ProviderReference,
+    string? CheckoutUrl,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ProcessedAt);

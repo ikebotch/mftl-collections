@@ -91,6 +91,9 @@ public sealed class OutboxProcessor(
             case "PaymentFailedEvent":
                 await ProcessPaymentFailedEventAsync(message, cancellationToken);
                 return;
+            case "PaymentAuthorisationRequestedEvent":
+                await ProcessPaymentAuthorisationRequestedEventAsync(message, cancellationToken);
+                return;
             default:
                 throw new InvalidOperationException($"Unsupported outbox event type '{message.EventType}'.");
         }
@@ -201,6 +204,48 @@ public sealed class OutboxProcessor(
             contribution.Contributor?.PhoneNumber,
             contribution.Contributor?.Email,
             "payment.failed",
+            variables,
+            cancellationToken);
+    }
+
+    private async Task ProcessPaymentAuthorisationRequestedEventAsync(OutboxMessage message, CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<PaymentAuthorisationRequestedPayload>(message.Payload)
+            ?? throw new InvalidOperationException("Payment authorisation requested payload is invalid.");
+
+        var payment = await dbContext.Payments
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(p => p.Id == payload.PaymentId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Payment {payload.PaymentId} not found.");
+
+        var contribution = await dbContext.Contributions
+            .IgnoreQueryFilters()
+            .Include(c => c.Event)
+            .Include(c => c.RecipientFund)
+            .Include(c => c.Contributor)
+            .FirstOrDefaultAsync(c => c.Id == payment.ContributionId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Contribution {payment.ContributionId} not found.");
+
+        var variables = new Dictionary<string, object?>
+        {
+            ["donorName"] = contribution.ContributorName,
+            ["currency"] = contribution.Currency,
+            ["amount"] = contribution.Amount,
+            ["eventName"] = contribution.Event?.Title ?? "-",
+            ["fundName"] = contribution.RecipientFund?.Name ?? "-",
+            ["checkoutUrl"] = payload.CheckoutUrl,
+            ["paymentLink"] = payload.CheckoutUrl,
+            ["RedirectUrl"] = payload.CheckoutUrl
+        };
+
+        await DispatchNotificationAsync(
+            message,
+            payment.TenantId,
+            contribution.BranchId,
+            contribution.Id,
+            contribution.Contributor?.PhoneNumber,
+            contribution.Contributor?.Email,
+            "payment.authorisation_requested",
             variables,
             cancellationToken);
     }
@@ -484,4 +529,5 @@ public sealed class OutboxProcessor(
 
     private sealed record ReceiptEventPayload(Guid ReceiptId, string TemplateKey, string? TestPhone = null, string? TestEmail = null);
     private sealed record PaymentFailedEventPayload(Guid PaymentId, Guid ContributionId, string? Reason);
+    private sealed record PaymentAuthorisationRequestedPayload(Guid PaymentId, Guid ContributionId, string CheckoutUrl);
 }

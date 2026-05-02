@@ -29,6 +29,7 @@ public class GetPaymentByIdQueryHandler(IApplicationDbContext dbContext) : IRequ
             payment.Method,
             payment.Status.ToString(),
             payment.ProviderReference,
+            payment.CheckoutUrl,
             payment.CreatedAt,
             payment.ProcessedAt);
     }

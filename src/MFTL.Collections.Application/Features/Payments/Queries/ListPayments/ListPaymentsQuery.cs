@@ -23,6 +23,7 @@ public class ListPaymentsQueryHandler(IApplicationDbContext dbContext) : IReques
                 payment.Method,
                 payment.Status.ToString(),
                 payment.ProviderReference,
+                payment.CheckoutUrl,
                 payment.CreatedAt,
                 payment.ProcessedAt))
             .ToListAsync(cancellationToken);
