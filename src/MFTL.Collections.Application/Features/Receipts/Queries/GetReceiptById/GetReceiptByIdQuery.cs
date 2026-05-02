@@ -46,7 +46,9 @@ public class GetReceiptByIdQueryHandler(IApplicationDbContext dbContext) : IRequ
             receipt.Contribution.Contributor?.IsAnonymous ?? false,
             receipt.Contribution.Status.ToString(),
             receipt.Payment?.Status.ToString() ?? "Cash",
-            receipt.Payment?.Method ?? receipt.Contribution.Method,
+            MFTL.Collections.Domain.Common.PaymentMethodDisplayMapper.ToDisplayLabel(
+                receipt.Payment?.Method ?? receipt.Contribution.Method,
+                receipt.Payment?.ProviderReference), // Fallback to provider reference if needed
             receipt.RecordedByUser?.Name ?? "Collector",
             receipt.Note);
     }

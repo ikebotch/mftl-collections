@@ -29,7 +29,9 @@ public class ListReceiptsQueryHandler(IApplicationDbContext dbContext) : IReques
                 receipt.Contribution.ContributorName,
                 receipt.Contribution.Status.ToString(),
                 receipt.Payment != null ? receipt.Payment.Status.ToString() : "Cash",
-                receipt.Payment != null ? receipt.Payment.Method : receipt.Contribution.Method))
+                MFTL.Collections.Domain.Common.PaymentMethodDisplayMapper.ToDisplayLabel(
+                    receipt.Payment != null ? receipt.Payment.Method : receipt.Contribution.Method,
+                    receipt.Payment != null ? receipt.Payment.ProviderReference : null)))
             .ToListAsync(cancellationToken);
     }
 }

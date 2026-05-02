@@ -152,7 +152,13 @@ public sealed class OutboxProcessor(
             ["ContributionReference"] = string.IsNullOrWhiteSpace(receipt.Contribution.Reference) ? "-" : receipt.Contribution.Reference,
             ["IssuedAt"] = receipt.IssuedAt.ToString("f"),
             ["TenantName"] = tenant?.Name ?? "Our Organization",
-            ["OrganizationName"] = tenant?.Name ?? "Our Organization"
+            ["OrganizationName"] = tenant?.Name ?? "Our Organization",
+            ["PaymentMethod"] = MFTL.Collections.Domain.Common.PaymentMethodDisplayMapper.ToDisplayLabel(
+                receipt.Payment?.Method ?? receipt.Contribution.Method,
+                receipt.Payment?.ProviderReference),
+            ["PaymentMode"] = MFTL.Collections.Domain.Common.PaymentMethodDisplayMapper.ToDisplayLabel(
+                receipt.Payment?.Method ?? receipt.Contribution.Method,
+                receipt.Payment?.ProviderReference)
         };
 
         await DispatchNotificationAsync(
