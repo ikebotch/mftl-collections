@@ -34,7 +34,6 @@ public class InitiateContributionPaymentCommandHandler(
         var auth0Id = currentUserService.UserId;
         if (!string.IsNullOrEmpty(auth0Id))
         {
-            // We check if they have the initiate permission for this specific event or fund.
             var hasAccess = await scopeService.CanAccessAsync(
                 Permissions.Payments.Initiate,
                 contribution.TenantId,
@@ -54,65 +53,79 @@ public class InitiateContributionPaymentCommandHandler(
             return new PaymentResult(false, null, null, contribution.PaymentId, contribution.Status.ToString(), "Contribution is already settled.");
         }
 
-        if (contribution.Payment is { Status: PaymentStatus.Pending or PaymentStatus.Initiated or PaymentStatus.Processing } existingPayment)
+        // If an initiated/processing payment already exists, reuse it and ensure notification is queued
+        if (contribution.Payment is { Status: PaymentStatus.Initiated or PaymentStatus.Processing } existingPayment)
         {
-            return new PaymentResult(true, null, existingPayment.ProviderReference, existingPayment.Id, existingPayment.Status.ToString());
-        }
-
-        var payment = new Payment
-        {
-            ContributionId = contribution.Id,
-            TenantId = contribution.TenantId,
-            Amount = contribution.Amount,
-            Currency = contribution.Currency,
-            Method = request.Method,
-            Status = PaymentStatus.Pending,
-        };
-
-        dbContext.Payments.Add(payment);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        Console.WriteLine($"[DEBUG] InitiateContributionPayment: Created Payment row {payment.Id} in Collections for Contribution {contribution.Id}");
-
-        var result = await orchestrator.InitiatePaymentAsync(contribution.Id, contribution.Amount, request.Method, request.Metadata, cancellationToken);
-        Console.WriteLine($"[DEBUG] InitiateContributionPayment: Orchestrator Result. Success={result.Success}, ProviderReference={result.ProviderReference}, Error={result.Error}");
-
-        payment.ProviderReference = result.ProviderReference;
-        payment.CheckoutUrl = result.RedirectUrl;
-        payment.Status = result.Success ? PaymentStatus.Initiated : PaymentStatus.Failed;
-        payment.ProcessedAt = result.Success ? null : DateTimeOffset.UtcNow;
-
-        if (result.Success)
-        {
-            contribution.Status = ContributionStatus.AwaitingPayment;
-
-            // Queue notification if we have a checkout URL and a customer email
-            if (!string.IsNullOrWhiteSpace(result.RedirectUrl) && !string.IsNullOrWhiteSpace(contribution.Contributor?.Email))
+            if (!string.IsNullOrWhiteSpace(existingPayment.CheckoutUrl) && !string.IsNullOrWhiteSpace(contribution.Contributor?.Email))
             {
                 var alreadyQueued = await dbContext.OutboxMessages
-                    .AnyAsync(m => m.AggregateId == payment.Id && m.EventType == "PaymentAuthorisationRequestedEvent", cancellationToken);
+                    .IgnoreQueryFilters()
+                    .AnyAsync(m => m.AggregateId == existingPayment.Id && m.EventType == "PaymentAuthorisationRequestedEvent", cancellationToken);
 
                 if (!alreadyQueued)
                 {
                     dbContext.OutboxMessages.Add(new OutboxMessage
                     {
-                        TenantId = payment.TenantId,
+                        TenantId = existingPayment.TenantId,
                         BranchId = contribution.BranchId,
-                        AggregateId = payment.Id,
+                        AggregateId = existingPayment.Id,
                         AggregateType = "Payment",
                         EventType = "PaymentAuthorisationRequestedEvent",
-                        Payload = JsonSerializer.Serialize(new { PaymentId = payment.Id, ContributionId = contribution.Id, CheckoutUrl = result.RedirectUrl }),
-                        Priority = 10
+                        Payload = JsonSerializer.Serialize(new { PaymentId = existingPayment.Id, ContributionId = contribution.Id, CheckoutUrl = existingPayment.CheckoutUrl }),
+                        Status = OutboxMessageStatus.Pending,
+                        CorrelationId = Guid.NewGuid().ToString()
                     });
+                    await dbContext.SaveChangesAsync(cancellationToken);
                 }
             }
+
+            return new PaymentResult(true, existingPayment.CheckoutUrl, existingPayment.ProviderReference, existingPayment.Id, existingPayment.Status.ToString());
+        }
+
+        // Initiate new payment
+        var result = await orchestrator.InitiatePaymentAsync(contribution.Id, contribution.Amount, request.Method, request.Metadata, cancellationToken);
+        
+        if (!result.Success)
+        {
+            return new PaymentResult(false, null, result.ProviderReference, null, null, result.Error);
+        }
+
+        var payment = new Payment
+        {
+            Id = Guid.NewGuid(),
+            ContributionId = contribution.Id,
+            TenantId = contribution.TenantId,
+            Amount = contribution.Amount,
+            Currency = contribution.Currency,
+            Method = request.Method,
+            Status = PaymentStatus.Initiated,
+            ProviderReference = result.ProviderReference,
+            CheckoutUrl = result.RedirectUrl,
+            ProcessedAt = null
+        };
+
+        dbContext.Payments.Add(payment);
+        contribution.Status = ContributionStatus.AwaitingPayment;
+        contribution.PaymentId = payment.Id;
+
+        // Queue notification if we have a checkout URL and a customer email
+        if (!string.IsNullOrWhiteSpace(result.RedirectUrl) && !string.IsNullOrWhiteSpace(contribution.Contributor?.Email))
+        {
+            dbContext.OutboxMessages.Add(new OutboxMessage
+            {
+                TenantId = payment.TenantId,
+                BranchId = contribution.BranchId,
+                AggregateId = payment.Id,
+                AggregateType = "Payment",
+                EventType = "PaymentAuthorisationRequestedEvent",
+                Payload = JsonSerializer.Serialize(new { PaymentId = payment.Id, ContributionId = contribution.Id, CheckoutUrl = payment.CheckoutUrl }),
+                Status = OutboxMessageStatus.Pending,
+                CorrelationId = Guid.NewGuid().ToString()
+            });
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return result with
-        {
-            PaymentId = payment.Id,
-            Status = payment.Status.ToString(),
-        };
+        return new PaymentResult(true, payment.CheckoutUrl, payment.ProviderReference, payment.Id, payment.Status.ToString());
     }
 }

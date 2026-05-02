@@ -228,6 +228,7 @@ public sealed class OutboxProcessor(
 
         var variables = new Dictionary<string, object?>
         {
+            ["ContributionId"] = contribution.Id,
             ["donorName"] = contribution.ContributorName,
             ["currency"] = contribution.Currency,
             ["amount"] = contribution.Amount,
@@ -247,7 +248,17 @@ public sealed class OutboxProcessor(
             contribution.Contributor?.Email,
             "payment.authorisation_requested",
             variables,
-            cancellationToken);
+            cancellationToken,
+            defaultSubject: "Complete your bank payment",
+            defaultBody: $@"
+                <p>Hello {contribution.ContributorName},</p>
+                <p>To complete your contribution of <strong>{contribution.Currency} {contribution.Amount:N2}</strong> for <strong>{contribution.Event?.Title ?? contribution.RecipientFund?.Name ?? "our organization"}</strong>, please authorise the bank payment securely through GoCardless.</p>
+                <p><a href='{payload.CheckoutUrl}' style='display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px;'>Authorise Payment</a></p>
+                <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+                <p>{payload.CheckoutUrl}</p>
+                <p>This payment is authorised securely through GoCardless.</p>
+                <p>Thank you!</p>
+            ");
     }
 
     private async Task DispatchNotificationAsync(
@@ -259,7 +270,9 @@ public sealed class OutboxProcessor(
         string? email,
         string templateKey,
         Dictionary<string, object?> variables,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? defaultSubject = null,
+        string? defaultBody = null)
     {
         var anySendAttempted = false;
         var totalChannels = 0;
@@ -273,8 +286,15 @@ public sealed class OutboxProcessor(
                 var template = await templateResolver.ResolveAsync(tenantId, branchId, templateKey, channel, cancellationToken);
                 if (template == null)
                 {
-                    await CreateSkippedNotificationAsync(message, tenantId, branchId, aggregateId, channel, templateKey, "Template not found.", cancellationToken);
-                    continue;
+                    if (channel == NotificationChannel.Email && !string.IsNullOrWhiteSpace(defaultBody))
+                    {
+                        logger.LogInformation("Template {TemplateKey} not found for channel {Channel}. Using default fallback.", templateKey, channel);
+                    }
+                    else
+                    {
+                        await CreateSkippedNotificationAsync(message, tenantId, branchId, aggregateId, channel, templateKey, "Template not found.", cancellationToken);
+                        continue;
+                    }
                 }
 
                 if (channel == NotificationChannel.Sms && string.IsNullOrWhiteSpace(phone))
@@ -289,11 +309,14 @@ public sealed class OutboxProcessor(
                     continue;
                 }
 
-                var subject = string.IsNullOrWhiteSpace(template.Subject)
+                var rawSubject = template?.Subject ?? defaultSubject;
+                var rawBody = template?.Body ?? defaultBody ?? string.Empty;
+
+                var subject = string.IsNullOrWhiteSpace(rawSubject)
                     ? null
-                    : templateRenderer.Render(template.Subject, variables).Value;
+                    : templateRenderer.Render(rawSubject, variables).Value;
                 
-                var body = templateRenderer.Render(template.Body, variables).Value;
+                var body = templateRenderer.Render(rawBody, variables).Value;
 
                 var notification = new Notification
                 {
@@ -301,8 +324,8 @@ public sealed class OutboxProcessor(
                     BranchId = branchId,
                     OutboxMessageId = message.Id,
                     ReceiptId = message.EventType.StartsWith("Receipt", StringComparison.OrdinalIgnoreCase) ? aggregateId : null,
-                    PaymentId = message.EventType == "PaymentFailedEvent" ? aggregateId : null,
-                    ContributionId = message.EventType == "PaymentFailedEvent" ? aggregateId : null,
+                    PaymentId = message.EventType == "PaymentAuthorisationRequestedEvent" ? aggregateId : (message.EventType == "PaymentFailedEvent" ? aggregateId : null),
+                    ContributionId = message.EventType == "PaymentAuthorisationRequestedEvent" ? variables["ContributionId"] as Guid? : (message.EventType == "PaymentFailedEvent" ? aggregateId : null),
                     Channel = channel,
                     Status = NotificationStatus.Pending,
                     TemplateKey = templateKey,
@@ -327,7 +350,7 @@ public sealed class OutboxProcessor(
                     var accepted = await emailService.SendAsync(
                         email!, 
                         variables.TryGetValue("donorName", out var name) ? Convert.ToString(name) ?? string.Empty : string.Empty, 
-                        subject ?? template.Name, 
+                        subject ?? template?.Name ?? defaultSubject ?? "Notification", 
                         body,
                         useDefaultWrapper: useDefaultWrapper);
 
