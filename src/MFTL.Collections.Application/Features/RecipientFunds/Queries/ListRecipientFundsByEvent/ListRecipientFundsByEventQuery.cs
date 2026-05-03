@@ -19,9 +19,17 @@ public class ListRecipientFundsByEventQueryHandler(IApplicationDbContext dbConte
 {
     public async Task<IEnumerable<RecipientFundDto>> Handle(ListRecipientFundsByEventQuery request, CancellationToken cancellationToken)
     {
-        // For public storefront, only show active funds.
-        // We bypass the tenant filter because the storefront guest has no tenant context,
-        // but we strictly constrain by EventId and IsActive.
+        // 1. Verify Event is active
+        var ev = await dbContext.Events
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(e => e.Id == request.EventId && e.IsActive, cancellationToken);
+
+        if (ev == null)
+        {
+            return Enumerable.Empty<RecipientFundDto>();
+        }
+
+        // 2. Fetch active funds for the event
         var funds = await dbContext.RecipientFunds
             .IgnoreQueryFilters()
             .Where(f => f.EventId == request.EventId && f.IsActive)

@@ -25,3 +25,10 @@ public record ContributionStatusDto(
     string PaymentMethod,
     decimal Amount,
     string Currency);
+
+public record StorefrontContributionStatusDto(
+    Guid ContributionId,
+    string Status,
+    string? PaymentStatus,
+    string? PaymentReference,
+    string? FailureReason);

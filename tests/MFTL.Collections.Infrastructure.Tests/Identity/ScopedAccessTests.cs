@@ -21,7 +21,7 @@ public class ScopedAccessTests
         var currentUserServiceMock = new Mock<ICurrentUserService>();
         currentUserServiceMock.Setup(u => u.UserId).Returns("user_123");
         
-        using (var context = new CollectionsDbContext(options, null!))
+        using (var context = new CollectionsDbContext(options, null!, currentUserServiceMock.Object))
         {
             var user = new MFTL.Collections.Domain.Entities.User { Auth0Id = "user_123", Email = "test@test.com" };
             context.Users.Add(user);

@@ -38,7 +38,10 @@ public class PaymentIdempotencyTests
         providerMock.Setup(p => p.ParseWebhook(It.IsAny<string>()))
             .Returns(new ParsedWebhookResult("evt_123", Guid.NewGuid(), "ref_123", PaymentStatus.Succeeded));
 
-        using (var context = new CollectionsDbContext(options, tenantContextMock.Object))
+        var currentUserServiceMock = new Mock<ICurrentUserService>();
+        currentUserServiceMock.Setup(u => u.UserId).Returns("test-user");
+
+        using (var context = new CollectionsDbContext(options, tenantContextMock.Object, currentUserServiceMock.Object))
         {
             var payment = new Payment 
             { 

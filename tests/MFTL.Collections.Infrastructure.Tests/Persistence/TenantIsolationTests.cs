@@ -346,7 +346,9 @@ public class TenantIsolationTests
             IsPlatformContext = platformAccess,
         };
 
-        return new CollectionsDbContext(options, tenantContext);
+        var currentUserService = new TestCurrentUserService();
+
+        return new CollectionsDbContext(options, tenantContext, currentUserService);
     }
 
     private sealed class TestTenantContext : ITenantContext

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Infrastructure.Persistence;
+using Moq;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -27,7 +28,10 @@ public class SecurityHardeningTests
             IsSystemContext = systemAccess
         };
 
-        return new CollectionsDbContext(options, tenantContext);
+        var currentUserServiceMock = new Mock<ICurrentUserService>();
+        currentUserServiceMock.Setup(u => u.UserId).Returns("test-user");
+
+        return new CollectionsDbContext(options, tenantContext, currentUserServiceMock.Object);
     }
 
     [Fact]
@@ -111,7 +115,6 @@ public class SecurityHardeningTests
         };
 
         dbContext.Events.Add(systemEvent);
-        
         await dbContext.SaveChangesAsync();
 
         // Verify it saved with the preset IDs

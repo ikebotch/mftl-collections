@@ -119,5 +119,7 @@ public static class ApiRoutes
         public const string Base = BasePath + "/storefront";
         public const string GetEventBySlug = Base + "/events/{slug}";
         public const string ListFundsByEventSlug = Base + "/events/{slug}/funds";
+        public const string PostContribution = Base + "/events/{slug}/contributions";
+        public const string GetContributionStatus = Base + "/contributions/{id:guid}/status";
     }
 }

@@ -31,7 +31,7 @@ public class BranchIsolationTests
         var currentUserServiceMock = new Mock<ICurrentUserService>();
         currentUserServiceMock.Setup(u => u.UserId).Returns(userId);
 
-        using (var context = new CollectionsDbContext(options, null!))
+        using (var context = new CollectionsDbContext(options, null!, currentUserServiceMock.Object))
         {
             var user = new User { Auth0Id = userId, Email = "branch@test.com" };
             context.Users.Add(user);
@@ -75,7 +75,7 @@ public class BranchIsolationTests
         var currentUserServiceMock = new Mock<ICurrentUserService>();
         currentUserServiceMock.Setup(u => u.UserId).Returns(userId);
 
-        using (var context = new CollectionsDbContext(options, null!))
+        using (var context = new CollectionsDbContext(options, null!, currentUserServiceMock.Object))
         {
             var user = new User { Auth0Id = userId, Email = "branch@test.com" };
             context.Users.Add(user);
@@ -118,7 +118,7 @@ public class BranchIsolationTests
         var currentUserServiceMock = new Mock<ICurrentUserService>();
         currentUserServiceMock.Setup(u => u.UserId).Returns(userId);
 
-        using (var context = new CollectionsDbContext(options, null!))
+        using (var context = new CollectionsDbContext(options, null!, currentUserServiceMock.Object))
         {
             var user = new User { Auth0Id = userId, Email = "branch@test.com" };
             context.Users.Add(user);
