@@ -44,4 +44,25 @@ public class TenantRequestPolicyTests
         result.Success.Should().BeTrue();
         result.TenantId.Should().BeNull();
     }
+
+    [Theory]
+    [InlineData("Storefront_GetEventBySlug")]
+    [InlineData("Storefront_ListFundsByEventSlug")]
+    [InlineData("Storefront_CreateContribution")]
+    [InlineData("Storefront_GetContributionStatus")]
+    public void StorefrontRoutes_DoNotRequireTenantHeader(string functionName)
+    {
+        var headers = new HeaderDictionary();
+        var options = new TenantResolutionOptions { HeaderName = "X-Tenant-Id" };
+
+        var result = TenantRequestPolicy.Evaluate(
+            functionName,
+            headers,
+            new TenantResolutionResult(null, null, false),
+            options);
+
+        result.RequiresTenant.Should().BeFalse();
+        result.Success.Should().BeTrue();
+        result.TenantId.Should().BeNull();
+    }
 }

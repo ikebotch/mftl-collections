@@ -32,7 +32,10 @@ public static class TenantRequestPolicy
         "GetCollectorMe",
         "GetCollectorAssignments",
         "ListTenants",
-        "CreateContribution",
+        "Storefront_GetEventBySlug",
+        "Storefront_ListFundsByEventSlug",
+        "Storefront_CreateContribution",
+        "Storefront_GetContributionStatus",
     };
 
     public static bool RequiresTenant(string functionName) => !PlatformFunctionNames.Contains(functionName);

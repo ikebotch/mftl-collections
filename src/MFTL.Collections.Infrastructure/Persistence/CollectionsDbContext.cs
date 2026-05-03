@@ -59,10 +59,10 @@ public sealed class CollectionsDbContext(
                 var isPlatform = Expression.Property(accessor, nameof(ITenantContext.IsPlatformContext));
 
                 // (IsPlatformContext || (Context.TenantId != null ? TenantId == Context.TenantId : Context.AllowedTenantIds.Contains(TenantId)))
-                var hasTenantId = Expression.Property(ctxTenantId, "HasValue");
-                var tenantIdValue = Expression.Property(ctxTenantId, "Value");
+                var exactTenantMatch = Expression.Equal(
+                    Expression.Convert(tenantIdProp, typeof(Guid?)), 
+                    ctxTenantId);
                 
-                var exactTenantMatch = Expression.Equal(tenantIdProp, tenantIdValue);
                 var allowedTenantsContains = Expression.Call(
                     typeof(Enumerable), 
                     "Contains", 
@@ -73,7 +73,7 @@ public sealed class CollectionsDbContext(
                 var tenantFilter = Expression.OrElse(
                     isPlatform,
                     Expression.Condition(
-                        hasTenantId,
+                        Expression.Property(ctxTenantId, "HasValue"),
                         exactTenantMatch,
                         allowedTenantsContains
                     )
@@ -101,17 +101,20 @@ public sealed class CollectionsDbContext(
                     var branchIdProp = Expression.Property(parameter, nameof(IOptionalBranchEntity.BranchId));
                     // (IsPlatformContext || BranchId == null || Context.AllowedBranchIds.Contains(BranchId))
                     var branchIsNull = Expression.Equal(branchIdProp, Expression.Constant(null, typeof(Guid?)));
+                    
                     var allowedBranchesContains = Expression.Call(
                         typeof(Enumerable), 
                         "Contains", 
                         new[] { typeof(Guid) }, 
                         ctxAllowedBranches, 
-                        Expression.Property(branchIdProp, "Value"));
+                        Expression.Convert(branchIdProp, typeof(Guid)));
                     
                     // Only call Contains if BranchId has value
                     var branchFilter = Expression.OrElse(
                         Expression.OrElse(isPlatform, branchIsNull),
-                        Expression.AndAlso(Expression.Property(branchIdProp, "HasValue"), allowedBranchesContains)
+                        Expression.AndAlso(
+                            Expression.Property(branchIdProp, "HasValue"), 
+                            allowedBranchesContains)
                     );
                     
                     filter = Expression.AndAlso(filter, branchFilter);
@@ -165,7 +168,12 @@ public sealed class CollectionsDbContext(
                     isBranchScope, 
                     Expression.AndAlso(
                         hasValue,
-                        Expression.Call(typeof(Enumerable), "Contains", new[] { typeof(Guid) }, ctxAllowedBranches, targetIdValue)
+                        Expression.Call(
+                            typeof(Enumerable), 
+                            "Contains", 
+                            new[] { typeof(Guid) }, 
+                            ctxAllowedBranches, 
+                            Expression.Convert(targetIdProp, typeof(Guid)))
                     ));
 
                 // For Event and RecipientFund, we allow them if we are in the correct tenant context.

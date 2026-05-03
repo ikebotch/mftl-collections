@@ -6,6 +6,7 @@ using MFTL.Collections.Domain.Entities;
 using MFTL.Collections.Domain.Enums;
 using MFTL.Collections.Application.Common.Security;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace MFTL.Collections.Application.Features.Payments.Commands.InitiateContributionPayment;
 
@@ -15,19 +16,52 @@ public class InitiateContributionPaymentCommandHandler(
     IApplicationDbContext dbContext,
     IPaymentOrchestrator orchestrator,
     ICurrentUserService currentUserService,
-    IScopeAccessService scopeService) : IRequestHandler<InitiateContributionPaymentCommand, PaymentResult>
+    IScopeAccessService scopeService,
+    ITenantContext tenantContext,
+    ILogger<InitiateContributionPaymentCommandHandler> logger) : IRequestHandler<InitiateContributionPaymentCommand, PaymentResult>
 {
     public async Task<PaymentResult> Handle(InitiateContributionPaymentCommand request, CancellationToken cancellationToken)
     {
+        logger.LogInformation("Initiating payment: ContributionId={ContributionId}, Method={Method}, IsSystem={IsSystem}, IsPlatform={IsPlatform}, TenantId={TenantId}", 
+            request.ContributionId, request.Method, tenantContext.IsSystemContext, tenantContext.IsPlatformContext, tenantContext.TenantId);
+
+        // Load contribution first without unsafe projections or joins in the initial SQL
         var contribution = await dbContext.Contributions
-            .Include(c => c.Payment)
-            .Include(c => c.Event)
-            .Include(c => c.Contributor)
             .FirstOrDefaultAsync(c => c.Id == request.ContributionId, cancellationToken);
 
         if (contribution == null)
         {
+            logger.LogWarning("Contribution not found: {ContributionId}", request.ContributionId);
             return new PaymentResult(false, null, null, null, null, "Contribution not found");
+        }
+
+        // Explicitly load required context safely
+        if (contribution.Event == null)
+        {
+            await dbContext.Events
+                .Where(e => e.Id == contribution.EventId)
+                .LoadAsync(cancellationToken);
+        }
+
+        if (contribution.ContributorId.HasValue && contribution.Contributor == null)
+        {
+            await dbContext.Contributors
+                .Where(c => c.Id == contribution.ContributorId)
+                .LoadAsync(cancellationToken);
+        }
+
+        // Only load payment if it exists
+        if (contribution.PaymentId.HasValue)
+        {
+            await dbContext.Payments
+                .Where(p => p.Id == contribution.PaymentId)
+                .LoadAsync(cancellationToken);
+        }
+
+        // Validate required context fields after loading
+        if (contribution.Event == null)
+        {
+            return new PaymentResult(false, null, null, null, null, "Contribution is missing event context.");
         }
 
         // Scope Enforcement for Authenticated Users (Collectors/Admins)
@@ -83,12 +117,25 @@ public class InitiateContributionPaymentCommandHandler(
         }
 
         // Initiate new payment
+        logger.LogInformation("Orchestrating new payment initiation. ContributionId={ContributionId} Method={Method}", 
+            contribution.Id, request.Method);
+            
         var result = await orchestrator.InitiatePaymentAsync(contribution.Id, contribution.Amount, request.Method, request.Metadata, cancellationToken);
         
         if (!result.Success)
         {
+            logger.LogWarning("Payment orchestrator failed to initiate payment. ContributionId={ContributionId} Error={Error}", 
+                contribution.Id, result.Error);
+            
+            // Mark contribution as failed to prevent retry of malformed/rejected initiations
+            contribution.Status = ContributionStatus.Failed;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            
             return new PaymentResult(false, null, result.ProviderReference, null, null, result.Error);
         }
+
+        logger.LogInformation("Payment orchestrator successfully initiated payment. ContributionId={ContributionId} ProviderRef={ProviderRef} CheckoutUrl={CheckoutUrl}", 
+            contribution.Id, result.ProviderReference, result.RedirectUrl);
 
         var payment = new Payment
         {
@@ -111,6 +158,7 @@ public class InitiateContributionPaymentCommandHandler(
         // Queue notification if we have a checkout URL and a customer email
         if (!string.IsNullOrWhiteSpace(result.RedirectUrl) && !string.IsNullOrWhiteSpace(contribution.Contributor?.Email))
         {
+            logger.LogInformation("Queueing payment authorisation requested outbox message. PaymentId={PaymentId}", payment.Id);
             dbContext.OutboxMessages.Add(new OutboxMessage
             {
                 TenantId = payment.TenantId,
@@ -125,6 +173,8 @@ public class InitiateContributionPaymentCommandHandler(
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("Saved payment record and updated contribution status. PaymentId={PaymentId} ContributionId={ContributionId}", 
+            payment.Id, contribution.Id);
 
         return new PaymentResult(true, payment.CheckoutUrl, payment.ProviderReference, payment.Id, payment.Status.ToString());
     }

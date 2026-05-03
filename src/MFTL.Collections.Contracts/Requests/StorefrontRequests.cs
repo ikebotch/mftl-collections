@@ -1,7 +1,7 @@
 namespace MFTL.Collections.Contracts.Requests;
 
 public record CreateStorefrontContributionRequest(
-    Guid RecipientFundId,
+    string RecipientFundId,
     decimal Amount,
     string Currency,
     string DonorName,

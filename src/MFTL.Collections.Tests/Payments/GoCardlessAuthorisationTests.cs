@@ -26,6 +26,7 @@ public class GoCardlessAuthorisationTests : IDisposable
     private readonly Mock<ISmsService> _smsServiceMock = new();
     private readonly TestTenantContext _tenantContext = new();
     private readonly Mock<ILogger<OutboxProcessor>> _outboxLoggerMock = new();
+    private readonly Mock<ILogger<InitiateContributionPaymentCommandHandler>> _handlerLoggerMock = new();
 
     private class TestTenantContext : ITenantContext
     {
@@ -99,7 +100,7 @@ public class GoCardlessAuthorisationTests : IDisposable
         _orchestratorMock.Setup(x => x.InitiatePaymentAsync(It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MFTL.Collections.Contracts.Responses.PaymentResult(true, "https://pay.gocardless.com/BR123", "GOCARDLESS-123", Guid.NewGuid(), "Initiated"));
 
-        var handler = new InitiateContributionPaymentCommandHandler(_dbContext, _orchestratorMock.Object, _currentUserServiceMock.Object, _scopeServiceMock.Object);
+        var handler = new InitiateContributionPaymentCommandHandler(_dbContext, _orchestratorMock.Object, _currentUserServiceMock.Object, _scopeServiceMock.Object, _tenantContext, _handlerLoggerMock.Object);
 
         // Act
         var result = await handler.Handle(new InitiateContributionPaymentCommand(contribution.Id, "gocardless"), CancellationToken.None);
@@ -157,7 +158,7 @@ public class GoCardlessAuthorisationTests : IDisposable
         _orchestratorMock.Setup(x => x.InitiatePaymentAsync(It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MFTL.Collections.Contracts.Responses.PaymentResult(true, "https://pay.gocardless.com/BR123", "GOCARDLESS-123", Guid.NewGuid(), "Initiated"));
 
-        var handler = new InitiateContributionPaymentCommandHandler(_dbContext, _orchestratorMock.Object, _currentUserServiceMock.Object, _scopeServiceMock.Object);
+        var handler = new InitiateContributionPaymentCommandHandler(_dbContext, _orchestratorMock.Object, _currentUserServiceMock.Object, _scopeServiceMock.Object, _tenantContext, _handlerLoggerMock.Object);
 
         // Act
         await handler.Handle(new InitiateContributionPaymentCommand(contribution.Id, "gocardless"), CancellationToken.None);
@@ -205,7 +206,7 @@ public class GoCardlessAuthorisationTests : IDisposable
         _orchestratorMock.Setup(x => x.InitiatePaymentAsync(It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MFTL.Collections.Contracts.Responses.PaymentResult(true, "https://pay.gocardless.com/BR123", "GOCARDLESS-123", Guid.NewGuid(), "Initiated"));
 
-        var handler = new InitiateContributionPaymentCommandHandler(_dbContext, _orchestratorMock.Object, _currentUserServiceMock.Object, _scopeServiceMock.Object);
+        var handler = new InitiateContributionPaymentCommandHandler(_dbContext, _orchestratorMock.Object, _currentUserServiceMock.Object, _scopeServiceMock.Object, _tenantContext, _handlerLoggerMock.Object);
 
         // Act
         await handler.Handle(new InitiateContributionPaymentCommand(contribution.Id, "gocardless"), CancellationToken.None);

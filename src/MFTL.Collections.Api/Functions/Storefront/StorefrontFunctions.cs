@@ -13,10 +13,11 @@ using MFTL.Collections.Application.Common.Interfaces;
 using MFTL.Collections.Application.Features.Storefront.Commands.CreateStorefrontContribution;
 using MFTL.Collections.Application.Features.Storefront.Queries.GetContributionStatus;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace MFTL.Collections.Api.Functions.Storefront;
 
-public class StorefrontFunctions(IMediator mediator, IApplicationDbContext dbContext)
+public class StorefrontFunctions(IMediator mediator, IApplicationDbContext dbContext, ILogger<StorefrontFunctions> logger)
 {
     [Function("Storefront_GetEventBySlug")]
     public async Task<IActionResult> GetEventBySlug(
@@ -84,7 +85,10 @@ public class StorefrontFunctions(IMediator mediator, IApplicationDbContext dbCon
         }
         catch (InvalidOperationException ex)
         {
-            return new UnprocessableEntityObjectResult(new ApiResponse(false, ex.Message, CorrelationId: req.GetOrCreateCorrelationId()));
+            var correlationId = req.GetOrCreateCorrelationId();
+            logger.LogError(ex, "Storefront contribution failed. Slug={Slug} Message={Message} CorrelationId={CorrelationId}", 
+                slug, ex.Message, correlationId);
+            return new UnprocessableEntityObjectResult(new ApiResponse(false, ex.Message, CorrelationId: correlationId));
         }
     }
 
