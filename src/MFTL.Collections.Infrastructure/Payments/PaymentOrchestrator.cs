@@ -67,7 +67,11 @@ public sealed class PaymentOrchestrator(
             Metadata = requestMetadata
         };
 
-        var json = JsonSerializer.Serialize(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var json = JsonSerializer.Serialize(request, new JsonSerializerOptions 
+        { 
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new Serialization.DecimalTwoDecimalPlacesConverter() }
+        });
         logger.LogInformation("[DEBUG] PaymentOrchestrator: Outgoing request to Payment Service. Payload={Payload}", json);
 
         try
