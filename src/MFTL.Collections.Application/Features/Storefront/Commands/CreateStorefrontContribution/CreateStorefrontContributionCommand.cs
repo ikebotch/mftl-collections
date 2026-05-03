@@ -34,8 +34,28 @@ public class CreateStorefrontContributionCommandHandler(
             throw new InvalidOperationException("Cash payments are not available on the public storefront.");
         }
 
+        // 1a. Validate Currency/Method Combination
+        var isGhs = request.Currency.Equals("GHS", StringComparison.OrdinalIgnoreCase);
+        var isMomo = request.PaymentMethod.Equals("momo", StringComparison.OrdinalIgnoreCase);
+        var isBank = request.PaymentMethod.Equals("bank", StringComparison.OrdinalIgnoreCase);
+
+        if (isGhs)
+        {
+            if (isBank)
+            {
+                throw new InvalidOperationException("Bank payment is available for GBP and EUR.");
+            }
+        }
+        else
+        {
+            if (isMomo)
+            {
+                throw new InvalidOperationException("Mobile Money is available for GHS.");
+            }
+        }
+
         // 1b. Require Phone/Network for MoMo
-        if (request.PaymentMethod.Equals("momo", StringComparison.OrdinalIgnoreCase))
+        if (isMomo)
         {
             if (string.IsNullOrWhiteSpace(request.DonorPhone))
             {
