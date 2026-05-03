@@ -67,7 +67,11 @@ public sealed class PaymentOrchestrator(
             Metadata = requestMetadata
         };
 
-        var json = JsonSerializer.Serialize(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var json = JsonSerializer.Serialize(request, new JsonSerializerOptions 
+        { 
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new Serialization.DecimalTwoDecimalPlacesConverter() }
+        });
         logger.LogInformation("[DEBUG] PaymentOrchestrator: Outgoing request to Payment Service. Payload={Payload}", json);
 
         try
@@ -102,7 +106,19 @@ public sealed class PaymentOrchestrator(
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Payment service initiation failed. StatusCode={StatusCode} Body={Body}", (int)response.StatusCode, body);
-                return new PaymentResult(false, null, null, null, null, $"Payment service error: {response.StatusCode}");
+                
+                string? errorMessage = null;
+                try 
+                {
+                    var errorObj = JsonSerializer.Deserialize<JsonElement>(body);
+                    if (errorObj.TryGetProperty("message", out var msgProp))
+                    {
+                        errorMessage = msgProp.GetString();
+                    }
+                }
+                catch { /* fallback to generic error */ }
+
+                return new PaymentResult(false, null, null, null, null, errorMessage ?? $"Payment service error: {response.StatusCode}");
             }
 
             var result = JsonSerializer.Deserialize<PaymentServiceResponse>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
